@@ -18,6 +18,7 @@ from core.modelos import ClienteEvaluacion
 from core.motor_nutricional import MotorNutricional
 from core.generador_planes import ConstructorPlanNuevo
 from core.exportador_salida import GeneradorPDFProfesional
+from core.exportador_multi import ExportadorMultiformato
 
 
 # ─────────────────────────────────────────────
@@ -80,7 +81,7 @@ class GymApp(ctk.CTk):
             self.gestor_bd = GestorBDClientes()
             logger.info("[APP] Gestor de BD inicializado")
         except Exception as e:
-            logger.error(f"[APP] Error inicializando BD: {e}")
+            logger.error("[APP] Error inicializando BD: %s", e)
             self.gestor_bd = None
 
         # Atajo para panel admin (Ctrl+Shift+A)
@@ -636,6 +637,15 @@ class GymApp(ctk.CTk):
                 ruta_pdf = generador.generar(cliente, plan)
                 self.ultimo_pdf = ruta_pdf if ruta_pdf and os.path.exists(ruta_pdf) else None
 
+                # Excel
+                try:
+                    nombre_excel = f"{nombre_cliente_sanitizado}_OPCIONES_{fecha}_{hora}.xlsx"
+                    ruta_excel = os.path.join(carpeta_cliente, nombre_excel)
+                    ExportadorMultiformato.a_excel(cliente, plan, ruta_excel)
+                    self._log(f"Excel generado: {nombre_excel}")
+                except Exception as exc:
+                    self._log("No se pudo generar Excel: %s" % exc)
+
             else:
                 # ── Modo fijo: flujo original completo ──
                 self._log("Generando plan con menú FIJO...")
@@ -679,6 +689,15 @@ class GymApp(ctk.CTk):
                 ruta_pdf = generador.generar(cliente, plan)
                 self.ultimo_pdf = ruta_pdf if ruta_pdf and os.path.exists(ruta_pdf) else None
 
+                # Excel
+                try:
+                    nombre_excel = f"{nombre_cliente_sanitizado}_{fecha}_{hora}.xlsx"
+                    ruta_excel = os.path.join(carpeta_cliente, nombre_excel)
+                    ExportadorMultiformato.a_excel(cliente, plan, ruta_excel)
+                    self._log(f"Excel generado: {nombre_excel}")
+                except Exception as exc:
+                    self._log("No se pudo generar Excel: %s" % exc)
+
             self.after(0, lambda: self.btn_abrir_pdf.configure(state="normal" if self.ultimo_pdf else "disabled"))
             self.after(0, lambda: self.btn_whatsapp.configure(state="normal" if self.ultimo_pdf else "disabled"))
             self.after(0, lambda: self.progress_indicator.complete("✓ Plan generado y PDF listo"))
@@ -686,10 +705,10 @@ class GymApp(ctk.CTk):
 
             if self.ultimo_pdf:
                 try:
-                    os.startfile(self.ultimo_pdf)
+                    abrir_carpeta_pdf(os.path.dirname(self.ultimo_pdf))
                     self._log("PDF abierto automaticamente.")
-                except Exception as e:
-                    self._log(f"No se pudo abrir el PDF: {e}")
+                except Exception as exc:
+                    self._log("No se pudo abrir la carpeta del PDF: %s" % exc)
 
             # Estadísticas y registro en BD
             comidas = ['desayuno', 'almuerzo', 'comida', 'cena']
@@ -771,16 +790,14 @@ class GymApp(ctk.CTk):
     def _abrir_pdf(self):
         if self.ultimo_pdf and os.path.exists(self.ultimo_pdf):
             try:
-                os.startfile(self.ultimo_pdf)
-            except Exception as e:
-                messagebox.showerror("Error", f"No se pudo abrir el PDF: {e}")
+                abrir_carpeta_pdf(os.path.dirname(self.ultimo_pdf))
+            except Exception as exc:
+                self._log("No se pudo abrir la carpeta del PDF: %s" % exc)
         else:
             messagebox.showwarning("Aviso", "No hay PDF disponible para abrir.")
 
-    def abrir_carpeta_pdf(self):
-        if not os.path.exists(CARPETA_SALIDA):
-            os.makedirs(CARPETA_SALIDA)
-        os.startfile(CARPETA_SALIDA)
+    def abrir_carpeta_pdf_btn(self):
+        abrir_carpeta_pdf()
 
     def enviar_por_whatsapp(self):
         if not self.ultimo_pdf or not os.path.exists(self.ultimo_pdf):
@@ -795,14 +812,17 @@ class GymApp(ctk.CTk):
             return
         nombre = self.entry_nombre.get().strip()
 
-        mensaje = f"""
-    Hola {nombre} 👋
-
-    Tu plan personalizado de FitnessGym Real Del Valle ya está listo.
-    Adjunto encontrarás tu plan alimenticio.
-    Cualquier duda puedes consultarla directamente con tu entrenador de piso en recepción.
-    FitnessGym Real Del Valle agradece tu preferencia y te espera el próximo mes con tu plan actualizado.
-    """
+        nombre_gym = branding.get('nombre_gym', 'el gimnasio')
+        telefono_gym = branding.get('contacto.telefono', '')
+        mensaje = (
+            f"Hola {nombre} 👋\n\n"
+            f"Tu plan personalizado de {nombre_gym} ya está listo.\n"
+            f"Adjunto encontrarás tu plan alimenticio.\n"
+            f"Cualquier duda consúltala con tu entrenador.\n"
+            f"{nombre_gym} agradece tu preferencia y te espera el próximo mes con tu plan actualizado."
+        )
+        if telefono_gym:
+            mensaje += f"\n📞 {telefono_gym}"
 
         mensaje_codificado = urllib.parse.quote(mensaje)
         url = f"https://wa.me/{telefono}?text={mensaje_codificado}"
@@ -818,5 +838,5 @@ class GymApp(ctk.CTk):
         try:
             VentanaAdmin(self)
         except Exception as e:
-            logger.error(f"[APP] Error abriendo panel admin: {e}", exc_info=True)
+            logger.error("[APP] Error abriendo panel admin: %s", e, exc_info=True)
             messagebox.showerror("Error", f"No se pudo abrir el panel:\n{e}")

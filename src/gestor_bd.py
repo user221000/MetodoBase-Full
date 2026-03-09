@@ -44,7 +44,7 @@ class GestorBDClientes:
         # Backup automático cada 7 días
         self._verificar_backup_automatico()
 
-        logger.info(f"[BD] Gestor inicializado: {self.db_path}")
+        logger.info("[BD] Gestor inicializado: %s", self.db_path)
 
     def _crear_tablas(self) -> None:
         """Crea las tablas de la base de datos si no existen."""
@@ -161,7 +161,7 @@ class GestorBDClientes:
                     datetime.now(),
                     cliente.id_cliente,
                 ))
-                logger.info(f"[BD] Cliente actualizado: {cliente.id_cliente}")
+                logger.info("[BD] Cliente actualizado: %s", cliente.id_cliente)
             else:
                 c.execute('''
                     INSERT INTO clientes
@@ -182,13 +182,13 @@ class GestorBDClientes:
                     datetime.now(),
                     1,
                 ))
-                logger.info(f"[BD] Cliente nuevo registrado: {cliente.id_cliente}")
+                logger.info("[BD] Cliente nuevo registrado: %s", cliente.id_cliente)
 
             conn.commit()
             return True
 
         except Exception as e:
-            logger.error(f"[BD] Error registrando cliente: {e}", exc_info=True)
+            logger.error("[BD] Error registrando cliente: %s", e, exc_info=True)
             conn.rollback()
             return False
 
@@ -234,11 +234,11 @@ class GestorBDClientes:
             ))
 
             conn.commit()
-            logger.info(f"[BD] Plan registrado para cliente: {cliente.id_cliente}")
+            logger.info("[BD] Plan registrado para cliente: %s", cliente.id_cliente)
             return True
 
         except Exception as e:
-            logger.error(f"[BD] Error registrando plan: {e}", exc_info=True)
+            logger.error("[BD] Error registrando plan: %s", e, exc_info=True)
             conn.rollback()
             return False
 
@@ -292,11 +292,11 @@ class GestorBDClientes:
                     'activo': bool(row['activo']),
                 })
 
-            logger.info(f"[BD] Búsqueda '{termino}': {len(resultados)} resultados")
+            logger.info("[BD] Búsqueda '%s': %s resultados", termino, len(resultados))
             return resultados
 
         except Exception as e:
-            logger.error(f"[BD] Error en búsqueda: {e}", exc_info=True)
+            logger.error("[BD] Error en búsqueda: %s", e, exc_info=True)
             return []
 
         finally:
@@ -314,7 +314,7 @@ class GestorBDClientes:
             return dict(row) if row else None
 
         except Exception as e:
-            logger.error(f"[BD] Error obteniendo cliente: {e}", exc_info=True)
+            logger.error("[BD] Error obteniendo cliente: %s", e, exc_info=True)
             return None
 
         finally:
@@ -343,7 +343,7 @@ class GestorBDClientes:
             return [dict(row) for row in c.fetchall()]
 
         except Exception as e:
-            logger.error(f"[BD] Error obteniendo historial: {e}", exc_info=True)
+            logger.error("[BD] Error obteniendo historial: %s", e, exc_info=True)
             return []
 
         finally:
@@ -414,7 +414,7 @@ class GestorBDClientes:
             }
 
         except Exception as e:
-            logger.error(f"[BD] Error obteniendo estadísticas: {e}", exc_info=True)
+            logger.error("[BD] Error obteniendo estadísticas: %s", e, exc_info=True)
             return {}
 
         finally:
@@ -429,11 +429,11 @@ class GestorBDClientes:
             c.execute('UPDATE clientes SET activo = 0 WHERE id_cliente = ?',
                       (id_cliente,))
             conn.commit()
-            logger.info(f"[BD] Cliente desactivado: {id_cliente}")
+            logger.info("[BD] Cliente desactivado: %s", id_cliente)
             return True
 
         except Exception as e:
-            logger.error(f"[BD] Error desactivando cliente: {e}", exc_info=True)
+            logger.error("[BD] Error desactivando cliente: %s", e, exc_info=True)
             return False
 
         finally:
@@ -448,11 +448,11 @@ class GestorBDClientes:
             c.execute('UPDATE clientes SET activo = 1 WHERE id_cliente = ?',
                       (id_cliente,))
             conn.commit()
-            logger.info(f"[BD] Cliente reactivado: {id_cliente}")
+            logger.info("[BD] Cliente reactivado: %s", id_cliente)
             return True
 
         except Exception as e:
-            logger.error(f"[BD] Error reactivando cliente: {e}", exc_info=True)
+            logger.error("[BD] Error reactivando cliente: %s", e, exc_info=True)
             return False
 
         finally:
@@ -465,11 +465,11 @@ class GestorBDClientes:
             nombre_backup = f"clientes_{timestamp}.db"
             ruta_backup = self.backup_dir / nombre_backup
             shutil.copy2(self.db_path, ruta_backup)
-            logger.info(f"[BD] Backup creado: {ruta_backup}")
+            logger.info("[BD] Backup creado: %s", ruta_backup)
             return str(ruta_backup)
 
         except Exception as e:
-            logger.error(f"[BD] Error creando backup: {e}", exc_info=True)
+            logger.error("[BD] Error creando backup: %s", e, exc_info=True)
             return None
 
     def _verificar_backup_automatico(self) -> None:
@@ -489,7 +489,7 @@ class GestorBDClientes:
                 self.crear_backup()
 
         except Exception as e:
-            logger.error(f"[BD] Error en backup automático: {e}", exc_info=True)
+            logger.error("[BD] Error en backup automático: %s", e, exc_info=True)
 
     def limpiar_backups_antiguos(self, dias_antiguedad: int = 90) -> int:
         """Elimina backups más antiguos que N días."""
@@ -504,10 +504,10 @@ class GestorBDClientes:
                     backups_eliminados += 1
 
             if backups_eliminados > 0:
-                logger.info(f"[BD] Eliminados {backups_eliminados} backups antiguos")
+                logger.info("[BD] Eliminados %s backups antiguos", backups_eliminados)
 
             return backups_eliminados
 
         except Exception as e:
-            logger.error(f"[BD] Error limpiando backups: {e}", exc_info=True)
+            logger.error("[BD] Error limpiando backups: %s", e, exc_info=True)
             return 0

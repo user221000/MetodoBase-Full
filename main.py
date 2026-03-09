@@ -113,6 +113,17 @@ if __name__ == "__main__":
 
     # Paso 2: Iniciar
     if GUI_DISPONIBLE:
+        # Wizard de primera vez si nombre_gym está vacío
+        from core.branding import branding as _branding
+        if not _branding.get('nombre_gym', '').strip():
+            from gui.wizard_onboarding import WizardOnboarding
+            _root_wizard = ctk.CTk()
+            _root_wizard.withdraw()
+            wizard = WizardOnboarding(_root_wizard)
+            _root_wizard.wait_window(wizard)
+            _root_wizard.destroy()
+            _branding.recargar()
+
         ctk.set_appearance_mode("Dark")
         ctk.set_default_color_theme("blue")
         app = GymApp()

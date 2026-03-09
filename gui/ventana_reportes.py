@@ -175,10 +175,10 @@ class VentanaReportes(ctk.CTkToplevel):
             self._actualizar_graficas()
             self._actualizar_clientes()
 
-            logger.info(f"[REPORTES] Datos cargados para período: {periodo}")
+            logger.info("[REPORTES] Datos cargados para período: %s", periodo)
 
         except Exception as e:
-            logger.error(f"[REPORTES] Error cargando datos: {e}", exc_info=True)
+            logger.error("[REPORTES] Error cargando datos: %s", e, exc_info=True)
             messagebox.showerror("Error", f"No se pudieron cargar los datos:\n{e}")
 
     def _calcular_fechas_periodo(self, periodo: str) -> tuple:
@@ -404,8 +404,8 @@ class VentanaReportes(ctk.CTkToplevel):
                 datos_reporte["Resumen"].to_csv(archivo, index=False)
 
             messagebox.showinfo("Éxito", f"Reporte exportado exitosamente:\n{archivo}")
-            logger.info(f"[REPORTES] Reporte exportado: {archivo}")
+            logger.info("[REPORTES] Reporte exportado: %s", archivo)
 
         except Exception as e:
-            logger.error(f"[REPORTES] Error exportando: {e}", exc_info=True)
+            logger.error("[REPORTES] Error exportando: %s", e, exc_info=True)
             messagebox.showerror("Error", f"No se pudo exportar:\n{e}")

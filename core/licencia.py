@@ -13,6 +13,10 @@ from datetime import datetime, timedelta
 from pathlib import Path
 from typing import Dict, Optional, Tuple
 
+from dotenv import load_dotenv
+
+load_dotenv()
+
 
 class GestorLicencias:
     """
@@ -24,7 +28,7 @@ class GestorLicencias:
 
     ARCHIVO_LICENCIA = "licencia.lic"
     ARCHIVO_CONFIG = "config/licencia_config.json"
-    SALT_MASTER = "METODO_BASE_2026_CH"
+    SALT_MASTER: str = os.environ.get("METODO_BASE_SALT", "METODO_BASE_2026_CH")
 
     def __init__(self) -> None:
         self.ruta_licencia = Path(self.ARCHIVO_LICENCIA)

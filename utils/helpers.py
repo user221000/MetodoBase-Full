@@ -3,6 +3,10 @@ import os
 import sys
 import json
 import glob
+import platform
+import subprocess
+
+from utils.logger import logger
 
 
 def resource_path(relative_path):
@@ -14,22 +18,22 @@ def resource_path(relative_path):
     return os.path.join(base_path, relative_path)
 
 
-def abrir_carpeta_pdf():
-    """Abre la carpeta de salida de PDFs."""
+def abrir_carpeta_pdf(ruta: str | None = None) -> None:
+    """Abre la carpeta de PDFs en el explorador de archivos. Compatible Windows/macOS/Linux."""
     from config.constantes import CARPETA_SALIDA
+    carpeta = ruta or CARPETA_SALIDA
+    if not os.path.exists(carpeta):
+        os.makedirs(carpeta, exist_ok=True)
+    sistema = platform.system()
     try:
-        if not os.path.exists(CARPETA_SALIDA):
-            os.makedirs(CARPETA_SALIDA, exist_ok=True)
-        os.startfile(CARPETA_SALIDA)
-    except Exception as e:
-        try:
-            from tkinter import messagebox
-            messagebox.showerror(
-                "Error",
-                f"No se pudo abrir la carpeta de PDFs.\n\n{str(e)}"
-            )
-        except Exception:
-            pass
+        if sistema == "Windows":
+            os.startfile(carpeta)
+        elif sistema == "Darwin":
+            subprocess.Popen(["open", carpeta])
+        else:
+            subprocess.Popen(["xdg-open", carpeta])
+    except Exception as exc:
+        logger.warning("No se pudo abrir carpeta %s: %s", carpeta, exc)
 
 
 def cargar_plan_anterior_cliente(cliente_id: str, directorio_planes: str = ".") -> dict | None:

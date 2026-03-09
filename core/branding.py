@@ -20,7 +20,7 @@ class GestorBranding:
     ARCHIVO_BRANDING = "config/branding.json"
 
     DEFAULTS: dict = {
-        "nombre_gym": "Fitness Gym",
+        "nombre_gym": "",
         "nombre_corto": "Método Base",
         "tagline": "Powered by Consultoría Hernández",
         "colores": {

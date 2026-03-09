@@ -492,7 +492,7 @@ class VentanaAdmin(ctk.CTkToplevel):
             logger.info("[ADMIN] Configuración de branding guardada")
 
         except Exception as e:
-            logger.error(f"[ADMIN] Error guardando branding: {e}", exc_info=True)
+            logger.error("[ADMIN] Error guardando branding: %s", e, exc_info=True)
             messagebox.showerror("Error", f"No se pudo guardar la configuración:\n{e}")
 
     def _renovar_licencia_dialog(self):
@@ -535,7 +535,7 @@ class VentanaAdmin(ctk.CTkToplevel):
                 messagebox.showerror("Error", "No se pudo crear el backup")
 
         except Exception as e:
-            logger.error(f"[ADMIN] Error creando backup: {e}", exc_info=True)
+            logger.error("[ADMIN] Error creando backup: %s", e, exc_info=True)
             messagebox.showerror("Error", f"Error creando backup:\n{e}")
 
     def _limpiar_backups(self):
@@ -555,7 +555,7 @@ class VentanaAdmin(ctk.CTkToplevel):
                 )
 
             except Exception as e:
-                logger.error(f"[ADMIN] Error limpiando backups: {e}", exc_info=True)
+                logger.error("[ADMIN] Error limpiando backups: %s", e, exc_info=True)
                 messagebox.showerror("Error", f"Error limpiando backups:\n{e}")
 
     def _buscar_clientes(self):
@@ -585,10 +585,10 @@ class VentanaAdmin(ctk.CTkToplevel):
             for cliente in resultados:
                 self._crear_card_cliente(self.resultados_frame, cliente)
 
-            logger.info(f"[ADMIN] Búsqueda '{termino}': {len(resultados)} resultados")
+            logger.info("[ADMIN] Búsqueda '%s': %s resultados", termino, len(resultados))
 
         except Exception as e:
-            logger.error(f"[ADMIN] Error en búsqueda: {e}", exc_info=True)
+            logger.error("[ADMIN] Error en búsqueda: %s", e, exc_info=True)
             messagebox.showerror("Error", f"Error buscando clientes:\n{e}")
 
     def _crear_card_cliente(self, parent, cliente: Dict):
