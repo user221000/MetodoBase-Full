@@ -3,6 +3,7 @@ import random
 import hashlib
 
 from config.constantes import LEGUMINOSAS
+from config.catalogo_alimentos import CATALOGO_POR_TIPO, PROTEINAS, CARBS, GRASAS, FRUTAS
 from src.alimentos_base import CATEGORIAS
 
 
@@ -88,16 +89,36 @@ class SelectorAlimentos:
     """Selecciona proteína/carb/grasa con rotación por comida."""
     
     @staticmethod
-    def seleccionar_lista(tipo: str, meal_idx: int = 0, alimentos_usados=None, seed: int = None, plan_numero: int = 1) -> list:
-        """Retorna lista de alimentos para iteración (rotado de forma DETERMINISTA)."""
+    def seleccionar_lista(
+        tipo: str,
+        meal_idx: int = 0,
+        alimentos_usados=None,
+        seed: int = None,
+        plan_numero: int = 1,
+        alimentos_penalizados: dict | None = None,
+        pesos_ponderados: dict[str, float] | None = None,
+    ) -> list:
+        """Retorna lista de alimentos para iteración (rotado de forma DETERMINISTA).
+
+        Args:
+            alimentos_penalizados: dict ``{cat: [alimentos]}`` devuelto por
+                ``GestorRotacion.obtener_penalizados()`` — mueve penalizados al final.
+            pesos_ponderados: dict ``{alimento: peso}`` devuelto por
+                ``RotacionInteligenteAlimentos.obtener_penalizaciones_ponderadas()``
+                — ordena la lista de mayor disponibilidad a menor.  Si se
+                suministran ambos parámetros, ``pesos_ponderados`` tiene
+                precedencia para el ordenamiento final.
+        """
         if alimentos_usados is None:
             alimentos_usados = set()
-        
-        proteinas = ['pechuga_de_pollo', 'carne_magra_res', 'pescado_blanco', 'salmon', 'queso_panela', 'huevo',
-                     'claras_huevo', 'yogurt_griego_light', 'proteina_suero']
-        carbs = ['arroz_blanco', 'arroz_integral', 'papa', 'camote', 'pan_integral', 'avena', 'tortilla_maiz', 'frijoles', 'banana']
-        frutas = ['manzana', 'platano', 'papaya', 'naranja', 'mango', 'melon', 'piña']
-        grasas = ['aguacate', 'nueces', 'almendras', 'aceite_de_oliva', 'mantequilla_mani']
+        if alimentos_penalizados is None:
+            alimentos_penalizados = {}
+
+        # --- Listas base desde el catálogo centralizado ---
+        proteinas = list(PROTEINAS)
+        carbs = list(CARBS)
+        frutas = list(FRUTAS)
+        grasas = list(GRASAS)
         
         # Ajustes por comida
         if meal_idx == 0:  # desayuno
@@ -106,24 +127,24 @@ class SelectorAlimentos:
             proteinas = [p for p in preferidas if p in proteinas] + otras
             if not proteinas:
                 proteinas = ['huevo', 'claras_huevo', 'proteina_suero']
-            carbs = ['avena', 'pan_integral', 'tortilla_maiz', 'banana']
-            grasas = ['almendras', 'nueces']
+            carbs = [c for c in ['avena', 'pan_integral', 'tortilla_maiz'] if c in CARBS]
+            grasas = [g for g in ['almendras', 'nueces'] if g in GRASAS]
         elif meal_idx == 1:  # almuerzo
             proteinas = [p for p in proteinas if p != 'yogurt_griego_light']
             ligeras = ['queso_panela', 'pescado_blanco', 'pechuga_de_pollo']
             otras = [p for p in proteinas if p not in ligeras]
-            proteinas = ligeras + otras
+            proteinas = [p for p in ligeras if p in proteinas] + otras
             carbs = [c for c in carbs if c != 'arroz_blanco']
             if 'tortilla_maiz' in carbs:
                 carbs = ['tortilla_maiz'] + [c for c in carbs if c != 'tortilla_maiz']
-            grasas = ['aguacate', 'nueces', 'mantequilla_mani']
+            grasas = [g for g in ['aguacate', 'nueces', 'mantequilla_mani'] if g in GRASAS]
         elif meal_idx == 2:  # comida
             proteinas = [p for p in proteinas if p not in ('huevo', 'claras_huevo')]
             proteinas = [p for p in proteinas if p != 'yogurt_griego_light']
             proteinas = [p for p in proteinas if p != 'queso_panela']
             alta_densidad = ['pechuga_de_pollo', 'salmon', 'carne_magra_res', 'pescado_blanco']
             otras = [p for p in proteinas if p not in alta_densidad]
-            proteinas = alta_densidad + otras
+            proteinas = [p for p in alta_densidad if p in proteinas] + otras
             frutas = []
         elif meal_idx == 3:  # cena
             proteinas = [p for p in proteinas if p not in ('huevo', 'claras_huevo')]
@@ -131,7 +152,7 @@ class SelectorAlimentos:
             proteinas = [p for p in proteinas if p != 'proteina_suero']
             dense = ['arroz_blanco', 'arroz_integral', 'papa', 'camote']
             other = [c for c in carbs if c not in dense]
-            carbs = other + dense
+            carbs = other + [c for c in dense if c in carbs]
             carbs = [c for c in carbs if c != 'tortilla_maiz']
             grasas = [g for g in grasas if g != 'aguacate']
         
@@ -151,26 +172,26 @@ class SelectorAlimentos:
             if grasas:
                 grasas = grasas[meal_idx:] + grasas[:meal_idx]
         
-        # Penalización intra-plan
-        proteinas_nuevas = [p for p in proteinas if p not in alimentos_usados]
-        if proteinas_nuevas and len(proteinas_nuevas) >= 1:
-            proteinas_penalizadas = [p for p in proteinas if p in alimentos_usados]
-            proteinas = proteinas_nuevas + proteinas_penalizadas
-        
-        carbs_nuevos = [c for c in carbs if c not in alimentos_usados]
-        if carbs_nuevos and len(carbs_nuevos) >= 1:
-            carbs_penalizados = [c for c in carbs if c in alimentos_usados]
-            carbs = carbs_nuevos + carbs_penalizados
-        
-        frutas_nuevas = [f for f in frutas if f not in alimentos_usados]
-        if frutas_nuevas and len(frutas_nuevas) >= 1:
-            frutas_penalizadas = [f for f in frutas if f in alimentos_usados]
-            frutas = frutas_nuevas + frutas_penalizadas
-        
-        grasas_nuevas = [g for g in grasas if g not in alimentos_usados]
-        if grasas_nuevas and len(grasas_nuevas) >= 1:
-            grasas_penalizadas = [g for g in grasas if g in alimentos_usados]
-            grasas = grasas_nuevas + grasas_penalizadas
+        # --- Filtrar penalizados del gestor de rotación (inter-plan) ---
+        # alimentos_penalizados puede ser:
+        #   a) dict {cat: [list]} legacy  →  simple push-to-back
+        #   b) dict {cat: [list]} de RotacionInteligente (mismo formato)
+        proteinas = _filtrar_penalizados(proteinas, alimentos_penalizados.get('proteina', []))
+        carbs = _filtrar_penalizados(carbs, alimentos_penalizados.get('carbs', []))
+        grasas = _filtrar_penalizados(grasas, alimentos_penalizados.get('grasa', []))
+
+        # --- Penalización intra-plan (alimentos ya usados en este mismo plan) ---
+        proteinas = _priorizar_no_usados(proteinas, alimentos_usados)
+        carbs = _priorizar_no_usados(carbs, alimentos_usados)
+        frutas = _priorizar_no_usados(frutas, alimentos_usados)
+        grasas = _priorizar_no_usados(grasas, alimentos_usados)
+
+        # --- Aplicar pesos ponderados de RotacionInteligente (si se proveen) ---
+        if pesos_ponderados:
+            proteinas = _ordenar_por_peso_ponderado(proteinas, pesos_ponderados)
+            carbs = _ordenar_por_peso_ponderado(carbs, pesos_ponderados)
+            frutas = _ordenar_por_peso_ponderado(frutas, pesos_ponderados)
+            grasas = _ordenar_por_peso_ponderado(grasas, pesos_ponderados)
         
         seleccion_map = {
             'proteina': proteinas,
@@ -185,15 +206,40 @@ class SelectorAlimentos:
     @staticmethod
     def seleccionar(tipo: str) -> str:
         """Selecciona primer alimento del tipo (deprecated, use seleccionar_lista)."""
-        proteinas = ['pechuga_de_pollo', 'carne_magra_res', 'pescado_blanco', 'salmon', 'queso_panela', 'huevo']
-        carbs = ['arroz_blanco', 'papa', 'camote', 'pan_integral', 'avena', 'tortilla_maiz', 'frijoles']
-        grasas = ['aceite_de_oliva', 'nueces', 'aguacate', 'almendras', 'mantequilla_mani']
-        
-        seleccion_map = {
-            'proteina': proteinas,
-            'carbs': carbs,
-            'grasa': grasas,
-        }
-        
-        opciones = seleccion_map.get(tipo, proteinas)
-        return opciones[0]
+        lista = CATALOGO_POR_TIPO.get(tipo, PROTEINAS)
+        return lista[0] if lista else 'pechuga_de_pollo'
+
+
+# ---------------------------------------------------------------------------
+# Helpers internos
+# ---------------------------------------------------------------------------
+
+def _filtrar_penalizados(lista: list[str], penalizados: list[str]) -> list[str]:
+    """Mueve penalizados al final. Si la lista queda vacía, usa backup completo."""
+    if not penalizados:
+        return lista
+    penalizados_set = set(penalizados)
+    no_penalizados = [a for a in lista if a not in penalizados_set]
+    if not no_penalizados:
+        return lista  # backup: devolver todo si filtrar deja vacío
+    cola = [a for a in lista if a in penalizados_set]
+    return no_penalizados + cola
+
+
+def _priorizar_no_usados(lista: list[str], usados: set) -> list[str]:
+    """Pone los alimentos aún no usados al frente de la lista."""
+    nuevos = [a for a in lista if a not in usados]
+    ya_usados = [a for a in lista if a in usados]
+    return nuevos + ya_usados if nuevos else lista
+
+
+def _ordenar_por_peso_ponderado(
+    lista: list[str], pesos: dict[str, float]
+) -> list[str]:
+    """Ordena la lista poniendo primero los alimentos con menor peso de
+    penalización (más disponibles).
+
+    Alimentos sin entrada en ``pesos`` reciben peso 0.0 (máxima prioridad).
+    El orden relativo entre alimentos con el mismo peso se preserva (sort estable).
+    """
+    return sorted(lista, key=lambda a: pesos.get(a, 0.0))

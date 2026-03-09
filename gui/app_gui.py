@@ -20,6 +20,191 @@ from core.generador_planes import ConstructorPlanNuevo
 from core.exportador_salida import GeneradorPDFProfesional
 
 
+# ─────────────────────────────────────────────
+# Validación de campos en tiempo real
+# ─────────────────────────────────────────────
+
+from gui.validadores import ValidadorCamposTiempoReal  # noqa: E402
+
+# ─────────────────────────────────────────────
+# Widget de progreso de generación
+# ─────────────────────────────────────────────
+
+class ProgressIndicator(ctk.CTkFrame):
+    """Barra de progreso + etiqueta de estado para la generación del plan."""
+
+    def __init__(self, parent, **kwargs):
+        super().__init__(parent, fg_color="#1E1E1E", corner_radius=10,
+                         border_width=1, border_color="#444444", **kwargs)
+
+        self.lbl_estado = ctk.CTkLabel(
+            self, text="Iniciando…", anchor="w",
+            font=ctk.CTkFont(family="Segoe UI", size=12),
+            text_color="#888888",
+        )
+        self.lbl_estado.pack(padx=16, pady=(10, 4), anchor="w")
+
+        self.barra = ctk.CTkProgressBar(self, mode="determinate", height=10,
+                                        corner_radius=5, progress_color="#7B2D8E")
+        self.barra.set(0)
+        self.barra.pack(fill="x", padx=16, pady=(0, 10))
+
+    def set_progress(self, value: float, status: str = "") -> None:
+        """``value`` es 0.0 – 1.0."""
+        self.barra.set(max(0.0, min(1.0, value)))
+        if status:
+            self.lbl_estado.configure(text=status)
+
+    def complete(self, status: str = "✓ Listo") -> None:
+        self.barra.set(1.0)
+        self.barra.configure(progress_color="#2B5B2B")
+        self.lbl_estado.configure(text=status, text_color="#3D7A3D")
+
+    def reset(self) -> None:
+        self.barra.set(0)
+        self.barra.configure(progress_color="#7B2D8E")
+        self.lbl_estado.configure(text="Iniciando…", text_color="#888888")
+
+
+
+class PlanPreviewWindow(ctk.CTkToplevel):
+    """Ventana modal que muestra el resumen del plan antes de generar el PDF."""
+
+    COMIDAS_ORDEN = ["desayuno", "almuerzo", "comida", "cena"]
+    COMIDAS_LABEL = {
+        "desayuno": "🌅 Desayuno",
+        "almuerzo": "☀️ Almuerzo",
+        "comida":   "🍽  Comida",
+        "cena":     "🌙 Cena",
+    }
+
+    def __init__(self, parent, cliente, plan, on_confirm, on_cancel):
+        super().__init__(parent)
+        self.title("Vista Previa del Plan")
+        self.geometry("680x780")
+        self.resizable(False, True)
+        self.configure(fg_color="#121212")
+        self.grab_set()          # modal
+        self.focus()
+
+        self._on_confirm = on_confirm
+        self._on_cancel = on_cancel
+
+        # ── Título ──
+        ctk.CTkLabel(
+            self, text=f"Plan para {cliente.nombre}",
+            font=ctk.CTkFont(family="Segoe UI", size=20, weight="bold"),
+            text_color="#FFFFFF",
+        ).pack(pady=(18, 2))
+
+        obj = getattr(cliente, "objetivo", "")
+        kcal = getattr(cliente, "kcal_objetivo", 0)
+        ctk.CTkLabel(
+            self, text=f"Objetivo: {obj.upper()}   |   Kcal objetivo: {kcal:.0f}",
+            font=ctk.CTkFont(family="Segoe UI", size=12),
+            text_color="#D4A84B",
+        ).pack(pady=(0, 10))
+
+        # ── Área scrolleable ──
+        scroll = ctk.CTkScrollableFrame(
+            self, fg_color="transparent",
+            scrollbar_button_color="#7B2D8E",
+            scrollbar_button_hover_color="#9B3DB0",
+        )
+        scroll.pack(fill="both", expand=True, padx=20, pady=(0, 8))
+        self._renderizar_preview(scroll, cliente, plan)
+
+        # ── Botones ──
+        btn_frame = ctk.CTkFrame(self, fg_color="transparent")
+        btn_frame.pack(fill="x", padx=20, pady=(4, 16))
+        btn_frame.grid_columnconfigure(0, weight=1)
+        btn_frame.grid_columnconfigure(1, weight=1)
+
+        ctk.CTkButton(
+            btn_frame, text="📄 Generar PDF",
+            font=ctk.CTkFont(family="Segoe UI", size=14, weight="bold"),
+            fg_color="#7B2D8E", hover_color="#9B3DB0", text_color="#FFFFFF",
+            height=42, corner_radius=10, command=self._confirmar,
+        ).grid(row=0, column=0, sticky="ew", padx=(0, 8))
+
+        ctk.CTkButton(
+            btn_frame, text="✏️ Modificar",
+            font=ctk.CTkFont(family="Segoe UI", size=14),
+            fg_color="transparent", hover_color="#2A2A2A",
+            border_width=1, border_color="#444444", text_color="#888888",
+            height=42, corner_radius=10, command=self._cancelar,
+        ).grid(row=0, column=1, sticky="ew", padx=(8, 0))
+
+        self.protocol("WM_DELETE_WINDOW", self._cancelar)
+
+    def _renderizar_preview(self, parent, cliente, plan):
+        kcal_total = 0.0
+        for clave in self.COMIDAS_ORDEN:
+            if clave not in plan:
+                continue
+            comida = plan[clave]
+            label = self.COMIDAS_LABEL.get(clave, clave.capitalize())
+
+            card = ctk.CTkFrame(parent, fg_color="#1E1E1E", corner_radius=10,
+                                border_width=1, border_color="#444444")
+            card.pack(fill="x", pady=6)
+
+            kcal_comida = comida.get("kcal_real", comida.get("kcal_objetivo", 0))
+            kcal_total += kcal_comida
+
+            ctk.CTkLabel(
+                card,
+                text=f"{label}  —  {kcal_comida:.0f} kcal",
+                font=ctk.CTkFont(family="Segoe UI", size=13, weight="bold"),
+                text_color="#D4A84B", anchor="w",
+            ).pack(padx=14, pady=(10, 4), anchor="w")
+
+            alimentos = comida.get("alimentos", {})
+            for alimento, gramos in alimentos.items():
+                nombre_fmt = alimento.replace("_", " ").title()
+                ctk.CTkLabel(
+                    card,
+                    text=f"  • {nombre_fmt}:  {gramos:.0f} g",
+                    font=ctk.CTkFont(family="Consolas", size=11),
+                    text_color="#CCCCCC", anchor="w",
+                ).pack(padx=14, pady=1, anchor="w")
+
+            ctk.CTkFrame(card, height=1, fg_color="#333333").pack(
+                fill="x", padx=14, pady=(6, 0))
+
+            macros_text = self._macros_texto(comida)
+            ctk.CTkLabel(
+                card, text=macros_text,
+                font=ctk.CTkFont(family="Segoe UI", size=10),
+                text_color="#666666", anchor="w",
+            ).pack(padx=14, pady=(4, 10), anchor="w")
+
+        # Total
+        ctk.CTkLabel(
+            parent,
+            text=f"Total estimado: {kcal_total:.0f} kcal",
+            font=ctk.CTkFont(family="Segoe UI", size=13, weight="bold"),
+            text_color="#FFFFFF",
+        ).pack(pady=(8, 4))
+
+    @staticmethod
+    def _macros_texto(comida: dict) -> str:
+        p = comida.get("proteinas_g", 0)
+        c = comida.get("carbohidratos_g", 0)
+        g = comida.get("grasas_g", 0)
+        if p or c or g:
+            return f"P: {p:.0f}g   C: {c:.0f}g   G: {g:.0f}g"
+        return ""
+
+    def _confirmar(self):
+        self.destroy()
+        self._on_confirm()
+
+    def _cancelar(self):
+        self.destroy()
+        self._on_cancel()
+
+
 class GymApp(ctk.CTk):
     """Aplicacion principal con CustomTkinter - Diseño profesional moderno."""
     
@@ -36,6 +221,7 @@ class GymApp(ctk.CTk):
     COLOR_INPUT_BG = "#2A2A2A"
     COLOR_SUCCESS = "#2B5B2B"
     COLOR_SUCCESS_HOVER = "#3D7A3D"
+    COLOR_ERROR = "#B22222"
     
     def __init__(self):
         super().__init__()
@@ -93,11 +279,11 @@ class GymApp(ctk.CTk):
         # ═══════════════ SECCIÓN 1: DATOS DEL CLIENTE ═══════════════
         self.section_cliente = self._crear_seccion("Datos del Cliente", "👤")
         
-        self.entry_nombre = self._crear_input_full(
+        self.entry_nombre, self.lbl_error_nombre = self._crear_input_full(
             self.section_cliente, "Nombre completo", "Ej: Oscar Hernández", row=0
         )
-        
-        self.entry_telefono, self.entry_edad = self._crear_input_duo(
+
+        self.entry_telefono, self.entry_edad, self.lbl_error_telefono, self.lbl_error_edad = self._crear_input_duo(
             self.section_cliente,
             "Teléfono", "Ej: 5213312345678",
             "Edad", "Ej: 25", row=1
@@ -106,13 +292,13 @@ class GymApp(ctk.CTk):
         # ═══════════════ SECCIÓN 2: MEDIDAS CORPORALES ═══════════════
         self.section_medidas = self._crear_seccion("Medidas Corporales", "⚖")
         
-        self.entry_peso, self.entry_estatura = self._crear_input_duo(
+        self.entry_peso, self.entry_estatura, self.lbl_error_peso, self.lbl_error_estatura = self._crear_input_duo(
             self.section_medidas,
             "Peso (kg)", "Ej: 80.5",
             "Estatura (cm)", "Ej: 175", row=0
         )
-        
-        self.entry_grasa = self._crear_input_full(
+
+        self.entry_grasa, self.lbl_error_grasa = self._crear_input_full(
             self.section_medidas, "Grasa corporal (%)", "Ej: 18", row=1
         )
 
@@ -125,7 +311,19 @@ class GymApp(ctk.CTk):
             "Objetivo", list(OBJETIVOS_VALIDOS), "mantenimiento", row=0
         )
 
-        # ═══════════════ BOTONES DE ACCIÓN ═══════════════
+        # ─── Bindings de validación en tiempo real ───
+        self.entry_nombre.bind("<KeyRelease>", lambda e: self._validar_campo(
+            self.entry_nombre, self.lbl_error_nombre, ValidadorCamposTiempoReal.validar_nombre))
+        self.entry_telefono.bind("<KeyRelease>", lambda e: self._validar_campo(
+            self.entry_telefono, self.lbl_error_telefono, ValidadorCamposTiempoReal.validar_telefono))
+        self.entry_edad.bind("<KeyRelease>", lambda e: self._validar_campo(
+            self.entry_edad, self.lbl_error_edad, ValidadorCamposTiempoReal.validar_edad))
+        self.entry_peso.bind("<KeyRelease>", lambda e: self._validar_campo(
+            self.entry_peso, self.lbl_error_peso, ValidadorCamposTiempoReal.validar_peso))
+        self.entry_estatura.bind("<KeyRelease>", lambda e: self._validar_campo(
+            self.entry_estatura, self.lbl_error_estatura, ValidadorCamposTiempoReal.validar_estatura))
+        self.entry_grasa.bind("<KeyRelease>", lambda e: self._validar_campo(
+            self.entry_grasa, self.lbl_error_grasa, ValidadorCamposTiempoReal.validar_grasa))
         self.buttons_frame = ctk.CTkFrame(self.main_container, fg_color="transparent")
         self.buttons_frame.pack(fill="x", padx=40, pady=(20, 12))
         
@@ -171,6 +369,11 @@ class GymApp(ctk.CTk):
             text_color=self.COLOR_TEXT_MUTED
         )
         self.btn_abrir_pdf.grid(row=0, column=1, sticky="ew", padx=(8, 0), pady=0)
+
+        # ═══════════════ PROGRESO ═══════════════
+        self.progress_indicator = ProgressIndicator(self.main_container)
+        self.progress_indicator.pack(fill="x", padx=40, pady=(0, 8))
+        self.progress_indicator.pack_forget()  # oculto hasta que se genere
 
         # ═══════════════ REGISTRO DE OPERACIONES ═══════════════
         self.log_frame = ctk.CTkFrame(
@@ -242,9 +445,9 @@ class GymApp(ctk.CTk):
         return label
     
     def _crear_input_full(self, parent, label_text, placeholder, row):
-        base_row = row * 2
+        base_row = row * 3
         self._crear_label_campo(parent, label_text, base_row, col=0)
-        
+
         entry = ctk.CTkEntry(
             parent, placeholder_text=placeholder, height=38, corner_radius=8,
             border_width=1, border_color=self.COLOR_BORDER,
@@ -252,20 +455,28 @@ class GymApp(ctk.CTk):
             font=ctk.CTkFont(family="Segoe UI", size=13),
             placeholder_text_color=self.COLOR_TEXT_MUTED
         )
-        entry.grid(row=base_row + 1, column=0, columnspan=4, padx=16, pady=(0, 8), sticky="ew")
-        return entry
+        entry.grid(row=base_row + 1, column=0, columnspan=4, padx=16, pady=(0, 2), sticky="ew")
+
+        lbl_error = ctk.CTkLabel(
+            parent, text="", anchor="w",
+            font=ctk.CTkFont(family="Segoe UI", size=10),
+            text_color=self.COLOR_ERROR,
+        )
+        lbl_error.grid(row=base_row + 2, column=0, columnspan=4, padx=20, pady=(0, 6), sticky="w")
+
+        return entry, lbl_error
     
     def _crear_input_duo(self, parent, label1, placeholder1, label2, placeholder2, row):
-        base_row = row * 2
-        
+        base_row = row * 3
+
         lbl1 = ctk.CTkLabel(parent, text=label1, font=ctk.CTkFont(family="Segoe UI", size=12),
                            text_color=self.COLOR_TEXT, anchor="w")
         lbl1.grid(row=base_row, column=0, columnspan=2, padx=(16, 4), pady=(8, 2), sticky="w")
-        
+
         lbl2 = ctk.CTkLabel(parent, text=label2, font=ctk.CTkFont(family="Segoe UI", size=12),
                            text_color=self.COLOR_TEXT, anchor="w")
         lbl2.grid(row=base_row, column=2, columnspan=2, padx=(16, 4), pady=(8, 2), sticky="w")
-        
+
         entry1 = ctk.CTkEntry(
             parent, placeholder_text=placeholder1, height=38, corner_radius=8,
             border_width=1, border_color=self.COLOR_BORDER,
@@ -273,8 +484,8 @@ class GymApp(ctk.CTk):
             font=ctk.CTkFont(family="Segoe UI", size=13),
             placeholder_text_color=self.COLOR_TEXT_MUTED
         )
-        entry1.grid(row=base_row + 1, column=0, columnspan=2, padx=(16, 8), pady=(0, 8), sticky="ew")
-        
+        entry1.grid(row=base_row + 1, column=0, columnspan=2, padx=(16, 8), pady=(0, 2), sticky="ew")
+
         entry2 = ctk.CTkEntry(
             parent, placeholder_text=placeholder2, height=38, corner_radius=8,
             border_width=1, border_color=self.COLOR_BORDER,
@@ -282,9 +493,23 @@ class GymApp(ctk.CTk):
             font=ctk.CTkFont(family="Segoe UI", size=13),
             placeholder_text_color=self.COLOR_TEXT_MUTED
         )
-        entry2.grid(row=base_row + 1, column=2, columnspan=2, padx=(8, 16), pady=(0, 8), sticky="ew")
-        
-        return entry1, entry2
+        entry2.grid(row=base_row + 1, column=2, columnspan=2, padx=(8, 16), pady=(0, 2), sticky="ew")
+
+        lbl_error1 = ctk.CTkLabel(
+            parent, text="", anchor="w",
+            font=ctk.CTkFont(family="Segoe UI", size=10),
+            text_color=self.COLOR_ERROR,
+        )
+        lbl_error1.grid(row=base_row + 2, column=0, columnspan=2, padx=(20, 4), pady=(0, 6), sticky="w")
+
+        lbl_error2 = ctk.CTkLabel(
+            parent, text="", anchor="w",
+            font=ctk.CTkFont(family="Segoe UI", size=10),
+            text_color=self.COLOR_ERROR,
+        )
+        lbl_error2.grid(row=base_row + 2, column=2, columnspan=2, padx=(20, 16), pady=(0, 6), sticky="w")
+
+        return entry1, entry2, lbl_error1, lbl_error2
     
     def _crear_combo_duo(self, parent, label1, values1, default1, label2, values2, default2, row):
         base_row = row * 2
@@ -356,6 +581,17 @@ class GymApp(ctk.CTk):
 
     # ───── Lógica de negocio ─────
 
+    def _validar_campo(self, entry, lbl_error, validador_fn):
+        """Actualiza el borde y la etiqueta de error de un campo en tiempo real."""
+        valor = entry.get()
+        ok, mensaje = validador_fn(valor)
+        if ok:
+            entry.configure(border_color=self.COLOR_BORDER)
+            lbl_error.configure(text="")
+        else:
+            entry.configure(border_color=self.COLOR_ERROR)
+            lbl_error.configure(text=mensaje)
+
     def _log(self, mensaje):
         timestamp = datetime.now().strftime("%H:%M:%S")
         self.textbox_log.insert("end", f"[{timestamp}] {mensaje}\n")
@@ -364,13 +600,17 @@ class GymApp(ctk.CTk):
     def _on_procesar_click(self):
         self.btn_procesar.configure(state="disabled")
         self._show_spinner_on_button()
-        thread = threading.Thread(target=self._procesar_datos)
+        self.progress_indicator.reset()
+        self.progress_indicator.pack(fill="x", padx=40, pady=(0, 8),
+                                     before=self.log_frame)
+        thread = threading.Thread(target=self._procesar_datos, daemon=True)
         thread.start()
 
     def _procesar_datos(self):
         try:
             self._log("Iniciando procesamiento...")
-            
+            self.after(0, lambda: self.progress_indicator.set_progress(0.05, "Validando datos…"))
+
             nombre = self.entry_nombre.get().strip()
             if not nombre:
                 raise ValueError("El nombre es obligatorio")
@@ -394,7 +634,9 @@ class GymApp(ctk.CTk):
                 raise ValueError("Grasa corporal invalida: el porcentaje minimo permitido es 5%")
             actividad = self.combo_actividad.get()
             objetivo = self.combo_objetivo.get()
-            
+
+            self.after(0, lambda: self.progress_indicator.set_progress(0.2, "Calculando metabolismo…"))
+
             cliente = ClienteEvaluacion(
                 nombre=nombre,
                 telefono=telefono if telefono else None,
@@ -404,15 +646,38 @@ class GymApp(ctk.CTk):
             )
             cliente.factor_actividad = FACTORES_ACTIVIDAD.get(actividad, 1.2)
             self._log(f"Cliente creado: {cliente.nombre} ({cliente.objetivo})")
-            
+
             cliente = MotorNutricional.calcular_motor(cliente)
             self._log(f"TMB={cliente.tmb:.0f}, GET={cliente.get_total:.0f}, Kcal={cliente.kcal_objetivo:.0f}")
-            
+            self.after(0, lambda: self.progress_indicator.set_progress(0.45, "Construyendo plan alimenticio…"))
+
             dir_planes = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "planes")
             os.makedirs(dir_planes, exist_ok=True)
             plan = ConstructorPlanNuevo.construir(cliente, plan_numero=1, directorio_planes=dir_planes)
             self._log("Plan nutricional estructurado correctamente.")
-            
+            self.after(0, lambda: self.progress_indicator.set_progress(0.65, "Mostrando vista previa…"))
+
+            # ── Vista previa: bloquear hilo hasta confirmación ──
+            confirm_event = threading.Event()
+            self._preview_confirmed = False
+
+            def on_confirm():
+                self._preview_confirmed = True
+                confirm_event.set()
+
+            def on_cancel():
+                self._preview_confirmed = False
+                confirm_event.set()
+
+            self.after(0, lambda: PlanPreviewWindow(self, cliente, plan, on_confirm, on_cancel))
+            confirm_event.wait()
+
+            if not self._preview_confirmed:
+                self._log("Generación cancelada por el usuario.")
+                return
+
+            self.after(0, lambda: self.progress_indicator.set_progress(0.80, "Generando PDF…"))
+
             if not os.path.exists(CARPETA_SALIDA):
                 os.makedirs(CARPETA_SALIDA)
             fecha = datetime.now().strftime("%Y-%m-%d")
@@ -422,42 +687,38 @@ class GymApp(ctk.CTk):
             hora = datetime.now().strftime("%H-%M-%S")
             nombre_pdf = f"{nombre_cliente_sanitizado}_{fecha}_{hora}.pdf"
             ruta_pdf_completa = os.path.join(carpeta_cliente, nombre_pdf)
-            
+
             generador = GeneradorPDFProfesional(ruta_pdf_completa)
             ruta_pdf = generador.generar(cliente, plan)
             self.ultimo_pdf = ruta_pdf if ruta_pdf and os.path.exists(ruta_pdf) else None
-            
+
             self.after(0, lambda: self.btn_abrir_pdf.configure(state="normal" if self.ultimo_pdf else "disabled"))
             self.after(0, lambda: self.btn_whatsapp.configure(state="normal" if self.ultimo_pdf else "disabled"))
-            
+            self.after(0, lambda: self.progress_indicator.complete("✓ Plan generado y PDF listo"))
+
             if self.ultimo_pdf:
                 try:
                     os.startfile(self.ultimo_pdf)
                     self._log("PDF abierto automaticamente.")
                 except Exception as e:
                     self._log(f"No se pudo abrir el PDF: {e}")
-            
+
             comidas = ['desayuno', 'almuerzo', 'comida', 'cena']
             kcal_real = sum(plan[c].get('kcal_real', 0) for c in comidas if c in plan)
             desv_max = max(plan[c].get('desviacion_pct', 0) for c in comidas if c in plan)
-            
-            print("\n" + "=" * 60)
-            print("  PLAN GENERADO EXITOSAMENTE!")
-            print("=" * 60)
-            print(f"\n  Cliente: {nombre}")
-            print(f"  Objetivo: {objetivo.upper()}")
-            print(f"  Kcal objetivo: {cliente.kcal_objetivo:.0f}")
-            print(f"  Kcal reales: {kcal_real:.0f}")
-            print(f"  Desviacion maxima: {desv_max:.2f}%")
-            print(f"\n  PDF guardado en: {ruta_pdf}")
-            print("\n" + "=" * 60)
-            
+
+            self._log(f"PLAN GENERADO — {nombre} | {objetivo.upper()} | "
+                      f"Kcal obj: {cliente.kcal_objetivo:.0f} | "
+                      f"Kcal real: {kcal_real:.0f} | Desv. máx: {desv_max:.2f}%")
+            self._log(f"PDF: {ruta_pdf}")
+
         except ValueError as ve:
             self._log(f"Error de validacion: {ve}")
-            messagebox.showerror("Error de Validacion", f"Por favor verifica los datos.\nDetalle: {ve}")
+            self.after(0, lambda: messagebox.showerror(
+                "Error de Validación", f"Por favor verifica los datos.\nDetalle: {ve}"))
         except Exception as e:
             self._log(f"ERROR: {str(e)}")
-            messagebox.showerror("Error", f"Ocurrio un error:\n{str(e)}")
+            self.after(0, lambda: messagebox.showerror("Error", f"Ocurrio un error:\n{str(e)}"))
             import traceback
             traceback.print_exc()
         finally:

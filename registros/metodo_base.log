@@ -1,0 +1,25 @@
+[2026-03-08 19:07:35] [INFO] [generador_planes.py:381] [AJUSTE] Kcal base 2576 -> final 2576 (sin ajuste)
+[2026-03-08 19:07:35] [INFO] [gestor_rotacion.py:209] [INIT] Primer historial para este cliente
+[2026-03-08 19:07:35] [INFO] [generador_planes.py:404] [ROTACION] 0 alimentos con penalización ponderada
+[2026-03-08 19:07:35] [INFO] [generador_planes.py:409] Intento 1/3 de generación de plan
+[2026-03-08 19:07:35] [INFO] [generador_planes.py:579] Plan válido generado en intento 1/3
+[2026-03-08 19:07:43] [INFO] [generador_planes.py:381] [AJUSTE] Kcal base 2576 -> final 2576 (sin ajuste)
+[2026-03-08 19:07:43] [INFO] [gestor_rotacion.py:209] [INIT] Primer historial para este cliente
+[2026-03-08 19:07:43] [INFO] [generador_planes.py:404] [ROTACION] 0 alimentos con penalización ponderada
+[2026-03-08 19:07:43] [INFO] [generador_planes.py:409] Intento 1/3 de generación de plan
+[2026-03-08 19:07:43] [INFO] [generador_planes.py:579] Plan válido generado en intento 1/3
+[2026-03-08 19:07:50] [INFO] [generador_planes.py:381] [AJUSTE] Kcal base 2576 -> final 2576 (sin ajuste)
+[2026-03-08 19:07:50] [INFO] [gestor_rotacion.py:209] [INIT] Primer historial para este cliente
+[2026-03-08 19:07:50] [INFO] [generador_planes.py:404] [ROTACION] 0 alimentos con penalización ponderada
+[2026-03-08 19:07:50] [INFO] [generador_planes.py:409] Intento 1/3 de generación de plan
+[2026-03-08 19:07:50] [INFO] [generador_planes.py:579] Plan válido generado en intento 1/3
+[2026-03-08 19:08:58] [INFO] [generador_planes.py:381] [AJUSTE] Kcal base 2576 -> final 2576 (sin ajuste)
+[2026-03-08 19:08:58] [INFO] [gestor_rotacion.py:209] [INIT] Primer historial para este cliente
+[2026-03-08 19:08:58] [INFO] [generador_planes.py:404] [ROTACION] 0 alimentos con penalización ponderada
+[2026-03-08 19:08:58] [INFO] [generador_planes.py:409] Intento 1/3 de generación de plan
+[2026-03-08 19:08:58] [INFO] [generador_planes.py:579] Plan válido generado en intento 1/3
+[2026-03-08 19:10:02] [INFO] [generador_planes.py:381] [AJUSTE] Kcal base 2576 -> final 2576 (sin ajuste)
+[2026-03-08 19:10:02] [INFO] [gestor_rotacion.py:209] [INIT] Primer historial para este cliente
+[2026-03-08 19:10:02] [INFO] [generador_planes.py:404] [ROTACION] 0 alimentos con penalización ponderada
+[2026-03-08 19:10:02] [INFO] [generador_planes.py:409] Intento 1/3 de generación de plan
+[2026-03-08 19:10:02] [INFO] [generador_planes.py:579] Plan válido generado en intento 1/3

@@ -188,29 +188,69 @@ ALIMENTOS_LIMITE_ESTRICTO = {'frijoles'}
 # ============================================================================
 
 LIMITES_DUROS_ALIMENTOS = {
-    'frijoles': 200,
-    'arroz_blanco': 250,
-    'arroz_integral': 250,
-    'papa': 200,
-    'camote': 200,
-    'salmon': 200,
-    'pechuga_de_pollo': 200,
-    'carne_magra_res': 200,
-    'pescado_blanco': 180,
-    'pan_integral': 100,
-    'avena': 80,
-    'huevo': 200,
-    'claras_huevo': 250,
-    'yogurt': 150,
-    'queso_panela': 50,
-    'aguacate': 100,
-    'aceite_de_oliva': 20,
-    'mantequilla_mani': 40,
-    'almendras': 40,
-    'nueces': 40,
-    'banana': 100,
-    'platano': 100,
-    'tortilla_maiz': 150,
+    # PROTEÍNAS (g por comida)
+    'huevo':               200,   # ~4 huevos
+    'pechuga_de_pollo':    200,
+    'carne_magra_res':     180,
+    'pescado_blanco':      200,
+    'salmon':              150,   # más caro
+    'claras_huevo':        300,
+    'queso_panela':        100,
+    'yogurt_griego_light': 200,
+    'yogurt':              200,
+    'proteina_suero':       40,   # ~1 scoop
+    # CARBOHIDRATOS
+    'arroz_blanco':        200,   # ~2 tazas cocido
+    'arroz_integral':      200,
+    'papa':                250,
+    'camote':              250,
+    'avena':               100,   # ~1 taza
+    'pan_integral':        100,   # ~3 rebanadas
+    'tortilla_maiz':       120,   # ~4 tortillas
+    'frijoles':            250,   # muy económico y nutritivo
+    'lentejas':            200,
+    'banana':              200,   # ~2 bananas
+    'platano':             200,
+    # GRASAS
+    'aguacate':            100,   # ~1 aguacate mediano
+    'nueces':               40,
+    'almendras':            40,
+    'aceite_de_oliva':      20,   # ~2 cucharadas
+    'mantequilla_mani':     30,
+    # VEGETALES (fibra, sin límite estricto)
+    'brocoli':             300,
+    'espinaca':            300,
+    'lechuga_romana':      300,
+    'pepino':              300,
+    'tomate':              300,
+    'zanahoria':           300,
+    'calabaza':            300,
+    'calabacita':          300,
+    'col':                 300,
+}
+
+
+# ============================================================================
+# FRECUENCIA MÁXIMA SEMANAL POR ALIMENTO
+# ============================================================================
+
+FRECUENCIA_MAXIMA_SEMANAL: dict[str, int] = {
+    # Alimentos de costo elevado o ingesta limitada
+    'salmon':          2,
+    'aguacate':        4,
+    'proteina_suero':  5,
+    'nueces':          5,
+    'almendras':       5,
+    # Alimentos económicos: sin restricción práctica
+    'frijoles':       99,
+    'lentejas':       99,
+    'huevo':          99,
+    'arroz_blanco':   99,
+    'arroz_integral': 99,
+    'papa':           99,
+    'camote':         99,
+    'avena':          99,
+    'tortilla_maiz':  99,
 }
 
 

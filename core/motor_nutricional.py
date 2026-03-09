@@ -2,7 +2,21 @@
 CAPA 1: Motor Nutricional (Katch-McArdle, GET, Macros)
 CAPA 2: Ajuste Calórico Mensual
 """
+from dataclasses import dataclass, field
 from utils.helpers import cargar_plan_anterior_cliente
+
+
+# ============================================================================
+# ALERTAS DE SALUD
+# ============================================================================
+
+@dataclass
+class AlertaSalud:
+    """Representa una alerta de salud que la GUI puede mostrar al usuario."""
+    nivel: str          # 'warning' | 'error'
+    codigo: str         # identificador único de la alerta
+    mensaje: str        # texto legible para el usuario
+    detalle: str = ''   # información adicional técnica
 
 
 class MotorNutricional:
@@ -43,7 +57,13 @@ class MotorNutricional:
         Fórmula #9: Proteína = 1.8g * peso => kcal = proteína * 4
         Fórmula #10: Grasas = 0.8g * peso => kcal = grasas * 9
         Fórmula #11: Carbohidratos = kcal_restantes / 4
+
+        Incluye detección de alertas de salud:
+        - Déficit > 25 %
+        - Carbohidratos < 0.5 g/kg tras ajuste de grasa
         """
+        alertas: list[AlertaSalud] = []
+
         proteina_g = 1.8 * peso_kg
         kcal_proteína = proteina_g * 4
         
@@ -61,7 +81,24 @@ class MotorNutricional:
             kcal_restantes = kcal_objetivo - (kcal_proteína + kcal_grasa)
             carbs_g = kcal_restantes / 4
             kcal_carbs = carbs_g * 4
-        
+
+        # --- Alertas de salud ---
+        # 1) Carbohidratos < 0.5 g/kg tras ajuste
+        if carbs_g < (0.5 * peso_kg):
+            alertas.append(AlertaSalud(
+                nivel='warning',
+                codigo='CARBS_MUY_BAJOS',
+                mensaje=(
+                    f'Carbohidratos muy bajos: {carbs_g:.1f}g '
+                    f'(mínimo recomendado: {0.5 * peso_kg:.1f}g para {peso_kg:.0f}kg)'
+                ),
+                detalle=(
+                    'Los carbohidratos cayeron por debajo de 0.5 g/kg tras el '
+                    'ajuste de grasa. Considera aumentar las calorías objetivo o '
+                    'reducir el déficit.'
+                ),
+            ))
+
         return {
             'proteina_g': proteina_g,
             'grasa_g': grasa_g,
@@ -69,11 +106,18 @@ class MotorNutricional:
             'kcal_proteína': kcal_proteína,
             'kcal_grasa': kcal_grasa,
             'kcal_carbs': kcal_carbs,
+            'alertas': alertas,
         }
     
     @classmethod
     def calcular_motor(cls, cliente) -> object:
-        """Ejecuta todo el flujo: masa magra => TMB => GET => kcal_objetivo => macros."""
+        """Ejecuta todo el flujo: masa magra => TMB => GET => kcal_objetivo => macros.
+
+        Además genera alertas de salud:
+        - Déficit > 25 % respecto al GET
+        - Carbohidratos < 0.5 g/kg
+        Las alertas se almacenan en ``cliente.alertas_salud``.
+        """
         cliente.masa_magra = cls.calcular_masa_magra(cliente.peso_kg, cliente.grasa_corporal_pct)
         cliente.tmb = cls.calcular_tmb(cliente.masa_magra)
         cliente.get_total = cls.calcular_get(cliente.tmb, cliente.factor_actividad)
@@ -86,7 +130,30 @@ class MotorNutricional:
         cliente.kcal_proteína = macros['kcal_proteína']
         cliente.kcal_grasa = macros['kcal_grasa']
         cliente.kcal_carbs = macros['kcal_carbs']
-        
+
+        # --- Alertas de salud ---
+        alertas: list[AlertaSalud] = list(macros.get('alertas', []))
+
+        # Déficit > 25 %
+        if cliente.get_total > 0:
+            deficit_pct = (1 - cliente.kcal_objetivo / cliente.get_total) * 100
+            if deficit_pct > 25:
+                alertas.append(AlertaSalud(
+                    nivel='error',
+                    codigo='DEFICIT_EXCESIVO',
+                    mensaje=(
+                        f'Déficit calórico excesivo: {deficit_pct:.1f}% '
+                        f'(máximo recomendado: 25%)'
+                    ),
+                    detalle=(
+                        f'GET={cliente.get_total:.0f} kcal, '
+                        f'Objetivo={cliente.kcal_objetivo:.0f} kcal. '
+                        'Un déficit superior al 25% puede provocar pérdida '
+                        'de masa muscular y efectos metabólicos negativos.'
+                    ),
+                ))
+
+        cliente.alertas_salud = alertas
         return cliente
 
 

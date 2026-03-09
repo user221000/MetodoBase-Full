@@ -22,6 +22,7 @@ from core.generador_comidas import (
     ValidadorEnergia, ReajustadorPlan,
 )
 from utils.helpers import cargar_plan_anterior_cliente
+from utils.logger import logger
 
 
 # ============================================================================
@@ -185,11 +186,12 @@ class ConstructorPlan:
         
         meal_idx = 0
         for nombre_comida, macros_comida in distribucion.items():
-            penalizados_hoy = gestor_rotacion.obtener_penalizados()
+            penalizados_hoy = gestor_rotacion.obtener_penalizados_flat()
+            penalizados_por_cat = gestor_rotacion.obtener_penalizados()
             
-            proteinas_list = selector.seleccionar_lista('proteina', meal_idx, alimentos_usados_plan)
-            carbs_list = selector.seleccionar_lista('carbs', meal_idx, alimentos_usados_plan)
-            grasas_list = selector.seleccionar_lista('grasa', meal_idx, alimentos_usados_plan)
+            proteinas_list = selector.seleccionar_lista('proteina', meal_idx, alimentos_usados_plan, alimentos_penalizados=penalizados_por_cat)
+            carbs_list = selector.seleccionar_lista('carbs', meal_idx, alimentos_usados_plan, alimentos_penalizados=penalizados_por_cat)
+            grasas_list = selector.seleccionar_lista('grasa', meal_idx, alimentos_usados_plan, alimentos_penalizados=penalizados_por_cat)
             
             prot_alimentos = calculador.calcular_iterativo(
                 macros_comida['proteina'], 'proteina', proteinas_list, meal_idx, penalizados=penalizados_hoy
@@ -258,7 +260,7 @@ class ConstructorPlan:
                 if nombre not in ALIMENTOS_BASE
             ]
             if alimentos_invalidos:
-                print(f"⚠️ Alimentos inválidos removidos: {alimentos_invalidos}")
+                logger.warning("Alimentos inválidos removidos: %s", alimentos_invalidos)
                 comida_dict['alimentos'] = {
                     nombre: gramos
                     for nombre, gramos in comida_dict['alimentos'].items()
@@ -306,6 +308,19 @@ class ConstructorPlan:
 
 
 # ============================================================================
+# EXCEPCIÓN CUSTOM
+# ============================================================================
+
+class PlanInvalidoError(Exception):
+    """Se lanza cuando no se puede generar un plan válido tras todos los intentos."""
+
+    def __init__(self, mensaje: str, errores: list[str], cliente_id: str):
+        super().__init__(mensaje)
+        self.errores = errores
+        self.cliente_id = cliente_id
+
+
+# ============================================================================
 # #16B NUEVO CONSTRUCTOR: Flujo secuencial (Proteína → Carbs → Grasas)
 # ============================================================================
 
@@ -324,36 +339,48 @@ class ConstructorPlanNuevo:
     """
     
     @staticmethod
-    def construir(cliente: ClienteEvaluacion, plan_numero: int = 1, directorio_planes: str = ".") -> dict:
+    def construir(
+        cliente: ClienteEvaluacion,
+        plan_numero: int = 1,
+        directorio_planes: str = ".",
+        max_intentos: int = 3,
+    ) -> dict:
         """
-        Construye plan nutricional de forma COMPLETAMENTE DETERMINISTA con ROTACIÓN.
+        Construye plan con validación robusta y reintentos.
+
+        Args:
+            max_intentos: Número máximo de intentos antes de lanzar PlanInvalidoError.
+
+        Raises:
+            PlanInvalidoError: Si después de max_intentos el plan sigue inválido
+                               y MODO_ESTRICTO está activo.
         """
-        # Generar seeds deterministas con bloque de 4 semanas
+        # ── Una sola vez: seeds, ajuste calórico, distribución, rotación ──
         bloque = 1 if plan_numero <= 3 else 2
         seed_base, seed_variacion = generar_seed_bloques(cliente, gym_id="default")
-        seed = seed_base if bloque == 1 else seed_variacion
-        micro_seed = generar_seed(cliente, semana=plan_numero, gym_id="default")
-        bloque_indice = bloque
-        
-        # Ajuste calórico mensual
+        seed_inicial = seed_base if bloque == 1 else seed_variacion
+        micro_seed = generar_seed(cliente, semana=plan_numero, gym_id="default")  # noqa: F841
+        bloque_indice = bloque  # noqa: F841
+
         kcal_objetivo_original = cliente.kcal_objetivo
-        kcal_objetivo_para_usar = cliente.kcal_objetivo
-        ajuste_aplicado = False
-        
         plan_anterior = cargar_plan_anterior_cliente(cliente.id_cliente, directorio_planes)
-        
+
         kcal_objetivo_para_usar, ajuste_aplicado = AjusteCaloricoMensual.aplicar_ajuste(
             cliente_id=cliente.id_cliente,
             peso_actual=cliente.peso_kg,
             objetivo=cliente.objetivo,
             kcal_objetivo_base=kcal_objetivo_original,
             plan_anterior=plan_anterior,
-            directorio_planes=directorio_planes
+            directorio_planes=directorio_planes,
         )
-        ajuste_desc = 'ajuste -5%' if (ajuste_aplicado and cliente.objetivo == 'deficit') else ('ajuste +5%' if (ajuste_aplicado and cliente.objetivo == 'superavit') else 'sin ajuste')
-        print(f"  [AJUSTE] Kcal base {kcal_objetivo_original:.0f} -> final {kcal_objetivo_para_usar:.0f} ({ajuste_desc})")
-        
-        # Recalcular macros si hubo ajuste
+        ajuste_desc = (
+            'ajuste -5%' if (ajuste_aplicado and cliente.objetivo == 'deficit')
+            else 'ajuste +5%' if (ajuste_aplicado and cliente.objetivo == 'superavit')
+            else 'sin ajuste'
+        )
+        logger.info("[AJUSTE] Kcal base %.0f -> final %.0f (%s)",
+                    kcal_objetivo_original, kcal_objetivo_para_usar, ajuste_desc)
+
         if ajuste_aplicado:
             macros_finales = MotorNutricional.calcular_macros(cliente.peso_kg, kcal_objetivo_para_usar)
         else:
@@ -362,7 +389,7 @@ class ConstructorPlanNuevo:
                 'grasa_g': cliente.grasa_g,
                 'carbs_g': cliente.carbs_g,
             }
-        
+
         distribuidor = DistribuidorComidas()
         distribucion = distribuidor.distribuir(
             kcal_objetivo_para_usar,
@@ -370,182 +397,219 @@ class ConstructorPlanNuevo:
             macros_finales['grasa_g'],
             macros_finales['carbs_g'],
         )
-        
-        selector = SelectorAlimentos()
-        calculador_nuevo = CalculadorGramosNuevo()
-        plan = {}
-        alimentos_usados_plan = set()
-        
-        for meal_idx, (nombre_comida, macros_comida) in enumerate(distribucion.items()):
-            alimentos_dict = {}
-            
-            # FASE 1: PROTEÍNA
-            lista_proteinas = selector.seleccionar_lista(
-                'proteina', meal_idx, alimentos_usados=alimentos_usados_plan,
-                seed=seed, plan_numero=plan_numero
-            )
-            main_protein = None
-            for prot in lista_proteinas:
-                if not any(item in PROTEIN_FOODS for item in alimentos_dict):
-                    main_protein = prot
-                    break
-            proteinas_asignadas, kcal_proteina, proteina_congelada = (
-                calculador_nuevo.asignar_proteina_estructural(
-                    macros_comida['proteina'],
-                    [main_protein] if main_protein else lista_proteinas,
-                    meal_idx,
-                    penalizados=set(),
-                    alimentos_usados_plan=alimentos_usados_plan
-                )
-            )
-            if not proteina_congelada:
-                print(f"⚠️ ADVERTENCIA: Proteína no congelada en {nombre_comida} (plan #{plan_numero})")
-            alimentos_dict.update(proteinas_asignadas)
-            alimentos_usados_plan.update(proteinas_asignadas.keys())
-            proteina_principal = next(iter(proteinas_asignadas.keys()), None)
-            
-            # Calcular carbs/grasas aportadas por proteína
-            carbs_desde_proteina = 0.0
-            grasa_desde_proteina = 0.0
-            for ali_nombre in proteinas_asignadas:
-                ali_data = ALIMENTOS_BASE.get(ali_nombre, {})
-                gramos = proteinas_asignadas[ali_nombre]
-                carbs_desde_proteina += gramos * (ali_data.get('carbs', 0) / 100)
-                grasa_desde_proteina += gramos * (ali_data.get('grasa', 0) / 100)
-            
-            # FASE 2: CARBS
-            lista_carbs = selector.seleccionar_lista(
-                'carbs', meal_idx, alimentos_usados=alimentos_usados_plan,
-                seed=seed, plan_numero=plan_numero
-            )
-            carbs_asignados, kcal_carbs = calculador_nuevo.asignar_carbs(
-                macros_comida['carbs'], carbs_desde_proteina,
-                lista_carbs, meal_idx, alimentos_usados_plan=alimentos_usados_plan
-            )
-            alimentos_dict.update(carbs_asignados)
-            alimentos_usados_plan.update(carbs_asignados.keys())
-            
-            # FASE 3: GRASAS
-            lista_grasas = selector.seleccionar_lista(
-                'grasa', meal_idx, alimentos_usados=alimentos_usados_plan,
-                seed=seed, plan_numero=plan_numero
-            )
-            grasas_asignados, kcal_grasas = calculador_nuevo.asignar_grasas(
-                macros_comida['grasa'], grasa_desde_proteina,
-                lista_grasas, alimentos_usados_plan=alimentos_usados_plan,
-                proteina_principal=proteina_principal
-            )
-            alimentos_dict.update(grasas_asignados)
-            alimentos_usados_plan.update(grasas_asignados.keys())
-            
-            # FASE 4: VEGETAL BASE
-            vegetal = calculador_nuevo.insertar_vegetal_base(meal_idx)
-            alimentos_dict.update(vegetal)
-            
-            # FASE 5: VALIDACIÓN ENERGÉTICA
-            alimentos_dict = calculador_nuevo.validar_energetica(
-                alimentos_dict, macros_comida['kcal'],
-                proteina_congelada=True,
-                lista_carbs=lista_carbs, lista_grasas=lista_grasas,
-                lista_proteinas=lista_proteinas, macros_comida=macros_comida,
-                meal_idx=meal_idx, alimentos_usados_plan=alimentos_usados_plan
-            )
-            
-            # CAPA 3c: ConstructorMealStructure - CONTRATO OBLIGATORIO
-            comida_estructurada = ConstructorMealStructure.construir(
-                nombre_comida=nombre_comida,
-                kcal_objetivo=macros_comida['kcal'],
-                macros_objetivo={
-                    'proteina': macros_comida['proteina'],
-                    'carbs': macros_comida['carbs'],
-                    'grasa': macros_comida['grasa'],
-                },
-                alimentos_dict=alimentos_dict,
-                macros_comida=macros_comida
-            )
-            
-            # Redondeo clínico solo para desayuno
-            if meal_idx == 0:
-                comida_estructurada = _aplicar_redondeo_clinico_desayuno(comida_estructurada)
-            
-            # Validación energética final
-            if comida_estructurada.get('desviacion_pct', 0) > 5:
-                comida_estructurada = ValidadorEnergia.validar_y_ajustar(
-                    comida_estructurada, macros_comida['kcal'], meal_idx=meal_idx
-                )
-            
-            plan[nombre_comida] = comida_estructurada
-        
-        # Validar límites estrictos
-        plan = _validar_limites_estrictos_por_plan(plan)
-        
-        # Metadatos para próximo mes
-        plan['metadata_mes_anterior'] = {
-            'peso_base_mes': cliente.peso_kg,
-            'kcal_totales_mes': kcal_objetivo_para_usar,
-            'kcal_totales_sin_ajuste': kcal_objetivo_original,
-            'ajuste_aplicado': ajuste_aplicado,
-            'version_motor': '1.0',
-            'seed_base': seed_base,
-            'seed_variacion': seed_variacion,
-            'objetivo': cliente.objetivo,
-            'fecha_plan': datetime.now().isoformat(),
-        }
-        
-        # ENFORCE GLOBAL DE LÍMITES
-        FACTOR_MAXIMO = 1.2
-        for comida_nombre in ['desayuno', 'almuerzo', 'comida', 'cena']:
-            if comida_nombre not in plan or 'alimentos' not in plan[comida_nombre]:
-                continue
-            
-            for ali_nombre, gramos in list(plan[comida_nombre]['alimentos'].items()):
-                if ali_nombre not in ALIMENTOS_BASE:
-                    continue
-                limite_duro = LIMITES_DUROS_ALIMENTOS.get(ali_nombre, 999)
-                limite_maximo = limite_duro * FACTOR_MAXIMO
-                if gramos > limite_maximo:
-                    plan[comida_nombre]['alimentos'][ali_nombre] = limite_maximo
-            
-            kcal_objetivo = plan[comida_nombre].get('kcal_objetivo', 1)
-            kcal_real = sum(
-                g * ALIMENTOS_BASE[n]['kcal'] / 100
-                for n, g in plan[comida_nombre]['alimentos'].items()
-                if n in ALIMENTOS_BASE
-            )
-            plan[comida_nombre]['kcal_real'] = kcal_real
-            plan[comida_nombre]['desviacion_pct'] = abs(kcal_real - kcal_objetivo) / max(kcal_objetivo, 1) * 100
-        
-        # VALIDACIÓN FINAL: Contrato
-        es_valido, errores_contrato = MealStructureContract.validar_plan_completo(plan)
-        
-        if not es_valido:
-            comidas_ok = sum(1 for c in ['desayuno', 'almuerzo', 'comida', 'cena']
-                            if c in plan and 'kcal_objetivo' in plan.get(c, {}))
-            print(f"\n!ALERTA Plan cumple {comidas_ok}/4 comidas con contrato")
-            for error in errores_contrato[:5]:
-                print(f"   {error}")
-            
-            print("\n[REAJUSTE AUTOMATICO] Iniciando ciclo de corrección...")
-            plan, plan_corregido, logs_reajuste = ReajustadorPlan.reajustar_plan(plan)
-            
-            for log in logs_reajuste:
-                print(f"   {log}")
-            
-            if plan_corregido:
-                print("\n[OK] Plan CORREGIDO después de reajuste automático")
-                es_valido = True
-            else:
+
+        gestor_rotacion = GestorRotacionAlimentos(cliente.id_cliente)
+        penalizados_por_cat = gestor_rotacion.obtener_penalizados()
+        pesos_ponderados = gestor_rotacion._inteligente.obtener_penalizaciones_ponderadas()
+        logger.info("[ROTACION] %d alimentos con penalización ponderada", len(pesos_ponderados))
+
+        # ── Bucle de reintentos ──
+        for intento in range(1, max_intentos + 1):
+            seed = seed_inicial + (intento - 1)   # variar seed en cada intento
+            logger.info("Intento %d/%d de generación de plan", intento, max_intentos)
+
+            try:
+                selector = SelectorAlimentos()
+                calculador_nuevo = CalculadorGramosNuevo()
+                plan: dict = {}
+                alimentos_usados_plan: set = set()
+
+                for meal_idx, (nombre_comida, macros_comida) in enumerate(distribucion.items()):
+                    alimentos_dict = {}
+
+                    # FASE 1: PROTEÍNA
+                    lista_proteinas = selector.seleccionar_lista(
+                        'proteina', meal_idx, alimentos_usados=alimentos_usados_plan,
+                        seed=seed, plan_numero=plan_numero,
+                        alimentos_penalizados=penalizados_por_cat,
+                        pesos_ponderados=pesos_ponderados,
+                    )
+                    main_protein = None
+                    for prot in lista_proteinas:
+                        if not any(item in PROTEIN_FOODS for item in alimentos_dict):
+                            main_protein = prot
+                            break
+                    proteinas_asignadas, kcal_proteina, proteina_congelada = (
+                        calculador_nuevo.asignar_proteina_estructural(
+                            macros_comida['proteina'],
+                            [main_protein] if main_protein else lista_proteinas,
+                            meal_idx,
+                            penalizados=set(),
+                            alimentos_usados_plan=alimentos_usados_plan,
+                        )
+                    )
+                    if not proteina_congelada:
+                        logger.warning("Proteína no congelada en %s (plan #%d)",
+                                       nombre_comida, plan_numero)
+                    alimentos_dict.update(proteinas_asignadas)
+                    alimentos_usados_plan.update(proteinas_asignadas.keys())
+                    proteina_principal = next(iter(proteinas_asignadas.keys()), None)
+
+                    carbs_desde_proteina = 0.0
+                    grasa_desde_proteina = 0.0
+                    for ali_nombre in proteinas_asignadas:
+                        ali_data = ALIMENTOS_BASE.get(ali_nombre, {})
+                        gramos = proteinas_asignadas[ali_nombre]
+                        carbs_desde_proteina += gramos * (ali_data.get('carbs', 0) / 100)
+                        grasa_desde_proteina += gramos * (ali_data.get('grasa', 0) / 100)
+
+                    # FASE 2: CARBS
+                    lista_carbs = selector.seleccionar_lista(
+                        'carbs', meal_idx, alimentos_usados=alimentos_usados_plan,
+                        seed=seed, plan_numero=plan_numero,
+                        alimentos_penalizados=penalizados_por_cat,
+                        pesos_ponderados=pesos_ponderados,
+                    )
+                    carbs_asignados, kcal_carbs = calculador_nuevo.asignar_carbs(
+                        macros_comida['carbs'], carbs_desde_proteina,
+                        lista_carbs, meal_idx, alimentos_usados_plan=alimentos_usados_plan,
+                    )
+                    alimentos_dict.update(carbs_asignados)
+                    alimentos_usados_plan.update(carbs_asignados.keys())
+
+                    # FASE 3: GRASAS
+                    lista_grasas = selector.seleccionar_lista(
+                        'grasa', meal_idx, alimentos_usados=alimentos_usados_plan,
+                        seed=seed, plan_numero=plan_numero,
+                        alimentos_penalizados=penalizados_por_cat,
+                        pesos_ponderados=pesos_ponderados,
+                    )
+                    grasas_asignados, kcal_grasas = calculador_nuevo.asignar_grasas(
+                        macros_comida['grasa'], grasa_desde_proteina,
+                        lista_grasas, alimentos_usados_plan=alimentos_usados_plan,
+                        proteina_principal=proteina_principal,
+                    )
+                    alimentos_dict.update(grasas_asignados)
+                    alimentos_usados_plan.update(grasas_asignados.keys())
+
+                    # FASE 4: VEGETAL BASE
+                    alimentos_dict.update(calculador_nuevo.insertar_vegetal_base(meal_idx))
+
+                    # FASE 5: VALIDACIÓN ENERGÉTICA
+                    alimentos_dict = calculador_nuevo.validar_energetica(
+                        alimentos_dict, macros_comida['kcal'],
+                        proteina_congelada=True,
+                        lista_carbs=lista_carbs, lista_grasas=lista_grasas,
+                        lista_proteinas=lista_proteinas, macros_comida=macros_comida,
+                        meal_idx=meal_idx, alimentos_usados_plan=alimentos_usados_plan,
+                    )
+
+                    comida_estructurada = ConstructorMealStructure.construir(
+                        nombre_comida=nombre_comida,
+                        kcal_objetivo=macros_comida['kcal'],
+                        macros_objetivo={
+                            'proteina': macros_comida['proteina'],
+                            'carbs':    macros_comida['carbs'],
+                            'grasa':    macros_comida['grasa'],
+                        },
+                        alimentos_dict=alimentos_dict,
+                        macros_comida=macros_comida,
+                    )
+
+                    if meal_idx == 0:
+                        comida_estructurada = _aplicar_redondeo_clinico_desayuno(comida_estructurada)
+
+                    if comida_estructurada.get('desviacion_pct', 0) > 5:
+                        comida_estructurada = ValidadorEnergia.validar_y_ajustar(
+                            comida_estructurada, macros_comida['kcal'], meal_idx=meal_idx
+                        )
+
+                    plan[nombre_comida] = comida_estructurada
+
+                # ── Post-processing (límites, metadatos) ──
+                plan = _validar_limites_estrictos_por_plan(plan)
+
+                plan['metadata_mes_anterior'] = {
+                    'peso_base_mes': cliente.peso_kg,
+                    'kcal_totales_mes': kcal_objetivo_para_usar,
+                    'kcal_totales_sin_ajuste': kcal_objetivo_original,
+                    'ajuste_aplicado': ajuste_aplicado,
+                    'version_motor': '1.0',
+                    'seed_base': seed_base,
+                    'seed_variacion': seed_variacion,
+                    'objetivo': cliente.objetivo,
+                    'fecha_plan': datetime.now().isoformat(),
+                }
+
+                FACTOR_MAXIMO = 1.2
+                for comida_nombre in ['desayuno', 'almuerzo', 'comida', 'cena']:
+                    if comida_nombre not in plan or 'alimentos' not in plan[comida_nombre]:
+                        continue
+                    for ali_nombre, gramos in list(plan[comida_nombre]['alimentos'].items()):
+                        if ali_nombre not in ALIMENTOS_BASE:
+                            continue
+                        limite_maximo = LIMITES_DUROS_ALIMENTOS.get(ali_nombre, 999) * FACTOR_MAXIMO
+                        if gramos > limite_maximo:
+                            plan[comida_nombre]['alimentos'][ali_nombre] = limite_maximo
+                    kcal_obj_c = plan[comida_nombre].get('kcal_objetivo', 1)
+                    kcal_real_c = sum(
+                        g * ALIMENTOS_BASE[n]['kcal'] / 100
+                        for n, g in plan[comida_nombre]['alimentos'].items()
+                        if n in ALIMENTOS_BASE
+                    )
+                    plan[comida_nombre]['kcal_real'] = kcal_real_c
+                    plan[comida_nombre]['desviacion_pct'] = (
+                        abs(kcal_real_c - kcal_obj_c) / max(kcal_obj_c, 1) * 100
+                    )
+
+                # ── Validación final + reajuste rápido ──
                 es_valido, errores_contrato = MealStructureContract.validar_plan_completo(plan)
-                
-                if MODO_ESTRICTO and not es_valido:
-                    print("\n❌ PLAN INVALIDO - REAJUSTE AUTOMATICO FALLIDO (MODO_ESTRICTO)\n")
-                    for e in errores_contrato:
-                        print(f"   {e}")
-                    raise Exception("Plan invalido por violacion de contrato energetico (>5%) - Reajuste fallido")
-        else:
-            print(f"\n[OK] Plan cumple contrato arquitectonico completamente")
-        
-        return plan
+
+                if not es_valido:
+                    comidas_ok = sum(
+                        1 for c in ['desayuno', 'almuerzo', 'comida', 'cena']
+                        if c in plan and 'kcal_objetivo' in plan.get(c, {})
+                    )
+                    logger.warning("ALERTA Plan cumple %d/4 comidas con contrato", comidas_ok)
+                    for err in errores_contrato[:5]:
+                        logger.warning("  Contrato: %s", err)
+
+                    logger.info("[REAJUSTE AUTOMATICO] Iniciando ciclo de corrección...")
+                    plan, plan_corregido, logs_reajuste = ReajustadorPlan.reajustar_plan(plan)
+                    for log in logs_reajuste:
+                        logger.debug("  %s", log)
+
+                    if plan_corregido:
+                        logger.info("[OK] Plan CORREGIDO en intento %d", intento)
+                        es_valido = True
+                    else:
+                        es_valido, errores_contrato = MealStructureContract.validar_plan_completo(plan)
+
+                if es_valido:
+                    logger.info("Plan válido generado en intento %d/%d", intento, max_intentos)
+                    return plan
+
+                # Plan sigue inválido
+                if intento < max_intentos:
+                    logger.warning(
+                        "Plan inválido en intento %d, reintentando. Errores: %s",
+                        intento, errores_contrato[:3],
+                    )
+                    continue
+
+                # Último intento agotado
+                logger.error(
+                    "Plan inválido después de %d intentos. Cliente: %s, Errores: %s",
+                    max_intentos, cliente.id_cliente, errores_contrato,
+                )
+                if MODO_ESTRICTO:
+                    raise PlanInvalidoError(
+                        f"No se pudo generar plan válido para {cliente.nombre}",
+                        errores=errores_contrato,
+                        cliente_id=cliente.id_cliente,
+                    )
+                logger.warning("MODO_ESTRICTO=False, retornando plan inválido")
+                return plan
+
+            except PlanInvalidoError:
+                raise
+            except Exception as e:  # noqa: BLE001
+                logger.error(
+                    "Excepción en intento %d para cliente %s",
+                    intento, cliente.id_cliente, exc_info=True,
+                )
+                if intento == max_intentos:
+                    raise
 
 
 # ============================================================================
@@ -580,9 +644,9 @@ def ejecutar_demo_gym():
     resultados = []
     
     for config in clientes_config:
-        print("\n" + "=" * 70)
-        print(f"PROCESANDO: {config['nombre'].upper()}")
-        print("=" * 70)
+        logger.info("=" * 70)
+        logger.info("PROCESANDO: %s", config['nombre'].upper())
+        logger.info("=" * 70)
         
         cliente = ClienteEvaluacion(
             nombre=config['nombre'], id_cliente=config['id_cliente'],
@@ -592,30 +656,32 @@ def ejecutar_demo_gym():
         )
         
         cliente.factor_actividad = FACTORES_ACTIVIDAD.get(cliente.nivel_actividad, 1.2)
-        print(f"  [1] Cliente creado: {cliente.id_cliente}")
+        logger.info("[1] Cliente creado: %s", cliente.id_cliente)
         
         cliente = MotorNutricional.calcular_motor(cliente)
-        print(f"  [2] TMB: {cliente.tmb:.0f} | GET: {cliente.get_total:.0f} | Kcal: {cliente.kcal_objetivo:.0f}")
+        logger.info("[2] TMB: %.0f | GET: %.0f | Kcal: %.0f", cliente.tmb, cliente.get_total, cliente.kcal_objetivo)
         
         kcal_ajustado, ajuste_aplicado = AjusteCaloricoMensual.aplicar_ajuste(
             cliente_id=cliente.id_cliente, peso_actual=cliente.peso_kg,
             objetivo=cliente.objetivo, kcal_objetivo_base=cliente.kcal_objetivo,
             plan_anterior=None, directorio_planes="planes"
         )
-        print(f"  [3] Kcal ajustado: {kcal_ajustado:.0f} | Ajuste: {ajuste_aplicado}")
+        logger.info("[3] Kcal ajustado: %.0f | Ajuste: %s", kcal_ajustado, ajuste_aplicado)
         
         distribucion = DistribuidorComidas.distribuir(
             cliente.kcal_objetivo, cliente.proteina_g, cliente.grasa_g, cliente.carbs_g
         )
-        print(f"  [4] Distribuido: Des {distribucion['desayuno']['kcal']:.0f} | Alm {distribucion['almuerzo']['kcal']:.0f} | Com {distribucion['comida']['kcal']:.0f} | Cen {distribucion['cena']['kcal']:.0f}")
+        logger.info("[4] Distribuido: Des %.0f | Alm %.0f | Com %.0f | Cen %.0f",
+                    distribucion['desayuno']['kcal'], distribucion['almuerzo']['kcal'],
+                    distribucion['comida']['kcal'], distribucion['cena']['kcal'])
         
         plan = ConstructorPlanNuevo.construir(cliente, plan_numero=1, directorio_planes="planes")
         
         es_valido, errores = MealStructureContract.validar_plan_completo(plan)
         if es_valido:
-            print("  [6] Plan VÁLIDO según contrato")
+            logger.info("[6] Plan VÁLIDO según contrato")
         else:
-            print(f"  [6] Plan INVÁLIDO: {errores}")
+            logger.warning("[6] Plan INVÁLIDO: %s", errores)
             if MODO_ESTRICTO:
                 raise Exception("Plan invalido por violacion de contrato energetico (>5%)")
         
