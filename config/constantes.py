@@ -12,7 +12,7 @@ from utils.helpers import resource_path
 LEAN_PROTEINS = {
     "pechuga_de_pollo",
     "pescado_blanco",
-    "atun",
+    "atun",  # TODO: verificar nombre — no existe en ALIMENTOS_BASE
     "claras_huevo",
     "pavo",
     "cerdo_lomo",
@@ -23,7 +23,7 @@ LEAN_PROTEINS = {
 FATTY_PROTEINS = {
     "salmon",
     "huevo",
-    "carne_molida",
+    "carne_molida",  # TODO: verificar nombre — no existe en ALIMENTOS_BASE
     "carne_magra_res",
     "sardina",
     "queso_panela",
@@ -194,8 +194,8 @@ MINIMOS_POR_ALIMENTO = {
     'tortilla_harina': 30,
     'cereal_integral': 30,
     'granola': 20,
-    'atun': 80,
-    'carne_molida': 80,
+    'atun': 80,  # TODO: verificar nombre
+    'carne_molida': 80,  # TODO: verificar nombre
     'pavo': 80,
     'cerdo_lomo': 80,
     'camarones': 80,
@@ -235,8 +235,8 @@ LIMITES_DUROS_ALIMENTOS = {
     'yogurt_griego_light': 200,
     'yogurt_natural':      200,
     'proteina_suero':       40,
-    'atun':                200,
-    'carne_molida':        200,
+    'atun':                200,  # TODO: verificar nombre
+    'carne_molida':        200,  # TODO: verificar nombre
     'pavo':                250,
     'cerdo_lomo':          200,
     'camarones':           200,
@@ -312,7 +312,7 @@ FRECUENCIA_MAXIMA_SEMANAL: dict[str, int] = {
     'almendras':           5,
     'camarones':           3,
     'sardina':             3,
-    'atun':                3,
+    'atun':                3,  # TODO: verificar nombre
     'semillas_chia':       5,
     'semillas_girasol':    5,
     'cacahuates':          5,
@@ -342,7 +342,7 @@ FRECUENCIA_MAXIMA_SEMANAL: dict[str, int] = {
 
 PROTEINAS_ESTRUCTURALES = {
     'pechuga_de_pollo', 'carne_magra_res', 'pescado_blanco', 'salmon',
-    'atun', 'pavo', 'cerdo_lomo', 'camarones',
+    'atun', 'pavo', 'cerdo_lomo', 'camarones',  # TODO: atun — verificar nombre
 }
 
 PROTEINAS_MIXTAS = {

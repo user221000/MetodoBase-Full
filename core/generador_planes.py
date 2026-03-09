@@ -42,17 +42,10 @@ def _aplicar_redondeo_clinico_desayuno(comida_dict: dict) -> dict:
     if 'alimentos' not in comida_dict:
         return comida_dict
     
-    proteinas_set = {'huevo', 'claras_huevo', 'yogurt_griego_light', 'proteina_suero', 
-                     'queso_panela', 'pechuga_de_pollo', 'carne_magra_res', 
-                     'pescado_blanco', 'salmon'}
-    
-    carbs_set = {'arroz_blanco', 'arroz_integral', 'papa', 'camote', 'pan_integral', 
-                 'avena', 'tortilla_maiz', 'frijoles', 'banana', 'platano'}
-    
-    grasas_set = {'aguacate', 'nueces', 'almendras', 'aceite_de_oliva', 'mantequilla_mani'}
-    
-    vegetales_set = {'brocoli', 'espinaca', 'lechuga_romana', 'pepino', 'tomate',
-                     'zanahoria', 'calabaza', 'calabacita', 'col'}
+    proteinas_set = set(CATEGORIAS.get('proteina', []))
+    carbs_set     = set(CATEGORIAS.get('carbs', []))
+    grasas_set    = set(CATEGORIAS.get('grasa', []))
+    vegetales_set = set(CATEGORIAS.get('verdura', []))
     
     def redondear(valor, multiplo):
         return round(valor / multiplo) * multiplo

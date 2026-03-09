@@ -338,31 +338,36 @@ class CalculadorGramosNuevo:
 
     @staticmethod
     def insertar_vegetal_base(meal_idx: int) -> dict:
-        """FASE 4: Inserta vegetal automático según comida."""
+        """FASE 4: Inserta vegetal automático según comida. Usa solo alimentos de ALIMENTOS_BASE."""
         opciones = {
-            0: [
-                ("calabacita", 200),
+            0: [  # Desayuno
                 ("espinaca", 80),
-                ("jitomate", 100),
-                ("brocoli", 200)
+                ("brocoli", 150),
+                ("champiñones", 100),
+                ("calabacita", 120),
+                ("coliflor", 100),
             ],
-            1: [
-                ("lechuga_romana", 150),
+            1: [  # Almuerzo
                 ("espinaca", 150),
-                ("pepino", 150),
-                ("ensalada_mixta", 150)
+                ("calabacita", 150),
+                ("brocoli", 150),
+                ("champiñones", 120),
+                ("coliflor", 120),
             ],
-            2: [
+            2: [  # Comida
                 ("brocoli", 200),
                 ("calabacita", 200),
-                ("esparragos", 180),
-                ("coliflor", 200)
-            ]
+                ("coliflor", 200),
+                ("champiñones", 150),
+                ("espinaca", 150),
+            ],
         }
         choices = opciones.get(meal_idx, [])
         if choices:
-            veg, gramos = random.choice(choices)
-            return {veg: gramos}
+            choices_validas = [(v, g) for v, g in choices if v in ALIMENTOS_BASE]
+            if choices_validas:
+                veg, gramos = random.choice(choices_validas)
+                return {veg: gramos}
         return {}
 
     @staticmethod
