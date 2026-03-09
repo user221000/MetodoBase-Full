@@ -3,18 +3,42 @@ Método Base - Punto de entrada principal.
 Sistema de generación de planes nutricionales personalizados.
 """
 
-# === SPLASH SCREEN DE CARGA ===
+# === SPLASH SCREEN DE CARGA (no bloqueante) ===
 import tkinter as tk
-import time
 
 splash = tk.Tk()
 splash.title("Método Base")
 splash.geometry("400x200")
-label = tk.Label(splash, text="Cargando Método Base...", font=("Arial", 16))
-label.pack(expand=True)
-splash.update()
-time.sleep(2)
-splash.destroy()
+splash.configure(bg="#0D0D0D")
+splash.overrideredirect(True)   # sin barra de título
+# Centrar ventana
+splash.update_idletasks()
+sw, sh = splash.winfo_screenwidth(), splash.winfo_screenheight()
+splash.geometry(f"400x200+{(sw-400)//2}+{(sh-200)//2}")
+
+tk.Label(splash, text="🏋️ Método Base", bg="#0D0D0D", fg="#9B4FB0",
+         font=("Segoe UI", 20, "bold")).pack(expand=True)
+tk.Label(splash, text="Sistema de Planes Nutricionales", bg="#0D0D0D", fg="#B8B8B8",
+         font=("Segoe UI", 11)).pack(pady=(0, 30))
+
+# Barra de progreso animada (sin bloquear con sleep)
+bar_canvas = tk.Canvas(splash, width=200, height=6, bg="#2A2A2A",
+                       highlightthickness=0)
+bar_canvas.pack(pady=(0, 20))
+bar_rect = bar_canvas.create_rectangle(0, 0, 0, 6, fill="#9B4FB0", outline="")
+
+_splash_step = [0]
+
+def _animar_splash():
+    _splash_step[0] += 5
+    bar_canvas.coords(bar_rect, 0, 0, _splash_step[0] * 2, 6)
+    if _splash_step[0] < 100:
+        splash.after(15, _animar_splash)
+    else:
+        splash.after(100, splash.destroy)
+
+splash.after(50, _animar_splash)
+splash.mainloop()
 
 # === SETUP DE PATHS ===
 import os
