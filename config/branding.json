@@ -1,0 +1,31 @@
+{
+  "nombre_gym": "Fitness Gym Real del Valle",
+  "nombre_corto": "Método Base",
+  "tagline": "Powered by Consultoría Hernández",
+  "colores": {
+    "primario": "#9B4FB0",
+    "primario_hover": "#B565C6",
+    "secundario": "#D4A84B",
+    "secundario_hover": "#E4B85B"
+  },
+  "contacto": {
+    "telefono": "33 1234 5678",
+    "email": "contacto@fitnessgym.mx",
+    "direccion": "Real del Valle, Guadalajara, Jalisco",
+    "whatsapp": "5213312345678"
+  },
+  "redes_sociales": {
+    "facebook": "https://facebook.com/fitnessgym",
+    "instagram": "@fitnessgym",
+    "tiktok": "@fitnessgym"
+  },
+  "logo": {
+    "path": "assets/logo.png",
+    "mostrar_watermark": true
+  },
+  "pdf": {
+    "mostrar_logo": true,
+    "mostrar_contacto": true,
+    "color_encabezado": "#9B4FB0"
+  }
+}

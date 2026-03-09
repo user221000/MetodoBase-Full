@@ -3,6 +3,12 @@ Método Base - Punto de entrada principal.
 Sistema de generación de planes nutricionales personalizados.
 """
 
+# === SETUP DE PATHS ===
+import os
+import sys
+
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+
 # === SPLASH SCREEN DE CARGA (no bloqueante) ===
 import tkinter as tk
 
@@ -11,7 +17,6 @@ splash.title("Método Base")
 splash.geometry("400x200")
 splash.configure(bg="#0D0D0D")
 splash.overrideredirect(True)   # sin barra de título
-# Centrar ventana
 splash.update_idletasks()
 sw, sh = splash.winfo_screenwidth(), splash.winfo_screenheight()
 splash.geometry(f"400x200+{(sw-400)//2}+{(sh-200)//2}")
@@ -21,7 +26,6 @@ tk.Label(splash, text="🏋️ Método Base", bg="#0D0D0D", fg="#9B4FB0",
 tk.Label(splash, text="Sistema de Planes Nutricionales", bg="#0D0D0D", fg="#B8B8B8",
          font=("Segoe UI", 11)).pack(pady=(0, 30))
 
-# Barra de progreso animada (sin bloquear con sleep)
 bar_canvas = tk.Canvas(splash, width=200, height=6, bg="#2A2A2A",
                        highlightthickness=0)
 bar_canvas.pack(pady=(0, 20))
@@ -40,13 +44,6 @@ def _animar_splash():
 splash.after(50, _animar_splash)
 splash.mainloop()
 
-# === SETUP DE PATHS ===
-import os
-import sys
-
-# Agregar directorio del proyecto al path
-sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-
 # === IMPORTS ===
 from datetime import datetime
 
@@ -55,6 +52,8 @@ from core.modelos import ClienteEvaluacion
 from core.motor_nutricional import MotorNutricional
 from core.generador_planes import ConstructorPlanNuevo
 from core.exportador_salida import GeneradorPDFProfesional
+from core.licencia import GestorLicencias
+from utils.logger import logger
 
 # Intentar cargar GUI
 try:
@@ -64,8 +63,55 @@ try:
 except ImportError:
     GUI_DISPONIBLE = False
 
+
+def validar_licencia_startup() -> bool:
+    """Valida la licencia al iniciar. Retorna True si es válida."""
+    gestor = GestorLicencias()
+    es_valida, mensaje, datos = gestor.validar_licencia()
+    logger.info("[LICENCIA] %s", mensaje)
+
+    if not es_valida:
+        if GUI_DISPONIBLE:
+            from tkinter import messagebox as mb
+            root = ctk.CTk(); root.withdraw()
+            mb.showerror(
+                "Licencia Inválida",
+                f"{mensaje}\n\n"
+                "Para activar o renovar tu licencia, contacta a:\n"
+                "📧 Consultoría Hernández\n\n"
+                "La aplicación se cerrará.",
+            )
+            root.destroy()
+        else:
+            print(f"\n❌ {mensaje}")
+        return False
+
+    # Advertir si expira pronto
+    if datos:
+        fecha_exp = datetime.fromisoformat(datos["fecha_expiracion"])
+        dias_rest = (fecha_exp - datetime.now()).days
+        if dias_rest <= 30 and GUI_DISPONIBLE:
+            from tkinter import messagebox as mb
+            root = ctk.CTk(); root.withdraw()
+            mb.showwarning(
+                "Licencia Próxima a Expirar",
+                f"Tu licencia expira en {dias_rest} días "
+                f"({fecha_exp.strftime('%Y-%m-%d')}).\n\n"
+                "Te recomendamos renovarla pronto.",
+            )
+            root.destroy()
+
+    return True
+
+
 # === EJECUCIÓN ===
 if __name__ == "__main__":
+    # Paso 1: Validar licencia
+    if not validar_licencia_startup():
+        logger.warning("[STARTUP] Cerrada por licencia inválida")
+        sys.exit(1)
+
+    # Paso 2: Iniciar
     if GUI_DISPONIBLE:
         ctk.set_appearance_mode("Dark")
         ctk.set_default_color_theme("blue")

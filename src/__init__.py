@@ -1,5 +1,5 @@
 """Módulo src - Gestores y utilidades del proyecto MVP GYMS."""
 
-from .gestor_bd import GestorClientesBD
+from .gestor_bd import GestorBDClientes
 
-__all__ = ['GestorClientesBD']
+__all__ = ['GestorBDClientes']

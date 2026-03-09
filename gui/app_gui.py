@@ -28,6 +28,10 @@ from gui.validadores import ValidadorCamposTiempoReal  # noqa: E402
 from gui.widgets_progress import ProgressIndicator     # noqa: E402
 from gui.ventana_preview import PlanPreviewWindow      # noqa: E402
 from gui.widgets_toast import mostrar_toast            # noqa: E402
+from core.branding import branding                     # noqa: E402
+from src.gestor_bd import GestorBDClientes              # noqa: E402
+from gui.ventana_admin import VentanaAdmin              # noqa: E402
+from utils.logger import logger                        # noqa: E402
 
 
 
@@ -55,7 +59,14 @@ class GymApp(ctk.CTk):
     def __init__(self):
         super().__init__()
 
-        self.title("Método Base - Consultoría Hernández")
+        # Branding configurable
+        self.branding = branding
+        self.COLOR_PRIMARY      = branding.get('colores.primario', self.COLOR_PRIMARY)
+        self.COLOR_PRIMARY_HOVER = branding.get('colores.primario_hover', self.COLOR_PRIMARY_HOVER)
+        self.COLOR_SECONDARY    = branding.get('colores.secundario', self.COLOR_SECONDARY)
+        self.COLOR_SECONDARY_HOVER = branding.get('colores.secundario_hover', self.COLOR_SECONDARY_HOVER)
+
+        self.title(f"{branding.get('nombre_corto')} - {branding.get('nombre_gym')}")
         self.geometry("820x900")
         self.resizable(False, False)
         self.configure(fg_color=self.COLOR_BG)
@@ -63,7 +74,18 @@ class GymApp(ctk.CTk):
         
         self.ultimo_pdf = None
         self.ultima_ruta_pdf = None
-        
+
+        # Inicializar gestor de BD
+        try:
+            self.gestor_bd = GestorBDClientes()
+            logger.info("[APP] Gestor de BD inicializado")
+        except Exception as e:
+            logger.error(f"[APP] Error inicializando BD: {e}")
+            self.gestor_bd = None
+
+        # Atajo para panel admin (Ctrl+Shift+A)
+        self.bind("<Control-Shift-A>", self._abrir_panel_admin)
+
         # Contenedor principal con scroll
         self.main_container = ctk.CTkScrollableFrame(
             self, fg_color="transparent",
@@ -82,21 +104,24 @@ class GymApp(ctk.CTk):
         self._crear_header_watermark(self.title_container)
         
         self.lbl_titulo = ctk.CTkLabel(
-            self.title_container, text="Metodo Base",
+            self.title_container,
+            text=branding.get('nombre_corto', 'Metodo Base'),
             font=ctk.CTkFont(family="Segoe UI", size=42, weight="bold"),
             text_color=self.COLOR_TEXT
         )
         self.lbl_titulo.pack(pady=(0, 2))
 
         self.lbl_subtitulo = ctk.CTkLabel(
-            self.header_frame, text="Fitness Gym Real del Valle",
+            self.header_frame,
+            text=branding.get('nombre_gym', 'Fitness Gym'),
             font=ctk.CTkFont(family="Segoe UI", size=15),
             text_color=self.COLOR_SECONDARY
         )
         self.lbl_subtitulo.pack(pady=(0, 4))
 
         self.lbl_contexto = ctk.CTkLabel(
-            self.header_frame, text="Powered by C. H.",
+            self.header_frame,
+            text=branding.get('tagline', 'Powered by C. H.'),
             font=ctk.CTkFont(family="Segoe UI", size=10),
             text_color=self.COLOR_TEXT_MUTED
         )
@@ -564,6 +589,12 @@ class GymApp(ctk.CTk):
             kcal_real = sum(plan[c].get('kcal_real', 0) for c in comidas if c in plan)
             desv_max = max(plan[c].get('desviacion_pct', 0) for c in comidas if c in plan)
 
+            # Registrar cliente y plan en BD
+            if self.gestor_bd:
+                self.gestor_bd.registrar_cliente(cliente)
+                if self.ultimo_pdf:
+                    self.gestor_bd.registrar_plan_generado(cliente, plan, self.ultimo_pdf)
+
             self._log(f"PLAN GENERADO — {nombre} | {objetivo.upper()} | "
                       f"Kcal obj: {cliente.kcal_objetivo:.0f} | "
                       f"Kcal real: {kcal_real:.0f} | Desv. máx: {desv_max:.2f}%")
@@ -661,3 +692,11 @@ class GymApp(ctk.CTk):
             "WhatsApp",
             "WhatsApp Web abierto. Adjunta el PDF manualmente y envía."
         )
+
+    def _abrir_panel_admin(self, event=None):
+        """Abre el panel de administración (atajo: Ctrl+Shift+A)."""
+        try:
+            VentanaAdmin(self)
+        except Exception as e:
+            logger.error(f"[APP] Error abriendo panel admin: {e}", exc_info=True)
+            messagebox.showerror("Error", f"No se pudo abrir el panel:\n{e}")

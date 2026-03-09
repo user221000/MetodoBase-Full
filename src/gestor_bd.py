@@ -1,289 +1,513 @@
-"""Gestor de base de datos SQLite para clientes."""
+"""
+Gestor de base de datos SQLite para clientes y planes.
+
+Gestiona:
+- Registro de clientes con todos sus datos
+- Historial de planes generados
+- Búsqueda rápida de clientes
+- Estadísticas del gym
+- Backup automático
+
+Base de datos: registros/clientes.db
+Backups: registros/backups/clientes_YYYYMMDD_HHMMSS.db
+"""
 
 import sqlite3
-import json
-from datetime import datetime
-from typing import Optional, Dict, List
+import shutil
+from datetime import datetime, timedelta
+from typing import List, Optional, Dict, Tuple
+from pathlib import Path
+from utils.logger import logger
 
 
-class GestorClientesBD:
-    """Gestor de clientes usando SQLite."""
-    
+class GestorBDClientes:
+    """
+    Gestiona almacenamiento persistente de clientes y planes.
+
+    Tablas:
+    - clientes: datos personales y antropométricos
+    - planes_generados: historial de planes con PDFs
+    - estadisticas_gym: métricas agregadas por mes
+    """
+
     def __init__(self, db_path: str = "registros/clientes.db"):
-        """
-        Inicializa gestor de BD.
-        
-        Args:
-            db_path: Ruta a archivo SQLite
-        """
-        self.db_path = db_path
-        self.crear_tablas()
-    
-    def crear_tablas(self) -> None:
-        """Crea tablas si no existen."""
-        import os
-        os.makedirs('registros', exist_ok=True)
-        
+        self.db_path = Path(db_path)
+        self.backup_dir = self.db_path.parent / "backups"
+
+        # Crear directorios si no existen
+        self.db_path.parent.mkdir(parents=True, exist_ok=True)
+        self.backup_dir.mkdir(parents=True, exist_ok=True)
+
+        # Crear tablas si no existen
+        self._crear_tablas()
+
+        # Backup automático cada 7 días
+        self._verificar_backup_automatico()
+
+        logger.info(f"[BD] Gestor inicializado: {self.db_path}")
+
+    def _crear_tablas(self) -> None:
+        """Crea las tablas de la base de datos si no existen."""
         conn = sqlite3.connect(self.db_path)
-        cursor = conn.cursor()
-        
-        # Tabla de clientes
-        cursor.execute("""
+        c = conn.cursor()
+
+        c.execute('''
             CREATE TABLE IF NOT EXISTS clientes (
-                id_cliente TEXT PRIMARY KEY,
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                id_cliente TEXT UNIQUE NOT NULL,
                 nombre TEXT NOT NULL,
-                fecha_creacion TEXT NOT NULL,
+                telefono TEXT,
+                email TEXT,
                 edad INTEGER,
+                sexo TEXT CHECK(sexo IN ('M', 'F', 'Otro', NULL)),
                 peso_kg REAL,
                 estatura_cm REAL,
                 grasa_corporal_pct REAL,
+                masa_magra_kg REAL,
                 nivel_actividad TEXT,
                 objetivo TEXT,
-                kcal_objetivo REAL,
-                ultima_actualizacion TEXT
+                fecha_registro TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                ultimo_plan TIMESTAMP,
+                total_planes_generados INTEGER DEFAULT 0,
+                activo BOOLEAN DEFAULT 1,
+                notas TEXT
             )
-        """)
-        
-        # Tabla de historial de planes
-        cursor.execute("""
-            CREATE TABLE IF NOT EXISTS historial_planes (
-                id_plan INTEGER PRIMARY KEY AUTOINCREMENT,
+        ''')
+
+        c.execute('CREATE INDEX IF NOT EXISTS idx_nombre ON clientes(nombre)')
+        c.execute('CREATE INDEX IF NOT EXISTS idx_telefono ON clientes(telefono)')
+        c.execute('CREATE INDEX IF NOT EXISTS idx_activo ON clientes(activo)')
+
+        c.execute('''
+            CREATE TABLE IF NOT EXISTS planes_generados (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
                 id_cliente TEXT NOT NULL,
-                numero_plan INTEGER,
-                fecha_creacion TEXT NOT NULL,
-                pdf_ruta TEXT,
-                json_ruta TEXT,
+                fecha_generacion TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                tmb REAL,
+                get_total REAL,
+                kcal_objetivo REAL,
                 kcal_real REAL,
-                desviacion_pct REAL,
-                FOREIGN KEY (id_cliente) REFERENCES clientes (id_cliente)
+                proteina_g REAL,
+                carbs_g REAL,
+                grasa_g REAL,
+                objetivo TEXT,
+                nivel_actividad TEXT,
+                ruta_pdf TEXT,
+                peso_en_momento REAL,
+                grasa_en_momento REAL,
+                desviacion_maxima_pct REAL,
+                FOREIGN KEY (id_cliente) REFERENCES clientes(id_cliente)
             )
-        """)
-        
+        ''')
+
+        c.execute('CREATE INDEX IF NOT EXISTS idx_cliente_planes ON planes_generados(id_cliente)')
+        c.execute('CREATE INDEX IF NOT EXISTS idx_fecha_planes ON planes_generados(fecha_generacion)')
+
+        c.execute('''
+            CREATE TABLE IF NOT EXISTS estadisticas_gym (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                mes INTEGER NOT NULL,
+                anio INTEGER NOT NULL,
+                total_clientes_nuevos INTEGER DEFAULT 0,
+                total_planes_generados INTEGER DEFAULT 0,
+                promedio_kcal REAL,
+                objetivo_deficit_count INTEGER DEFAULT 0,
+                objetivo_superavit_count INTEGER DEFAULT 0,
+                objetivo_mantenimiento_count INTEGER DEFAULT 0,
+                fecha_calculo TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                UNIQUE(mes, anio)
+            )
+        ''')
+
         conn.commit()
         conn.close()
-    
-    def cliente_existe(self, id_cliente: str) -> bool:
-        """Verifica si cliente existe en BD."""
+        logger.info("[BD] Tablas creadas/verificadas exitosamente")
+
+    def registrar_cliente(self, cliente) -> bool:
+        """Registra o actualiza un cliente en la base de datos."""
         conn = sqlite3.connect(self.db_path)
-        cursor = conn.cursor()
-        
-        cursor.execute("SELECT id_cliente FROM clientes WHERE id_cliente = ?", (id_cliente,))
-        existe = cursor.fetchone() is not None
-        
-        conn.close()
-        return existe
-    
-    def crear_cliente(self, cliente_dict: Dict) -> bool:
-        """
-        Crea nuevo cliente en BD.
-        
-        Args:
-            cliente_dict: Dict con datos del cliente
-        
-        Returns:
-            True si se creó exitosamente
-        """
+        c = conn.cursor()
+
         try:
-            conn = sqlite3.connect(self.db_path)
-            cursor = conn.cursor()
-            
-            cursor.execute("""
-                INSERT INTO clientes (
-                    id_cliente, nombre, fecha_creacion, edad, peso_kg,
-                    estatura_cm, grasa_corporal_pct, nivel_actividad,
-                    objetivo, kcal_objetivo, ultima_actualizacion
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-            """, (
-                cliente_dict['id_cliente'],
-                cliente_dict['nombre'],
-                cliente_dict['fecha_creacion'],
-                cliente_dict['edad'],
-                cliente_dict['peso_kg'],
-                cliente_dict['estatura_cm'],
-                cliente_dict['grasa_corporal_pct'],
-                cliente_dict['nivel_actividad'],
-                cliente_dict['objetivo'],
-                cliente_dict['kcal_objetivo'],
-                datetime.now().isoformat()
-            ))
-            
-            conn.commit()
-            conn.close()
-            return True
-        except Exception as e:
-            print(f"❌ Error al crear cliente en BD: {e}")
-            return False
-    
-    def obtener_cliente(self, id_cliente: str) -> Optional[Dict]:
-        """
-        Obtiene datos del cliente.
-        
-        Args:
-            id_cliente: ID del cliente
-        
-        Returns:
-            Dict con datos o None
-        """
-        conn = sqlite3.connect(self.db_path)
-        cursor = conn.cursor()
-        
-        cursor.execute("SELECT * FROM clientes WHERE id_cliente = ?", (id_cliente,))
-        row = cursor.fetchone()
-        
-        conn.close()
-        
-        if not row:
-            return None
-        
-        return {
-            'id_cliente': row[0],
-            'nombre': row[1],
-            'fecha_creacion': row[2],
-            'edad': row[3],
-            'peso_kg': row[4],
-            'estatura_cm': row[5],
-            'grasa_corporal_pct': row[6],
-            'nivel_actividad': row[7],
-            'objetivo': row[8],
-            'kcal_objetivo': row[9],
-            'ultima_actualizacion': row[10]
-        }
-    
-    def buscar_por_nombre(self, nombre: str) -> Optional[Dict]:
-        """
-        Busca cliente por nombre exacto.
-        
-        Args:
-            nombre: Nombre del cliente
-        
-        Returns:
-            Dict con datos del cliente o None
-        """
-        conn = sqlite3.connect(self.db_path)
-        cursor = conn.cursor()
-        
-        cursor.execute("SELECT * FROM clientes WHERE nombre = ?", (nombre,))
-        row = cursor.fetchone()
-        
-        conn.close()
-        
-        if not row:
-            return None
-        
-        return {
-            'id_cliente': row[0],
-            'nombre': row[1],
-            'fecha_creacion': row[2],
-            'edad': row[3],
-            'peso_kg': row[4],
-            'estatura_cm': row[5],
-            'grasa_corporal_pct': row[6],
-            'nivel_actividad': row[7],
-            'objetivo': row[8],
-            'kcal_objetivo': row[9],
-            'ultima_actualizacion': row[10]
-        }
-    
-    def registrar_plan(self, id_cliente: str, pdf_ruta: str, json_ruta: str,
-                      kcal_real: float, desviacion_pct: float) -> bool:
-        """
-        Registra un nuevo plan en historial.
-        
-        Args:
-            id_cliente: ID del cliente
-            pdf_ruta: Ruta al PDF generado
-            json_ruta: Ruta al JSON generado
-            kcal_real: Calorías reales del plan
-            desviacion_pct: Desviación porcentual
-        
-        Returns:
-            True si se registró exitosamente
-        """
-        try:
-            conn = sqlite3.connect(self.db_path)
-            cursor = conn.cursor()
-            
-            # Obtener número de plan actual
-            cursor.execute(
-                "SELECT MAX(numero_plan) FROM historial_planes WHERE id_cliente = ?",
-                (id_cliente,)
+            c.execute(
+                'SELECT id, total_planes_generados FROM clientes WHERE id_cliente = ?',
+                (cliente.id_cliente,),
             )
-            result = cursor.fetchone()
-            numero_plan = (result[0] if result[0] else 0) + 1
-            
-            # Insertar plan
-            cursor.execute("""
-                INSERT INTO historial_planes (
-                    id_cliente, numero_plan, fecha_creacion,
-                    pdf_ruta, json_ruta, kcal_real, desviacion_pct
-                ) VALUES (?, ?, ?, ?, ?, ?, ?)
-            """, (
-                id_cliente,
-                numero_plan,
-                datetime.now().isoformat(),
-                pdf_ruta,
-                json_ruta,
+            resultado = c.fetchone()
+
+            if resultado:
+                c.execute('''
+                    UPDATE clientes SET
+                        nombre = ?,
+                        telefono = ?,
+                        edad = ?,
+                        peso_kg = ?,
+                        estatura_cm = ?,
+                        grasa_corporal_pct = ?,
+                        nivel_actividad = ?,
+                        objetivo = ?,
+                        ultimo_plan = ?,
+                        total_planes_generados = total_planes_generados + 1
+                    WHERE id_cliente = ?
+                ''', (
+                    cliente.nombre,
+                    getattr(cliente, 'telefono', None),
+                    cliente.edad,
+                    cliente.peso_kg,
+                    cliente.estatura_cm,
+                    cliente.grasa_corporal_pct,
+                    cliente.nivel_actividad,
+                    cliente.objetivo,
+                    datetime.now(),
+                    cliente.id_cliente,
+                ))
+                logger.info(f"[BD] Cliente actualizado: {cliente.id_cliente}")
+            else:
+                c.execute('''
+                    INSERT INTO clientes
+                    (id_cliente, nombre, telefono, edad, peso_kg, estatura_cm,
+                     grasa_corporal_pct, nivel_actividad, objetivo, ultimo_plan,
+                     total_planes_generados)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                ''', (
+                    cliente.id_cliente,
+                    cliente.nombre,
+                    getattr(cliente, 'telefono', None),
+                    cliente.edad,
+                    cliente.peso_kg,
+                    cliente.estatura_cm,
+                    cliente.grasa_corporal_pct,
+                    cliente.nivel_actividad,
+                    cliente.objetivo,
+                    datetime.now(),
+                    1,
+                ))
+                logger.info(f"[BD] Cliente nuevo registrado: {cliente.id_cliente}")
+
+            conn.commit()
+            return True
+
+        except Exception as e:
+            logger.error(f"[BD] Error registrando cliente: {e}", exc_info=True)
+            conn.rollback()
+            return False
+
+        finally:
+            conn.close()
+
+    def registrar_plan_generado(self, cliente, plan: Dict, ruta_pdf: str) -> bool:
+        """Registra un plan generado en el historial."""
+        conn = sqlite3.connect(self.db_path)
+        c = conn.cursor()
+
+        try:
+            comidas = ['desayuno', 'almuerzo', 'comida', 'cena']
+            kcal_real = sum(
+                plan.get(m, {}).get('kcal_real', 0) for m in comidas
+            )
+            desv_max = max(
+                (plan.get(m, {}).get('desviacion_pct', 0) for m in comidas if m in plan),
+                default=0,
+            )
+
+            c.execute('''
+                INSERT INTO planes_generados
+                (id_cliente, tmb, get_total, kcal_objetivo, kcal_real,
+                 proteina_g, carbs_g, grasa_g, objetivo, nivel_actividad,
+                 ruta_pdf, peso_en_momento, grasa_en_momento, desviacion_maxima_pct)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            ''', (
+                cliente.id_cliente,
+                getattr(cliente, 'tmb', 0),
+                getattr(cliente, 'get_total', 0),
+                getattr(cliente, 'kcal_objetivo', 0),
                 kcal_real,
-                desviacion_pct
+                getattr(cliente, 'proteina_g', 0),
+                getattr(cliente, 'carbs_g', 0),
+                getattr(cliente, 'grasa_g', 0),
+                cliente.objetivo,
+                cliente.nivel_actividad,
+                ruta_pdf,
+                cliente.peso_kg,
+                cliente.grasa_corporal_pct,
+                desv_max,
             ))
-            
-            # Actualizar última_actualizacion del cliente
-            cursor.execute(
-                "UPDATE clientes SET ultima_actualizacion = ? WHERE id_cliente = ?",
-                (datetime.now().isoformat(), id_cliente)
-            )
-            
+
             conn.commit()
-            conn.close()
+            logger.info(f"[BD] Plan registrado para cliente: {cliente.id_cliente}")
             return True
+
         except Exception as e:
-            print(f"❌ Error al registrar plan: {e}")
+            logger.error(f"[BD] Error registrando plan: {e}", exc_info=True)
+            conn.rollback()
             return False
-    
-    def obtener_historial(self, id_cliente: str) -> List[Dict]:
-        """
-        Obtiene historial de planes del cliente.
-        
-        Args:
-            id_cliente: ID del cliente
-        
-        Returns:
-            Lista de planes
-        """
+
+        finally:
+            conn.close()
+
+    def buscar_clientes(self, termino: str,
+                        solo_activos: bool = True,
+                        limite: int = 50) -> List[Dict]:
+        """Busca clientes por nombre, teléfono o ID."""
         conn = sqlite3.connect(self.db_path)
-        cursor = conn.cursor()
-        
-        cursor.execute("""
-            SELECT id_plan, numero_plan, fecha_creacion, pdf_ruta, json_ruta,
-                   kcal_real, desviacion_pct
-            FROM historial_planes
-            WHERE id_cliente = ?
-            ORDER BY numero_plan DESC
-        """, (id_cliente,))
-        
-        rows = cursor.fetchall()
-        conn.close()
-        
-        historial = []
-        for row in rows:
-            historial.append({
-                'id_plan': row[0],
-                'numero_plan': row[1],
-                'fecha': row[2],
-                'pdf_ruta': row[3],
-                'json_ruta': row[4],
-                'kcal_real': row[5],
-                'desviacion_pct': row[6]
-            })
-        
-        return historial
-    
-    def obtener_estadisticas(self, id_cliente: str) -> Dict:
-        """Obtiene estadísticas del cliente."""
-        historial = self.obtener_historial(id_cliente)
-        
-        return {
-            'total_planes': len(historial),
-            'ultimo_plan': historial[0] if historial else None,
-            'historial': historial
-        }
+        conn.row_factory = sqlite3.Row
+        c = conn.cursor()
+
+        try:
+            query = '''
+                SELECT
+                    id_cliente, nombre, telefono, email, edad,
+                    peso_kg, objetivo, nivel_actividad, ultimo_plan,
+                    total_planes_generados, activo
+                FROM clientes
+                WHERE (
+                    nombre LIKE ? OR
+                    telefono LIKE ? OR
+                    id_cliente LIKE ?
+                )
+            '''
+            params = [f'%{termino}%', f'%{termino}%', f'%{termino}%']
+
+            if solo_activos:
+                query += ' AND activo = 1'
+
+            query += ' ORDER BY ultimo_plan DESC, nombre ASC LIMIT ?'
+            params.append(limite)
+
+            c.execute(query, params)
+
+            resultados = []
+            for row in c.fetchall():
+                resultados.append({
+                    'id_cliente': row['id_cliente'],
+                    'nombre': row['nombre'],
+                    'telefono': row['telefono'],
+                    'email': row['email'],
+                    'edad': row['edad'],
+                    'peso_kg': row['peso_kg'],
+                    'objetivo': row['objetivo'],
+                    'nivel_actividad': row['nivel_actividad'],
+                    'ultimo_plan': row['ultimo_plan'],
+                    'total_planes': row['total_planes_generados'],
+                    'activo': bool(row['activo']),
+                })
+
+            logger.info(f"[BD] Búsqueda '{termino}': {len(resultados)} resultados")
+            return resultados
+
+        except Exception as e:
+            logger.error(f"[BD] Error en búsqueda: {e}", exc_info=True)
+            return []
+
+        finally:
+            conn.close()
+
+    def obtener_cliente_por_id(self, id_cliente: str) -> Optional[Dict]:
+        """Obtiene todos los datos de un cliente por su ID."""
+        conn = sqlite3.connect(self.db_path)
+        conn.row_factory = sqlite3.Row
+        c = conn.cursor()
+
+        try:
+            c.execute('SELECT * FROM clientes WHERE id_cliente = ?', (id_cliente,))
+            row = c.fetchone()
+            return dict(row) if row else None
+
+        except Exception as e:
+            logger.error(f"[BD] Error obteniendo cliente: {e}", exc_info=True)
+            return None
+
+        finally:
+            conn.close()
+
+    def obtener_historial_planes(self, id_cliente: str,
+                                 limite: int = 20) -> List[Dict]:
+        """Obtiene el historial de planes generados para un cliente."""
+        conn = sqlite3.connect(self.db_path)
+        conn.row_factory = sqlite3.Row
+        c = conn.cursor()
+
+        try:
+            c.execute('''
+                SELECT
+                    fecha_generacion, kcal_objetivo, kcal_real,
+                    proteina_g, carbs_g, grasa_g, objetivo,
+                    ruta_pdf, peso_en_momento, grasa_en_momento,
+                    desviacion_maxima_pct
+                FROM planes_generados
+                WHERE id_cliente = ?
+                ORDER BY fecha_generacion DESC
+                LIMIT ?
+            ''', (id_cliente, limite))
+
+            return [dict(row) for row in c.fetchall()]
+
+        except Exception as e:
+            logger.error(f"[BD] Error obteniendo historial: {e}", exc_info=True)
+            return []
+
+        finally:
+            conn.close()
+
+    def obtener_estadisticas_gym(self,
+                                 fecha_inicio: Optional[datetime] = None,
+                                 fecha_fin: Optional[datetime] = None) -> Dict:
+        """Obtiene estadísticas generales del gimnasio."""
+        conn = sqlite3.connect(self.db_path)
+        c = conn.cursor()
+
+        try:
+            if not fecha_inicio:
+                fecha_inicio = datetime.now() - timedelta(days=30)
+            if not fecha_fin:
+                fecha_fin = datetime.now()
+
+            c.execute('SELECT COUNT(*) FROM clientes WHERE activo = 1')
+            total_clientes = c.fetchone()[0]
+
+            c.execute('''
+                SELECT COUNT(*) FROM clientes
+                WHERE fecha_registro BETWEEN ? AND ?
+            ''', (fecha_inicio, fecha_fin))
+            clientes_nuevos = c.fetchone()[0]
+
+            c.execute('''
+                SELECT COUNT(*) FROM planes_generados
+                WHERE fecha_generacion BETWEEN ? AND ?
+            ''', (fecha_inicio, fecha_fin))
+            planes_periodo = c.fetchone()[0]
+
+            c.execute('''
+                SELECT AVG(kcal_objetivo) FROM planes_generados
+                WHERE fecha_generacion BETWEEN ? AND ?
+            ''', (fecha_inicio, fecha_fin))
+            promedio_kcal = c.fetchone()[0] or 0
+
+            c.execute('''
+                SELECT objetivo, COUNT(*) as count
+                FROM planes_generados
+                WHERE fecha_generacion BETWEEN ? AND ?
+                GROUP BY objetivo
+            ''', (fecha_inicio, fecha_fin))
+            objetivos = {row[0]: row[1] for row in c.fetchall()}
+
+            c.execute('''
+                SELECT c.nombre, c.total_planes_generados
+                FROM clientes c
+                WHERE c.activo = 1
+                ORDER BY c.total_planes_generados DESC
+                LIMIT 10
+            ''')
+            top_clientes = [
+                {'nombre': row[0], 'planes': row[1]} for row in c.fetchall()
+            ]
+
+            return {
+                'total_clientes': total_clientes,
+                'clientes_nuevos': clientes_nuevos,
+                'planes_periodo': planes_periodo,
+                'promedio_kcal': round(promedio_kcal, 1),
+                'objetivos': objetivos,
+                'top_clientes': top_clientes,
+                'fecha_inicio': fecha_inicio.isoformat(),
+                'fecha_fin': fecha_fin.isoformat(),
+            }
+
+        except Exception as e:
+            logger.error(f"[BD] Error obteniendo estadísticas: {e}", exc_info=True)
+            return {}
+
+        finally:
+            conn.close()
+
+    def desactivar_cliente(self, id_cliente: str) -> bool:
+        """Marca un cliente como inactivo (no lo elimina)."""
+        conn = sqlite3.connect(self.db_path)
+        c = conn.cursor()
+
+        try:
+            c.execute('UPDATE clientes SET activo = 0 WHERE id_cliente = ?',
+                      (id_cliente,))
+            conn.commit()
+            logger.info(f"[BD] Cliente desactivado: {id_cliente}")
+            return True
+
+        except Exception as e:
+            logger.error(f"[BD] Error desactivando cliente: {e}", exc_info=True)
+            return False
+
+        finally:
+            conn.close()
+
+    def reactivar_cliente(self, id_cliente: str) -> bool:
+        """Reactiva un cliente previamente desactivado."""
+        conn = sqlite3.connect(self.db_path)
+        c = conn.cursor()
+
+        try:
+            c.execute('UPDATE clientes SET activo = 1 WHERE id_cliente = ?',
+                      (id_cliente,))
+            conn.commit()
+            logger.info(f"[BD] Cliente reactivado: {id_cliente}")
+            return True
+
+        except Exception as e:
+            logger.error(f"[BD] Error reactivando cliente: {e}", exc_info=True)
+            return False
+
+        finally:
+            conn.close()
+
+    def crear_backup(self) -> Optional[str]:
+        """Crea un backup de la base de datos."""
+        try:
+            timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+            nombre_backup = f"clientes_{timestamp}.db"
+            ruta_backup = self.backup_dir / nombre_backup
+            shutil.copy2(self.db_path, ruta_backup)
+            logger.info(f"[BD] Backup creado: {ruta_backup}")
+            return str(ruta_backup)
+
+        except Exception as e:
+            logger.error(f"[BD] Error creando backup: {e}", exc_info=True)
+            return None
+
+    def _verificar_backup_automatico(self) -> None:
+        """Verifica si es necesario crear un backup automático (cada 7 días)."""
+        try:
+            backups = sorted(self.backup_dir.glob("clientes_*.db"), reverse=True)
+
+            if not backups:
+                self.crear_backup()
+                return
+
+            ultimo_backup = backups[0]
+            fecha_backup = datetime.fromtimestamp(ultimo_backup.stat().st_mtime)
+
+            if (datetime.now() - fecha_backup).days >= 7:
+                logger.info("[BD] Backup automático (>7 días desde último)")
+                self.crear_backup()
+
+        except Exception as e:
+            logger.error(f"[BD] Error en backup automático: {e}", exc_info=True)
+
+    def limpiar_backups_antiguos(self, dias_antiguedad: int = 90) -> int:
+        """Elimina backups más antiguos que N días."""
+        try:
+            fecha_limite = datetime.now() - timedelta(days=dias_antiguedad)
+            backups_eliminados = 0
+
+            for backup in self.backup_dir.glob("clientes_*.db"):
+                fecha_backup = datetime.fromtimestamp(backup.stat().st_mtime)
+                if fecha_backup < fecha_limite:
+                    backup.unlink()
+                    backups_eliminados += 1
+
+            if backups_eliminados > 0:
+                logger.info(f"[BD] Eliminados {backups_eliminados} backups antiguos")
+
+            return backups_eliminados
+
+        except Exception as e:
+            logger.error(f"[BD] Error limpiando backups: {e}", exc_info=True)
+            return 0

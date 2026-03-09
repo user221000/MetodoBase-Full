@@ -162,8 +162,8 @@ class ProcesadorEvaluacion:
         self.validador = ValidadorCliente()
         self.normalizador = NormalizadorCliente()
         self.capturador = CapturadorDatos()
-        from src.gestor_bd import GestorClientesBD
-        self.bd = GestorClientesBD()
+        from src.gestor_bd import GestorBDClientes
+        self.bd = GestorBDClientes()
     
     def crear_cliente_interactivo(self) -> ClienteEvaluacion:
         """Ejecuta el flujo completo: captura → valida → motor → plan → PDF → BD."""
