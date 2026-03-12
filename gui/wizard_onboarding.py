@@ -30,7 +30,7 @@ class WizardOnboarding(ctk.CTkToplevel):
         super().__init__(master)
 
         self.title("Configuración inicial — Método Base")
-        self.geometry("500x420")
+        self.geometry("550x580")
         self.resizable(False, False)
         self.configure(fg_color=self.COLOR_BG)
         self.grab_set()
@@ -46,6 +46,10 @@ class WizardOnboarding(ctk.CTkToplevel):
             "contacto.email": "",
             "colores.primario": "#9B4FB0",
             "colores.secundario": "#D4A84B",
+            "contacto.direccion_linea1": "",
+            "contacto.direccion_linea2": "",
+            "contacto.direccion_linea3": "",
+            "redes_sociales.instagram": "",
         }
 
         # ── Layout principal ──────────────────────────────────────────
@@ -156,14 +160,16 @@ class WizardOnboarding(ctk.CTkToplevel):
         f = self._frame_paso
 
         campos = [
-            ("Teléfono", "contacto.telefono", "Ej: 33 1234 5678"),
-            ("WhatsApp (con código de país)", "contacto.whatsapp", "Ej: 5213312345678"),
-            ("Email", "contacto.email", "Ej: contacto@migym.mx"),
+            ("Instagram", "redes_sociales.instagram", "Ej: @fitnessgym_realdelvalle"),
+            ("Teléfono / WhatsApp", "contacto.whatsapp", "Ej: 5213312345678"),
+            ("Dirección - Calle y Número", "contacto.direccion_linea1", "Ej: C. Valle De San José 1329B"),
+            ("Dirección - Colonia", "contacto.direccion_linea2", "Ej: Fracc. Real del Valle"),
+            ("Dirección - Ciudad y CP", "contacto.direccion_linea3", "Ej: 45654 Tlajomulco, Jal."),
         ]
         self._entries_contacto: dict = {}
         for label, key, placeholder in campos:
             ctk.CTkLabel(f, text=label, text_color=self.COLOR_TEXT_MUTED,
-                         font=ctk.CTkFont(size=12)).pack(anchor="w", padx=20, pady=(14, 4))
+                         font=ctk.CTkFont(size=12)).pack(anchor="w", padx=20, pady=(6, 2))
             entry = ctk.CTkEntry(
                 f, placeholder_text=placeholder,
                 fg_color="#2A2A2A", border_color=self.COLOR_BORDER,

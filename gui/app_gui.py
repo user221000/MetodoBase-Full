@@ -606,6 +606,18 @@ class GymApp(ctk.CTk):
 
             self.after(0, lambda: self.progress_indicator.set_progress(0.2, "Calculando metabolismo…"))
 
+            # Buscar cliente existente por teléfono
+            cliente_existente = None
+            if self.gestor_bd and telefono:
+                clientes = self.gestor_bd.buscar_clientes(telefono)
+                if clientes:
+                    cliente_existente = clientes[0]
+
+            if cliente_existente:
+                id_cliente = cliente_existente['id_cliente']
+            else:
+                id_cliente = None
+
             cliente = ClienteEvaluacion(
                 nombre=nombre,
                 telefono=telefono if telefono else None,
@@ -613,6 +625,8 @@ class GymApp(ctk.CTk):
                 grasa_corporal_pct=grasa, nivel_actividad=actividad,
                 objetivo=objetivo
             )
+            if id_cliente:
+                cliente.id_cliente = id_cliente
             cliente.factor_actividad = FACTORES_ACTIVIDAD.get(actividad, 1.2)
             self._log(f"Cliente creado: {cliente.nombre} ({cliente.objetivo})")
 

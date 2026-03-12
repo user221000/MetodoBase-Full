@@ -13,11 +13,13 @@ from datetime import datetime, timedelta
 from pathlib import Path
 from typing import Dict, Optional, Tuple
 
-from dotenv import load_dotenv
+try:
+    from dotenv import load_dotenv
+    load_dotenv()
+except ImportError:
+    pass
 
 from config.constantes import APP_DATA_DIR, CARPETA_CONFIG
-
-load_dotenv()
 
 
 class GestorLicencias:

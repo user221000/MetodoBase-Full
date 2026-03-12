@@ -53,6 +53,7 @@ HIDDEN_IMPORTS = [
     "matplotlib",
     "matplotlib.backends.backend_tkagg",
     "numpy",
+    "dotenv",
 ]
 
 # Construir argumentos para PyInstaller
