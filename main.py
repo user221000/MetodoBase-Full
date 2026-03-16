@@ -6,6 +6,7 @@ Sistema de generación de planes nutricionales personalizados.
 # === SETUP DE PATHS ===
 import os
 import sys
+from pathlib import Path
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
@@ -28,6 +29,38 @@ try:
     GUI_DISPONIBLE = True
 except ImportError:
     GUI_DISPONIBLE = False
+
+
+def cargar_fuentes_personalizadas() -> None:
+    """Registra las fuentes Inter del proyecto en QFontDatabase (PySide6).
+
+    Debe llamarse justo después de crear QApplication para que los widgets
+    creados posteriormente ya usen Inter como familia disponible.
+    """
+    try:
+        from PySide6.QtGui import QFontDatabase
+
+        fonts_dir = Path(__file__).parent / "fonts" / "Inter"
+        if not fonts_dir.exists():
+            print("⚠️  Directorio fonts/Inter no encontrado — usando fuente del sistema")
+            return
+
+        loaded: list[str] = []
+        failed: list[str] = []
+        for ttf in sorted(fonts_dir.glob("*.ttf")):
+            fid = QFontDatabase.addApplicationFont(str(ttf))
+            if fid == -1:
+                failed.append(ttf.name)
+            else:
+                loaded.append(ttf.name)
+
+        if loaded:
+            print(f"✅ Fuentes Inter cargadas ({len(loaded)}): {', '.join(loaded)}")
+        if failed:
+            print(f"❌ Fuentes no cargadas: {', '.join(failed)}")
+
+    except Exception as exc:
+        print(f"⚠️  Error al cargar fuentes Inter: {exc}")
 
 
 def _crear_pixmap_splash() -> "QPixmap":
@@ -65,6 +98,9 @@ if __name__ == "__main__":
         app = QApplication(sys.argv)
         app.setApplicationName("Método Base")
         app.setStyle("Fusion")
+
+        # Registrar fuentes Inter antes de construir cualquier widget
+        cargar_fuentes_personalizadas()
 
         # Cargar stylesheet a través del ThemeManager (soporta dark / light / aurora)
         try:
