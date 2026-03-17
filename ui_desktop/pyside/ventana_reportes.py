@@ -19,7 +19,7 @@ from PySide6.QtWidgets import (
     QDialog, QVBoxLayout, QHBoxLayout, QLabel, QPushButton,
     QFrame, QTabWidget, QWidget, QScrollArea, QComboBox,
     QTableWidget, QTableWidgetItem, QHeaderView, QMessageBox,
-    QFileDialog, QGridLayout,
+    QFileDialog, QGridLayout, QProgressBar, QSizePolicy,
 )
 from PySide6.QtCore import Qt
 from PySide6.QtGui import QColor
@@ -149,54 +149,82 @@ class VentanaReportes(QDialog):
                 w.deleteLater()
 
         d = self._datos
-        kpis = [
-            ("👥 Total Clientes",          d.get("total_clientes", 0),           "#9B4FB0"),
-            ("📈 Clientes Nuevos",          d.get("clientes_nuevos", 0),          "#D4A84B"),
-            ("🍽️ Planes Generados",         d.get("planes_generados", 0),         "#4CAF50"),
-            ("⚡ Promedio Kcal / Plan",     f"{d.get('promedio_kcal', 0):.0f}",   "#2196F3"),
-            ("💪 Objetivo + Común",         d.get("objetivo_comun", "—"),         "#9B4FB0"),
-            ("🕐 Planes (período)",          d.get("planes_periodo", 0),           "#D4A84B"),
+        total = d.get("total_clientes", 0)
+        planes_periodo = d.get("planes_periodo", 0)
+        por_cliente = round(planes_periodo / total, 1) if total > 0 else 0.0
+
+        # ── Fila 1: KPIs principales ──────────────────────────────────────
+        kpis_top = [
+            ("👥", "Total Clientes",    str(total),                          "#9B4FB0", "Clientes activos registrados"),
+            ("📈", "Nuevos (período)",  str(d.get("clientes_nuevos", 0)),     "#D4A84B", "Clientes registrados en el período"),
+            ("🍽️", "Planes generados",  str(planes_periodo),                  "#4CAF50", "Planes creados en el período"),
         ]
+        grid1 = QGridLayout()
+        grid1.setSpacing(10)
+        for i, (ico, titulo, valor, color, tooltip) in enumerate(kpis_top):
+            grid1.addWidget(_KPICard(ico, titulo, valor, color, tooltip), 0, i)
+        self.dash_layout.addLayout(grid1)
 
-        grid = QGridLayout()
-        grid.setSpacing(12)
-        for i, (titulo, valor, color) in enumerate(kpis):
-            f = QFrame()
-            f.setStyleSheet(
-                f"QFrame {{ background-color: #1A1A1A; border-radius: 10px; border: none; }}"
-            )
-            fl = QVBoxLayout(f)
-            fl.setContentsMargins(16, 14, 16, 14)
-            fl.setSpacing(4)
-            tl = QLabel(titulo)
-            tl.setAlignment(Qt.AlignCenter)
-            tl.setStyleSheet("color: #B8B8B8; font-size: 12px;")
-            fl.addWidget(tl)
-            vl = QLabel(str(valor))
-            vl.setAlignment(Qt.AlignCenter)
-            vl.setStyleSheet(f"color: {color}; font-size: 28px; font-weight: bold;")
-            fl.addWidget(vl)
-            grid.addWidget(f, i // 3, i % 3)
-        self.dash_layout.addLayout(grid)
+        # ── Fila 2: KPIs secundarios ──────────────────────────────────────
+        kpis_bot = [
+            ("⚡", "Prom. Kcal / Plan", f"{d.get('promedio_kcal', 0):.0f}",  "#2196F3", "Promedio de kcal objetivo entre todos los planes"),
+            ("💪", "Objetivo + Común",  d.get("objetivo_comun", "—"),         "#9B4FB0", "El objetivo nutricional más frecuente"),
+            ("📋", "Planes/Cliente",    str(por_cliente),                      "#D4A84B", "Promedio de planes por cliente activo"),
+        ]
+        grid2 = QGridLayout()
+        grid2.setSpacing(10)
+        for i, (ico, titulo, valor, color, tooltip) in enumerate(kpis_bot):
+            grid2.addWidget(_KPICard(ico, titulo, valor, color, tooltip), 0, i)
+        self.dash_layout.addLayout(grid2)
 
-        # Distribución de objetivos
+        # ── Distribución de objetivos con barras ──────────────────────────
         obj_dist = d.get("distribucion_objetivos", {})
         if obj_dist:
+            sep = QFrame()
+            sep.setFrameShape(QFrame.HLine)
+            sep.setStyleSheet("color: #2A2A2A;")
+            self.dash_layout.addWidget(sep)
+
             t = QLabel("📊  Distribución de Objetivos")
-            t.setStyleSheet("color: #D4A84B; font-size: 14px; font-weight: bold;")
+            t.setStyleSheet("color: #D4A84B; font-size: 13px; font-weight: bold;")
             self.dash_layout.addWidget(t)
-            for objetivo, cnt in sorted(obj_dist.items(), key=lambda x: -x[1])[:8]:
-                row = QWidget()
-                row.setStyleSheet("background: transparent;")
-                rl = QHBoxLayout(row)
-                rl.setContentsMargins(0, 0, 0, 0)
-                lbl = QLabel(f"• {objetivo}")
+
+            total_obj = sum(obj_dist.values()) or 1
+            _OBJ_COLORS = {
+                "deficit": "#4CAF50", "mantenimiento": "#2196F3", "superavit": "#FF9800"
+            }
+            for objetivo, cnt in sorted(obj_dist.items(), key=lambda x: -x[1])[:6]:
+                pct = int(round(cnt / total_obj * 100))
+                row_w = QWidget()
+                row_w.setStyleSheet("background: transparent;")
+                rl = QHBoxLayout(row_w)
+                rl.setContentsMargins(0, 2, 0, 2)
+                rl.setSpacing(10)
+
+                lbl = QLabel(f"{objetivo.capitalize()}")
+                lbl.setFixedWidth(120)
                 lbl.setStyleSheet("color: #F5F5F5; font-size: 12px;")
-                rl.addWidget(lbl, 1)
-                cnt_lbl = QLabel(str(cnt))
-                cnt_lbl.setStyleSheet("color: #9B4FB0; font-size: 12px; font-weight: bold;")
+                rl.addWidget(lbl)
+
+                bar = QProgressBar()
+                bar.setFixedHeight(10)
+                bar.setRange(0, 100)
+                bar.setValue(pct)
+                bar.setTextVisible(False)
+                color = _OBJ_COLORS.get(objetivo, "#9B4FB0")
+                bar.setStyleSheet(
+                    f"QProgressBar {{ border-radius: 5px; background: #2A2A2A; border: none; }}"
+                    f"QProgressBar::chunk {{ background: {color}; border-radius: 5px; }}"
+                )
+                rl.addWidget(bar, 1)
+
+                cnt_lbl = QLabel(f"{cnt}  ({pct}%)")
+                cnt_lbl.setFixedWidth(80)
+                cnt_lbl.setAlignment(Qt.AlignRight | Qt.AlignVCenter)
+                cnt_lbl.setStyleSheet(f"color: {color}; font-size: 11px; font-weight: bold;")
                 rl.addWidget(cnt_lbl)
-                self.dash_layout.addWidget(row)
+
+                self.dash_layout.addWidget(row_w)
 
         self.dash_layout.addStretch()
 
@@ -352,3 +380,61 @@ class VentanaReportes(QDialog):
             QMessageBox.information(self, "Exportado", f"Reporte guardado en:\n{ruta}")
         except Exception as exc:
             QMessageBox.critical(self, "Error", f"No se pudo exportar:\n{exc}")
+
+
+
+# ── Widgets internos ───────────────────────────────────────────────────────────
+
+class _KPICard(QFrame):
+    """
+    Tarjeta KPI con ícono grande, valor numérico destacado y etiqueta.
+
+    Args:
+        icono: Emoji o carácter unicode para el ícono.
+        titulo: Etiqueta corta del KPI.
+        valor: Valor a mostrar (string formateado).
+        color: Color hex del valor.
+        tooltip: Texto de ayuda al pasar el cursor.
+    """
+
+    def __init__(
+        self,
+        icono: str,
+        titulo: str,
+        valor: str,
+        color: str,
+        tooltip: str = "",
+    ) -> None:
+        super().__init__()
+        self.setObjectName("kpi_card")
+        self.setStyleSheet(
+            "QFrame#kpi_card { background-color: #1A1A1A; border-radius: 10px; border: none; }"
+        )
+        self.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
+        if tooltip:
+            self.setToolTip(tooltip)
+
+        lay = QVBoxLayout(self)
+        lay.setContentsMargins(16, 14, 16, 14)
+        lay.setSpacing(4)
+
+        # Ícono
+        ico_lbl = QLabel(icono)
+        ico_lbl.setAlignment(Qt.AlignCenter)
+        ico_lbl.setStyleSheet("font-size: 22px; background: transparent;")
+        lay.addWidget(ico_lbl)
+
+        # Valor
+        val_lbl = QLabel(str(valor))
+        val_lbl.setAlignment(Qt.AlignCenter)
+        val_lbl.setStyleSheet(
+            f"color: {color}; font-size: 26px; font-weight: bold; background: transparent;"
+        )
+        lay.addWidget(val_lbl)
+
+        # Etiqueta
+        tit_lbl = QLabel(titulo)
+        tit_lbl.setAlignment(Qt.AlignCenter)
+        tit_lbl.setStyleSheet("color: #B8B8B8; font-size: 11px; background: transparent;")
+        tit_lbl.setWordWrap(True)
+        lay.addWidget(tit_lbl)

@@ -5,6 +5,8 @@ PanelMetodoBase — Dashboard personal del usuario regular.
 Muestra:
   · Saludo + rol
   · Tarjetas de estadísticas (peso, IMC, objetivo, nivel actividad)
+  · Sección "Tus Calorías": TMB, GET, Kcal objetivo, macros (P/G/C)
+  · Barra visual de macros proporcional
   · Botón principal "Mis alimentos" → señal abrir_preferencias
   · Botón secundario "Generar mi plan" → señal generar_plan
 
@@ -21,6 +23,7 @@ from PySide6.QtWidgets import (
     QGridLayout,
     QHBoxLayout,
     QLabel,
+    QProgressBar,
     QPushButton,
     QScrollArea,
     QSizePolicy,
@@ -156,6 +159,16 @@ class PanelMetodoBase(QDialog):
         lay.addLayout(stats_grid)
         lay.addSpacerItem(QSpacerItem(0, 28, QSizePolicy.Minimum, QSizePolicy.Fixed))
 
+        # ── Sección Calorías y Macros ─────────────────────────────────────
+        calc = self._calcular_nutricional()
+        if calc is not None:
+            sec_cal = QLabel("TUS CALORÍAS Y MACROS")
+            sec_cal.setObjectName("section_title")
+            lay.addWidget(sec_cal)
+            lay.addSpacerItem(QSpacerItem(0, 12, QSizePolicy.Minimum, QSizePolicy.Fixed))
+            lay.addWidget(_CaloriasCard(calc))
+            lay.addSpacerItem(QSpacerItem(0, 28, QSizePolicy.Minimum, QSizePolicy.Fixed))
+
         # ── Sección Alimentos ─────────────────────────────────────────────
         sec_food = QLabel("PREFERENCIAS ALIMENTARIAS")
         sec_food.setObjectName("section_title")
@@ -242,6 +255,46 @@ class PanelMetodoBase(QDialog):
 
         return rows
 
+    def _calcular_nutricional(self) -> dict | None:
+        """
+        Calcula TMB, GET, kcal objetivo y macros a partir del perfil.
+
+        Retorna None si faltan datos esenciales.
+        """
+        p = self._perfil
+        peso = p.get("peso_kg")
+        grasa = p.get("grasa_corporal_pct")
+        nivel = p.get("nivel_actividad")
+        objetivo = p.get("objetivo")
+
+        if not all([peso, grasa, nivel, objetivo]):
+            return None
+
+        try:
+            from config.constantes import FACTORES_ACTIVIDAD
+            from core.motor_nutricional import MotorNutricional
+
+            factor = FACTORES_ACTIVIDAD.get(nivel, 1.2)
+            masa_magra = MotorNutricional.calcular_masa_magra(peso, grasa)
+            tmb = MotorNutricional.calcular_tmb(masa_magra)
+            get_total = MotorNutricional.calcular_get(tmb, factor)
+            kcal_obj = MotorNutricional.calcular_kcal_objetivo(get_total, objetivo)
+            macros = MotorNutricional.calcular_macros(peso, kcal_obj)
+
+            return {
+                "tmb": round(tmb),
+                "get_total": round(get_total),
+                "kcal_objetivo": round(kcal_obj),
+                "proteina_g": round(macros["proteina_g"], 1),
+                "grasa_g": round(macros["grasa_g"], 1),
+                "carbs_g": round(macros["carbs_g"], 1),
+                "kcal_proteina": round(macros["proteina_g"] * 4),
+                "kcal_grasa": round(macros["grasa_g"] * 9),
+                "kcal_carbs": round(macros["carbs_g"] * 4),
+            }
+        except Exception:
+            return None
+
     # ── Slots ─────────────────────────────────────────────────────────────
 
     def _on_cerrar(self) -> None:
@@ -276,3 +329,159 @@ class _StatCard(QFrame):
         et_lbl = QLabel(etiqueta)
         et_lbl.setObjectName("stat_label")
         lay.addWidget(et_lbl)
+
+
+class _CaloriasCard(QFrame):
+    """
+    Tarjeta de calorías y macronutrientes con barra visual proporcional.
+
+    Muestra:
+    - TMB, GET, Kcal objetivo en fila de KPIs
+    - Barra de macros coloreada (proteína / grasa / carbohidratos)
+    - Gramos y kcal de cada macro
+    """
+
+    _COLOR_PROTEINA = "#4CAF50"   # verde
+    _COLOR_GRASA    = "#FF9800"   # naranja
+    _COLOR_CARBS    = "#2196F3"   # azul
+    _COLOR_ROW_BG   = "#222222"
+
+    def __init__(self, calc: dict) -> None:
+        super().__init__()
+        self.setObjectName("card")
+        self.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
+        self._calc = calc
+        self._build()
+
+    def _build(self) -> None:
+        c = self._calc
+        root = QVBoxLayout(self)
+        root.setContentsMargins(20, 18, 20, 18)
+        root.setSpacing(14)
+
+        # ── Fila de KPIs calóricos ────────────────────────────────────────
+        kpi_row = QHBoxLayout()
+        kpi_row.setSpacing(0)
+        for label, valor, unidad, tooltip in [
+            ("TMB",           str(c["tmb"]),           "kcal", "Tasa Metabólica Basal (Katch-McArdle)"),
+            ("GET",           str(c["get_total"]),      "kcal", "Gasto Energético Total (TMB × factor actividad)"),
+            ("Kcal objetivo", str(c["kcal_objetivo"]),  "kcal", "Calorías ajustadas a tu objetivo"),
+        ]:
+            cell = QWidget()
+            cell.setToolTip(tooltip)
+            cell_lay = QVBoxLayout(cell)
+            cell_lay.setContentsMargins(8, 8, 8, 8)
+            cell_lay.setSpacing(2)
+
+            v_lbl = QLabel(valor)
+            v_lbl.setAlignment(Qt.AlignCenter)
+            v_lbl.setStyleSheet(
+                "color: #FF6F0F; font-size: 22px; font-weight: 700; background: transparent;"
+            )
+            cell_lay.addWidget(v_lbl)
+
+            u_lbl = QLabel(unidad)
+            u_lbl.setAlignment(Qt.AlignCenter)
+            u_lbl.setStyleSheet("color: #888; font-size: 10px; background: transparent;")
+            cell_lay.addWidget(u_lbl)
+
+            l_lbl = QLabel(label)
+            l_lbl.setAlignment(Qt.AlignCenter)
+            l_lbl.setStyleSheet("color: #B8B8B8; font-size: 11px; background: transparent;")
+            cell_lay.addWidget(l_lbl)
+
+            kpi_row.addWidget(cell, 1)
+
+            if label != "Kcal objetivo":
+                sep = QFrame()
+                sep.setFrameShape(QFrame.VLine)
+                sep.setStyleSheet("color: #333; background: #333;")
+                kpi_row.addWidget(sep)
+
+        kpi_frame = QFrame()
+        kpi_frame.setStyleSheet(
+            f"QFrame {{ background-color: {self._COLOR_ROW_BG}; border-radius: 8px; border: none; }}"
+        )
+        kpi_frame.setLayout(kpi_row)
+        root.addWidget(kpi_frame)
+
+        # ── Título macros ─────────────────────────────────────────────────
+        macros_title = QLabel("Distribución de macronutrientes")
+        macros_title.setStyleSheet("color: #B8B8B8; font-size: 11px; font-weight: 600;")
+        root.addWidget(macros_title)
+
+        # ── Barra proporcional ────────────────────────────────────────────
+        kcal_p = c["kcal_proteina"]
+        kcal_g = c["kcal_grasa"]
+        kcal_c = c["kcal_carbs"]
+        total_kcal = max(kcal_p + kcal_g + kcal_c, 1)
+
+        bar_row = QHBoxLayout()
+        bar_row.setSpacing(2)
+        for kcal_part, color, tooltip in [
+            (kcal_p, self._COLOR_PROTEINA, f"Proteína: {kcal_p:.0f} kcal"),
+            (kcal_g, self._COLOR_GRASA,    f"Grasa: {kcal_g:.0f} kcal"),
+            (kcal_c, self._COLOR_CARBS,    f"Carbs: {kcal_c:.0f} kcal"),
+        ]:
+            pct = int(round(kcal_part / total_kcal * 100))
+            bar = QProgressBar()
+            bar.setFixedHeight(12)
+            bar.setRange(0, 100)
+            bar.setValue(pct)
+            bar.setTextVisible(False)
+            bar.setToolTip(tooltip)
+            bar.setStyleSheet(
+                f"QProgressBar {{ border-radius: 6px; background: #333; border: none; }}"
+                f"QProgressBar::chunk {{ background: {color}; border-radius: 6px; }}"
+            )
+            bar_row.addWidget(bar, max(pct, 1))
+        root.addLayout(bar_row)
+
+        # ── Fila de macros detallados ─────────────────────────────────────
+        macro_row = QHBoxLayout()
+        macro_row.setSpacing(0)
+        for label, grams, kcal_val, color in [
+            ("Proteína", c["proteina_g"], kcal_p, self._COLOR_PROTEINA),
+            ("Grasa",    c["grasa_g"],    kcal_g, self._COLOR_GRASA),
+            ("Carbs",    c["carbs_g"],    kcal_c, self._COLOR_CARBS),
+        ]:
+            cell = QWidget()
+            cell_lay = QVBoxLayout(cell)
+            cell_lay.setContentsMargins(8, 10, 8, 10)
+            cell_lay.setSpacing(1)
+
+            dot_lbl = QLabel(f"● {label}")
+            dot_lbl.setAlignment(Qt.AlignCenter)
+            dot_lbl.setStyleSheet(f"color: {color}; font-size: 11px; font-weight: 700;")
+            cell_lay.addWidget(dot_lbl)
+
+            g_lbl = QLabel(f"{grams:.1f} g")
+            g_lbl.setAlignment(Qt.AlignCenter)
+            g_lbl.setStyleSheet("color: #F5F5F5; font-size: 16px; font-weight: 700;")
+            cell_lay.addWidget(g_lbl)
+
+            k_lbl = QLabel(f"{kcal_val:.0f} kcal")
+            k_lbl.setAlignment(Qt.AlignCenter)
+            k_lbl.setStyleSheet("color: #888; font-size: 10px;")
+            cell_lay.addWidget(k_lbl)
+
+            pct_macro = int(round(kcal_val / total_kcal * 100))
+            p_lbl = QLabel(f"{pct_macro}%")
+            p_lbl.setAlignment(Qt.AlignCenter)
+            p_lbl.setStyleSheet("color: #B8B8B8; font-size: 10px;")
+            cell_lay.addWidget(p_lbl)
+
+            macro_row.addWidget(cell, 1)
+
+            if label != "Carbs":
+                sep = QFrame()
+                sep.setFrameShape(QFrame.VLine)
+                sep.setStyleSheet("color: #333; background: #333;")
+                macro_row.addWidget(sep)
+
+        macro_frame = QFrame()
+        macro_frame.setStyleSheet(
+            f"QFrame {{ background-color: {self._COLOR_ROW_BG}; border-radius: 8px; border: none; }}"
+        )
+        macro_frame.setLayout(macro_row)
+        root.addWidget(macro_frame)
