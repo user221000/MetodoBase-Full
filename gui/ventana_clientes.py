@@ -11,13 +11,17 @@ Esta ventana permite:
 
 import os
 import csv
+import webbrowser
+import urllib.parse
 from datetime import datetime
 from typing import Dict, List
 
 import customtkinter as ctk
 from tkinter import messagebox
 
+from gui.design_tokens import Colors, Typography, Spacing, Radius, Component
 from src.gestor_bd import GestorBDClientes
+from core.branding import branding
 from utils.logger import logger
 from utils.helpers import activar_modal_seguro, centrar_ventana
 from config.constantes import CARPETA_SALIDA
@@ -33,18 +37,18 @@ PLANTILLA_LABELS = {
 class VentanaClientes(ctk.CTkToplevel):
     """Ventana de gestión y seguimiento de clientes."""
     
-    # Paleta de colores consistente con la app principal
-    COLOR_BG = "#0D0D0D"
-    COLOR_CARD = "#1A1A1A"
-    COLOR_PRIMARY = "#9B4FB0"
-    COLOR_PRIMARY_HOVER = "#B565C6"
-    COLOR_SECONDARY = "#D4A84B"
-    COLOR_BORDER = "#444444"
-    COLOR_TEXT = "#F5F5F5"
-    COLOR_TEXT_MUTED = "#B8B8B8"
-    COLOR_SUCCESS = "#4CAF50"
-    COLOR_INFO = "#2196F3"
-    COLOR_WARNING = "#FF7043"
+    # ── Aurora Fitness Design System ──
+    COLOR_BG              = Colors.BG_PRIMARY
+    COLOR_CARD            = Colors.BG_SECONDARY
+    COLOR_PRIMARY         = Colors.ACTION_PRIMARY
+    COLOR_PRIMARY_HOVER   = Colors.ACTION_PRIMARY_HOVER
+    COLOR_SECONDARY       = Colors.ACTION_SECONDARY
+    COLOR_BORDER          = Colors.BORDER_SUBTLE
+    COLOR_TEXT            = Colors.TEXT_PRIMARY
+    COLOR_TEXT_MUTED      = Colors.TEXT_SECONDARY
+    COLOR_SUCCESS         = Colors.SUCCESS
+    COLOR_INFO            = Colors.INFO
+    COLOR_WARNING         = Colors.WARNING
     
     def __init__(self, master, gestor_bd: GestorBDClientes):
         super().__init__(master)
@@ -79,7 +83,7 @@ class VentanaClientes(ctk.CTkToplevel):
         self.lbl_titulo = ctk.CTkLabel(
             self.header_frame,
             text="🏋️ Clientes Registrados",
-            font=ctk.CTkFont(family="Segoe UI", size=24, weight="bold"),
+            font=ctk.CTkFont(family=Typography.FONT_STACK, size=24, weight="bold"),
             text_color=self.COLOR_TEXT
         )
         self.lbl_titulo.pack(side="left", anchor="w")
@@ -91,7 +95,7 @@ class VentanaClientes(ctk.CTkToplevel):
         self.lbl_buscar = ctk.CTkLabel(
             self.search_frame,
             text="🔍 Buscar:",
-            font=ctk.CTkFont(family="Segoe UI", size=12),
+            font=ctk.CTkFont(family=Typography.FONT_STACK, size=12),
             text_color=self.COLOR_TEXT_MUTED
         )
         self.lbl_buscar.pack(side="left", padx=(0, 8))
@@ -100,8 +104,11 @@ class VentanaClientes(ctk.CTkToplevel):
             self.search_frame,
             placeholder_text="Nombre o teléfono...",
             width=250,
-            font=ctk.CTkFont(family="Segoe UI", size=12),
-            fg_color=self.COLOR_CARD,
+            height=Component.INPUT_HEIGHT,
+            corner_radius=Radius.SM,
+            border_width=1,
+            font=ctk.CTkFont(family=Typography.FONT_STACK, size=12),
+            fg_color=Colors.BG_TERTIARY,
             border_color=self.COLOR_BORDER,
             text_color=self.COLOR_TEXT
         )
@@ -128,7 +135,7 @@ class VentanaClientes(ctk.CTkToplevel):
         self.lbl_total = ctk.CTkLabel(
             self.footer_frame,
             text="Total: 0 clientes activos",
-            font=ctk.CTkFont(family="Segoe UI", size=12),
+            font=ctk.CTkFont(family=Typography.FONT_STACK, size=12),
             text_color=self.COLOR_TEXT_MUTED
         )
         self.lbl_total.pack(side="left", padx=15, pady=15)
@@ -137,10 +144,12 @@ class VentanaClientes(ctk.CTkToplevel):
         self.btn_exportar = ctk.CTkButton(
             self.footer_frame,
             text="📊 Exportar CSV",
-            font=ctk.CTkFont(family="Segoe UI", size=12),
+            font=ctk.CTkFont(family=Typography.FONT_STACK, size=12),
             fg_color=self.COLOR_SUCCESS,
-            hover_color="#43A047",
-            text_color="white",
+            hover_color=Colors.SUCCESS_HOVER,
+            text_color=Colors.TEXT_INVERTED,
+            height=Component.BUTTON_HEIGHT_SM,
+            corner_radius=Radius.SM,
             width=140,
             command=self._exportar_excel
         )
@@ -225,7 +234,7 @@ class VentanaClientes(ctk.CTkToplevel):
             self.lbl_vacio = ctk.CTkLabel(
                 self.scroll_frame,
                 text="😔 No se encontraron clientes",
-                font=ctk.CTkFont(family="Segoe UI", size=16),
+                font=ctk.CTkFont(family=Typography.FONT_STACK, size=16),
                 text_color=self.COLOR_TEXT_MUTED
             )
             self.lbl_vacio.pack(pady=50)
@@ -240,9 +249,9 @@ class VentanaClientes(ctk.CTkToplevel):
         tarjeta = ctk.CTkFrame(
             parent,
             fg_color=self.COLOR_CARD,
-            border_width=1,
+            border_width=Component.CARD_BORDER_WIDTH,
             border_color=self.COLOR_BORDER,
-            corner_radius=12
+            corner_radius=Radius.MD
         )
         tarjeta.pack(fill="x", pady=8, padx=10)
         
@@ -268,7 +277,7 @@ class VentanaClientes(ctk.CTkToplevel):
         lbl_nombre = ctk.CTkLabel(
             fila1,
             text=f"👤 {nombre_texto}",
-            font=ctk.CTkFont(family="Segoe UI", size=16, weight="bold"),
+            font=ctk.CTkFont(family=Typography.FONT_STACK, size=Typography.SIZE_LG, weight=Typography.WEIGHT_BOLD),
             text_color=self.COLOR_TEXT,
             anchor="w"
         )
@@ -277,7 +286,7 @@ class VentanaClientes(ctk.CTkToplevel):
         lbl_fecha = ctk.CTkLabel(
             fila1,
             text=f"📅 {fecha_texto}",
-            font=ctk.CTkFont(family="Segoe UI", size=12),
+            font=ctk.CTkFont(family=Typography.FONT_STACK, size=Typography.SIZE_SM),
             text_color=self.COLOR_TEXT_MUTED
         )
         lbl_fecha.grid(row=0, column=1, sticky="e")
@@ -300,7 +309,7 @@ class VentanaClientes(ctk.CTkToplevel):
         lbl_info = ctk.CTkLabel(
             fila2,
             text=info_texto,
-            font=ctk.CTkFont(family="Segoe UI", size=12),
+            font=ctk.CTkFont(family=Typography.FONT_STACK, size=Typography.SIZE_SM),
             text_color=self.COLOR_TEXT_MUTED,
             anchor="w"
         )
@@ -326,7 +335,7 @@ class VentanaClientes(ctk.CTkToplevel):
                 f"Peso: {self._fmt_num(peso_i, 'kg')} -> {self._fmt_num(peso_a, 'kg')} "
                 f"(Δ {self._fmt_delta(delta_peso, 'kg')})"
             ),
-            font=ctk.CTkFont(family="Segoe UI", size=11, weight="bold"),
+            font=ctk.CTkFont(family=Typography.FONT_STACK, size=Typography.SIZE_XS, weight=Typography.WEIGHT_BOLD),
             text_color=self._color_delta(delta_peso),
             anchor="w",
         )
@@ -338,7 +347,7 @@ class VentanaClientes(ctk.CTkToplevel):
                 f"Grasa: {self._fmt_num(grasa_i, '%')} -> {self._fmt_num(grasa_a, '%')} "
                 f"(Δ {self._fmt_delta(delta_grasa, '%')})"
             ),
-            font=ctk.CTkFont(family="Segoe UI", size=11, weight="bold"),
+            font=ctk.CTkFont(family=Typography.FONT_STACK, size=Typography.SIZE_XS, weight=Typography.WEIGHT_BOLD),
             text_color=self._color_delta(delta_grasa),
             anchor="w",
         )
@@ -362,7 +371,7 @@ class VentanaClientes(ctk.CTkToplevel):
         lbl_planes = ctk.CTkLabel(
             fila4,
             text=txt_planes,
-            font=ctk.CTkFont(family="Segoe UI", size=11),
+            font=ctk.CTkFont(family=Typography.FONT_STACK, size=Typography.SIZE_XS),
             text_color=self.COLOR_TEXT_MUTED,
             anchor="w"
         )
@@ -375,21 +384,37 @@ class VentanaClientes(ctk.CTkToplevel):
         btn_historial = ctk.CTkButton(
             botones_frame,
             text="Ver Historial",
-            font=ctk.CTkFont(family="Segoe UI", size=11),
+            font=ctk.CTkFont(family=Typography.FONT_STACK, size=Typography.SIZE_XS),
             width=90,
             height=28,
+            corner_radius=Radius.SM,
             fg_color=self.COLOR_INFO,
-            hover_color="#1976D2",
+            hover_color=Colors.INFO_HOVER,
             command=lambda c=cliente: self._ver_historial(c['id_cliente'], c['nombre'])
         )
         btn_historial.pack(side="left", padx=(0, 8))
+
+        btn_whatsapp = ctk.CTkButton(
+            botones_frame,
+            text="📲 WhatsApp",
+            font=ctk.CTkFont(family=Typography.FONT_STACK, size=Typography.SIZE_XS),
+            width=95,
+            height=28,
+            corner_radius=Radius.SM,
+            fg_color="#25D366",
+            hover_color="#1EBE58",
+            text_color=Colors.TEXT_INVERTED,
+            command=lambda c=cliente: self._enviar_whatsapp_cliente(c)
+        )
+        btn_whatsapp.pack(side="left", padx=(0, 8))
         
         btn_nuevo_plan = ctk.CTkButton(
             botones_frame,
             text="Regenerar",
-            font=ctk.CTkFont(family="Segoe UI", size=11),
+            font=ctk.CTkFont(family=Typography.FONT_STACK, size=Typography.SIZE_XS),
             width=90,
             height=28,
+            corner_radius=Radius.SM,
             fg_color=self.COLOR_PRIMARY,
             hover_color=self.COLOR_PRIMARY_HOVER,
             command=lambda c=cliente: self._nuevo_plan(c)
@@ -437,7 +462,58 @@ class VentanaClientes(ctk.CTkToplevel):
         except Exception as e:
             logger.error("[CLIENTES] Error preparando regeneración: %s", e, exc_info=True)
             messagebox.showerror("Error", f"No se pudo preparar la regeneración:\n{e}")
-        
+
+    def _enviar_whatsapp_cliente(self, cliente: dict) -> None:
+        """Abre WhatsApp Web con el número del cliente y el mensaje configurado."""
+        telefono = str(cliente.get("telefono") or "").strip()
+        if not telefono:
+            messagebox.showwarning(
+                "Sin teléfono",
+                f"El cliente {cliente.get('nombre', '')} no tiene número registrado.",
+                parent=self,
+            )
+            return
+
+        # Limpiar el número: solo dígitos
+        telefono_limpio = "".join(c for c in telefono if c.isdigit())
+        if not telefono_limpio:
+            messagebox.showerror("Teléfono inválido", "El número del cliente no es válido.", parent=self)
+            return
+
+        nombre = cliente.get("nombre", "")
+        nombre_gym = branding.get("nombre_gym", "el gimnasio")
+        telefono_gym = (
+            branding.get("contacto.whatsapp", "")
+            or branding.get("contacto.telefono", "")
+        )
+
+        plantilla_default = (
+            "Hola {nombre} 👋\n\n"
+            "Tu plan personalizado de {nombre_gym} ya está listo.\n"
+            "Adjunto encontrarás tu plan alimenticio.\n"
+            "Cualquier duda consúltala con tu entrenador.\n"
+            "{nombre_gym} agradece tu preferencia y te espera el próximo mes con tu plan actualizado.\n"
+            "📞 {telefono_gym}"
+        )
+        plantilla = branding.get("whatsapp.mensaje_plan", plantilla_default)
+
+        try:
+            mensaje = plantilla.format(
+                nombre=nombre,
+                nombre_gym=nombre_gym,
+                telefono_gym=telefono_gym,
+            )
+        except KeyError:
+            mensaje = plantilla_default.format(
+                nombre=nombre,
+                nombre_gym=nombre_gym,
+                telefono_gym=telefono_gym,
+            )
+
+        url = f"https://wa.me/{telefono_limpio}?text={urllib.parse.quote(mensaje)}"
+        webbrowser.open(url)
+        logger.info("[CLIENTES] WhatsApp abierto para %s (%s)", nombre, telefono_limpio)
+
     def _exportar_excel(self) -> None:
         """Exporta todos los clientes a un archivo CSV."""
         try:
@@ -516,16 +592,17 @@ class VentanaClientes(ctk.CTkToplevel):
 
 class VentanaHistorialCliente(ctk.CTkToplevel):
     """Sub-ventana que muestra el historial detallado de un cliente."""
-    
-    COLOR_BG = "#0D0D0D"
-    COLOR_CARD = "#1A1A1A"
-    COLOR_PRIMARY = "#9B4FB0"
-    COLOR_BORDER = "#444444"
-    COLOR_TEXT = "#F5F5F5"
-    COLOR_TEXT_MUTED = "#B8B8B8"
-    COLOR_SUCCESS = "#4CAF50"
-    COLOR_INFO = "#2196F3"
-    COLOR_WARNING = "#FF7043"
+
+    # ── Aurora Fitness Design System ──
+    COLOR_BG          = Colors.BG_PRIMARY
+    COLOR_CARD        = Colors.BG_SECONDARY
+    COLOR_PRIMARY     = Colors.ACTION_PRIMARY
+    COLOR_BORDER      = Colors.BORDER_SUBTLE
+    COLOR_TEXT        = Colors.TEXT_PRIMARY
+    COLOR_TEXT_MUTED  = Colors.TEXT_SECONDARY
+    COLOR_SUCCESS     = Colors.SUCCESS
+    COLOR_INFO        = Colors.INFO
+    COLOR_WARNING     = Colors.WARNING
     
     def __init__(self, master, gestor_bd: GestorBDClientes, id_cliente: str, nombre: str):
         super().__init__(master)
@@ -555,7 +632,7 @@ class VentanaHistorialCliente(ctk.CTkToplevel):
         lbl_titulo = ctk.CTkLabel(
             header,
             text=f"📈 Historial: {self.nombre}",
-            font=ctk.CTkFont(family="Segoe UI", size=18, weight="bold"),
+            font=ctk.CTkFont(family=Typography.FONT_STACK, size=Typography.SIZE_XL, weight=Typography.WEIGHT_BOLD),
             text_color=self.COLOR_TEXT
         )
         lbl_titulo.pack(anchor="w")
@@ -568,19 +645,19 @@ class VentanaHistorialCliente(ctk.CTkToplevel):
         ctk.CTkLabel(
             filtros,
             text="Formato",
-            font=ctk.CTkFont(family="Segoe UI", size=11),
+            font=ctk.CTkFont(family=Typography.FONT_STACK, size=Typography.SIZE_XS),
             text_color=self.COLOR_TEXT_MUTED,
         ).grid(row=0, column=0, sticky="w", padx=10, pady=(8, 2))
         self.seg_formato = ctk.CTkSegmentedButton(
             filtros,
             values=["Todos", "Menú Fijo", "Con Opciones"],
             command=lambda _v: self._aplicar_filtros_historial(),
-            fg_color="#2A2A2A",
+            fg_color=Colors.BG_TERTIARY,
             selected_color=self.COLOR_PRIMARY,
-            selected_hover_color="#B565C6",
-            unselected_color="#1F1F1F",
-            unselected_hover_color="#333333",
-            font=ctk.CTkFont(family="Segoe UI", size=11),
+            selected_hover_color=Colors.ACTION_PRIMARY_HOVER,
+            unselected_color=Colors.BG_SECONDARY,
+            unselected_hover_color=Colors.BG_TERTIARY,
+            font=ctk.CTkFont(family=Typography.FONT_STACK, size=Typography.SIZE_XS),
         )
         self.seg_formato.grid(row=1, column=0, sticky="ew", padx=10, pady=(0, 8))
         self.seg_formato.set("Todos")
@@ -588,19 +665,19 @@ class VentanaHistorialCliente(ctk.CTkToplevel):
         ctk.CTkLabel(
             filtros,
             text="Objetivo",
-            font=ctk.CTkFont(family="Segoe UI", size=11),
+            font=ctk.CTkFont(family=Typography.FONT_STACK, size=Typography.SIZE_XS),
             text_color=self.COLOR_TEXT_MUTED,
         ).grid(row=0, column=1, sticky="w", padx=10, pady=(8, 2))
         self.seg_objetivo = ctk.CTkSegmentedButton(
             filtros,
             values=["Todos", "Deficit", "Mantenimiento", "Superavit"],
             command=lambda _v: self._aplicar_filtros_historial(),
-            fg_color="#2A2A2A",
+            fg_color=Colors.BG_TERTIARY,
             selected_color=self.COLOR_PRIMARY,
-            selected_hover_color="#B565C6",
-            unselected_color="#1F1F1F",
-            unselected_hover_color="#333333",
-            font=ctk.CTkFont(family="Segoe UI", size=11),
+            selected_hover_color=Colors.ACTION_PRIMARY_HOVER,
+            unselected_color=Colors.BG_SECONDARY,
+            unselected_hover_color=Colors.BG_TERTIARY,
+            font=ctk.CTkFont(family=Typography.FONT_STACK, size=Typography.SIZE_XS),
         )
         self.seg_objetivo.grid(row=1, column=1, sticky="ew", padx=10, pady=(0, 8))
         self.seg_objetivo.set("Todos")
@@ -608,20 +685,20 @@ class VentanaHistorialCliente(ctk.CTkToplevel):
         ctk.CTkLabel(
             filtros,
             text="Plantilla",
-            font=ctk.CTkFont(family="Segoe UI", size=11),
+            font=ctk.CTkFont(family=Typography.FONT_STACK, size=Typography.SIZE_XS),
             text_color=self.COLOR_TEXT_MUTED,
         ).grid(row=0, column=2, sticky="w", padx=10, pady=(8, 2))
         self.combo_plantilla_filtro = ctk.CTkComboBox(
             filtros,
             values=["Todas"],
             command=lambda _v: self._aplicar_filtros_historial(),
-            fg_color="#1F1F1F",
+            fg_color=Colors.BG_TERTIARY,
             border_color=self.COLOR_BORDER,
             button_color=self.COLOR_PRIMARY,
-            button_hover_color=self.COLOR_PRIMARY,
+            button_hover_color=self.COLOR_PRIMARY_HOVER,
             dropdown_fg_color=self.COLOR_CARD,
             dropdown_hover_color=self.COLOR_PRIMARY,
-            font=ctk.CTkFont(family="Segoe UI", size=11),
+            font=ctk.CTkFont(family=Typography.FONT_STACK, size=Typography.SIZE_XS),
         )
         self.combo_plantilla_filtro.grid(row=1, column=2, sticky="ew", padx=10, pady=(0, 8))
         self.combo_plantilla_filtro.set("Todas")
@@ -642,9 +719,10 @@ class VentanaHistorialCliente(ctk.CTkToplevel):
         btn_exportar_individual = ctk.CTkButton(
             footer,
             text="📊 Exportar CSV Individual",
-            font=ctk.CTkFont(family="Segoe UI", size=12),
+            font=ctk.CTkFont(family=Typography.FONT_STACK, size=Typography.SIZE_SM),
             fg_color=self.COLOR_SUCCESS,
-            hover_color="#43A047",
+            hover_color=Colors.SUCCESS_HOVER,
+            corner_radius=Radius.SM,
             command=self._exportar_excel_individual
         )
         btn_exportar_individual.pack(side="right", padx=15, pady=10)
@@ -672,13 +750,13 @@ class VentanaHistorialCliente(ctk.CTkToplevel):
         grasa_actual,
     ) -> None:
         """Renderiza comparativa visual rápida (inicial vs actual)."""
-        card = ctk.CTkFrame(parent, fg_color=self.COLOR_CARD, corner_radius=10)
+        card = ctk.CTkFrame(parent, fg_color=self.COLOR_CARD, corner_radius=Radius.MD)
         card.pack(fill="x", pady=(0, 8))
 
         ctk.CTkLabel(
             card,
             text="Comparativa visual rápida",
-            font=ctk.CTkFont(family="Segoe UI", size=12, weight="bold"),
+            font=ctk.CTkFont(family=Typography.FONT_STACK, size=Typography.SIZE_SM, weight=Typography.WEIGHT_BOLD),
             text_color=self.COLOR_TEXT,
             anchor="w",
         ).pack(anchor="w", padx=12, pady=(10, 4))
@@ -696,7 +774,7 @@ class VentanaHistorialCliente(ctk.CTkToplevel):
             ctk.CTkLabel(
                 fila,
                 text=f"{titulo}: N/D",
-                font=ctk.CTkFont(family="Segoe UI", size=11),
+                font=ctk.CTkFont(family=Typography.FONT_STACK, size=Typography.SIZE_XS),
                 text_color=self.COLOR_TEXT_MUTED,
                 anchor="w",
             ).pack(anchor="w")
@@ -709,7 +787,7 @@ class VentanaHistorialCliente(ctk.CTkToplevel):
         ctk.CTkLabel(
             fila,
             text=f"{titulo}: {ini:.1f} → {act:.1f} ({delta_txt}) {tendencia}",
-            font=ctk.CTkFont(family="Segoe UI", size=11, weight="bold"),
+            font=ctk.CTkFont(family=Typography.FONT_STACK, size=Typography.SIZE_XS, weight=Typography.WEIGHT_BOLD),
             text_color=self.COLOR_TEXT,
             anchor="w",
         ).pack(anchor="w", pady=(0, 3))
@@ -717,17 +795,19 @@ class VentanaHistorialCliente(ctk.CTkToplevel):
         max_ref = max(ini, act, 1.0)
         bar_ini = ctk.CTkProgressBar(
             fila,
-            height=10,
-            fg_color="#2A2A2A",
-            progress_color="#6E6E6E",
+            height=8,
+            corner_radius=Radius.SM,
+            fg_color=Colors.BG_TERTIARY,
+            progress_color=Colors.NEUTRAL_500,
         )
         bar_ini.pack(fill="x", pady=(0, 2))
         bar_ini.set(ini / max_ref)
 
         bar_act = ctk.CTkProgressBar(
             fila,
-            height=10,
-            fg_color="#2A2A2A",
+            height=8,
+            corner_radius=Radius.SM,
+            fg_color=Colors.BG_TERTIARY,
             progress_color=color_actual,
         )
         bar_act.pack(fill="x")
@@ -744,7 +824,7 @@ class VentanaHistorialCliente(ctk.CTkToplevel):
             lbl_vacio = ctk.CTkLabel(
                 self.scroll_historial,
                 text="📝 Este cliente aún no tiene planes generados",
-                font=ctk.CTkFont(family="Segoe UI", size=14),
+                font=ctk.CTkFont(family=Typography.FONT_STACK, size=Typography.SIZE_BASE),
                 text_color=self.COLOR_TEXT_MUTED,
             )
             lbl_vacio.pack(pady=50)
@@ -777,7 +857,7 @@ class VentanaHistorialCliente(ctk.CTkToplevel):
             ctk.CTkLabel(
                 self.scroll_historial,
                 text="Sin resultados para los filtros seleccionados.",
-                font=ctk.CTkFont(family="Segoe UI", size=13),
+                font=ctk.CTkFont(family=Typography.FONT_STACK, size=Typography.SIZE_SM),
                 text_color=self.COLOR_TEXT_MUTED,
             ).pack(pady=50)
             return
@@ -857,7 +937,7 @@ class VentanaHistorialCliente(ctk.CTkToplevel):
                 f"Peso: {_fmt_num(peso_inicial, 'kg')} -> {_fmt_num(peso_actual, 'kg')} "
                 f"(Δ {_fmt_delta(delta_peso, 'kg')})"
             ),
-            font=ctk.CTkFont(family="Segoe UI", size=12, weight="bold"),
+            font=ctk.CTkFont(family=Typography.FONT_STACK, size=Typography.SIZE_SM, weight=Typography.WEIGHT_BOLD),
             text_color=_color_delta(delta_peso),
         ).grid(row=0, column=0, sticky="w", padx=12, pady=10)
 
@@ -867,7 +947,7 @@ class VentanaHistorialCliente(ctk.CTkToplevel):
                 f"Grasa: {_fmt_num(grasa_inicial, '%')} -> {_fmt_num(grasa_actual, '%')} "
                 f"(Δ {_fmt_delta(delta_grasa, '%')})"
             ),
-            font=ctk.CTkFont(family="Segoe UI", size=12, weight="bold"),
+            font=ctk.CTkFont(family=Typography.FONT_STACK, size=Typography.SIZE_SM, weight=Typography.WEIGHT_BOLD),
             text_color=_color_delta(delta_grasa),
         ).grid(row=0, column=1, sticky="w", padx=12, pady=10)
 
@@ -892,8 +972,8 @@ class VentanaHistorialCliente(ctk.CTkToplevel):
             lbl = ctk.CTkLabel(
                 header_frame,
                 text=header,
-                font=ctk.CTkFont(family="Segoe UI", size=12, weight="bold"),
-                text_color="white",
+                font=ctk.CTkFont(family=Typography.FONT_STACK, size=Typography.SIZE_SM, weight=Typography.WEIGHT_BOLD),
+                text_color=Colors.TEXT_INVERTED,
             )
             lbl.grid(row=0, column=i, padx=10, pady=10)
 
@@ -923,7 +1003,7 @@ class VentanaHistorialCliente(ctk.CTkToplevel):
                 lbl = ctk.CTkLabel(
                     fila,
                     text=dato,
-                    font=ctk.CTkFont(family="Segoe UI", size=11),
+                    font=ctk.CTkFont(family=Typography.FONT_STACK, size=Typography.SIZE_XS),
                     text_color=self.COLOR_TEXT,
                 )
                 lbl.grid(row=0, column=i, padx=10, pady=8)

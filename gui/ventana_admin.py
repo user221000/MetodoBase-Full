@@ -16,6 +16,7 @@ from tkinter import filedialog, messagebox
 from datetime import datetime
 from typing import Dict
 
+from gui.design_tokens import Colors, Typography, Spacing, Radius, Component
 from core.branding import branding
 from core.licencia import GestorLicencias
 from config.constantes import CARPETA_CONFIG
@@ -42,21 +43,22 @@ class VentanaAdmin(ctk.CTkToplevel):
     Acceso: Ctrl+Shift+A en la ventana principal
     """
 
-    COLOR_BG = "#0D0D0D"
-    COLOR_CARD = "#1A1A1A"
-    COLOR_PRIMARY = "#9B4FB0"
-    COLOR_TEXT = "#F5F5F5"
-    COLOR_TEXT_MUTED = "#B8B8B8"
-    COLOR_SUCCESS = "#4CAF50"
-    COLOR_ERROR = "#F44336"
-    COLOR_WARNING = "#FF9800"
+    # ── Aurora Fitness Design System ──
+    COLOR_BG          = Colors.BG_PRIMARY
+    COLOR_CARD        = Colors.BG_SECONDARY
+    COLOR_PRIMARY     = Colors.ACTION_PRIMARY
+    COLOR_TEXT        = Colors.TEXT_PRIMARY
+    COLOR_TEXT_MUTED  = Colors.TEXT_SECONDARY
+    COLOR_SUCCESS     = Colors.SUCCESS
+    COLOR_ERROR       = Colors.ERROR
+    COLOR_WARNING     = Colors.WARNING
 
     def __init__(self, parent):
         super().__init__(parent)
         self.parent_app = parent
 
         self.title("Panel de Administración - Método Base")
-        self.geometry("800x700")
+        self.geometry("820x720")
         self.resizable(True, True)
         self.configure(fg_color=self.COLOR_BG)
 
@@ -73,21 +75,21 @@ class VentanaAdmin(ctk.CTkToplevel):
     def _crear_ui(self):
         """Crea la interfaz del panel."""
         # Header
-        header = ctk.CTkFrame(self, fg_color=self.COLOR_CARD, height=80)
+        header = ctk.CTkFrame(self, fg_color=self.COLOR_CARD, height=90)
         header.pack(fill="x", padx=20, pady=(20, 10))
         header.pack_propagate(False)
 
         ctk.CTkLabel(
             header,
             text="⚙️ Panel de Administración",
-            font=ctk.CTkFont(family="Segoe UI", size=22, weight="bold"),
+            font=ctk.CTkFont(family=Typography.FONT_STACK, size=Typography.SIZE_2XL, weight=Typography.WEIGHT_BOLD),
             text_color=self.COLOR_PRIMARY,
-        ).pack(pady=10)
+        ).pack(pady=(12, 4))
 
         ctk.CTkLabel(
             header,
             text="Configuración avanzada del sistema",
-            font=ctk.CTkFont(family="Segoe UI", size=12),
+            font=ctk.CTkFont(family=Typography.FONT_STACK, size=Typography.SIZE_SM),
             text_color=self.COLOR_TEXT_MUTED,
         ).pack()
 
@@ -97,7 +99,7 @@ class VentanaAdmin(ctk.CTkToplevel):
             fg_color=self.COLOR_BG,
             segmented_button_fg_color=self.COLOR_CARD,
             segmented_button_selected_color=self.COLOR_PRIMARY,
-            segmented_button_selected_hover_color=self.COLOR_PRIMARY,
+            segmented_button_selected_hover_color=Colors.ACTION_PRIMARY_HOVER,
             text_color=self.COLOR_TEXT,
         )
         self.tabview.pack(fill="both", expand=True, padx=20, pady=10)
@@ -118,7 +120,9 @@ class VentanaAdmin(ctk.CTkToplevel):
             text="Cerrar",
             command=self.destroy,
             width=120,
-            height=36,
+            height=Component.BUTTON_HEIGHT_MD,
+            corner_radius=Radius.SM,
+            font=ctk.CTkFont(family=Typography.FONT_STACK, size=Typography.SIZE_SM),
             fg_color="transparent",
             border_width=1,
             border_color=self.COLOR_TEXT_MUTED,
@@ -167,6 +171,8 @@ class VentanaAdmin(ctk.CTkToplevel):
             tema_frame,
             text="Aplicar",
             width=90,
+            height=Component.BUTTON_HEIGHT_SM,
+            corner_radius=Radius.SM,
             command=lambda: self._aplicar_tema_preconfigurado(mostrar_feedback=True),
             fg_color=self.COLOR_PRIMARY,
         ).pack(side="left")
@@ -212,6 +218,71 @@ class VentanaAdmin(ctk.CTkToplevel):
             scroll, "WhatsApp:", self.branding.get("contacto.whatsapp", "")
         )
 
+        self._crear_seccion_admin(scroll, "Mensaje de WhatsApp (Plan Alimenticio)")
+
+        ctk.CTkLabel(
+            scroll,
+            text=(
+                "Variables disponibles: {nombre}, {nombre_gym}, {telefono_gym}\n"
+                "Este mensaje se usa al compartir el plan desde la ventana principal y desde la lista de clientes."
+            ),
+            font=ctk.CTkFont(family=Typography.FONT_STACK, size=Typography.SIZE_XS),
+            text_color=self.COLOR_TEXT_MUTED,
+            anchor="w",
+            justify="left",
+            wraplength=680,
+        ).pack(fill="x", pady=(0, 6))
+
+        self.text_whatsapp_mensaje = ctk.CTkTextbox(
+            scroll,
+            height=120,
+            font=ctk.CTkFont(family=Typography.FONT_STACK, size=Typography.SIZE_SM),
+            fg_color=Colors.BG_TERTIARY,
+            border_color=Colors.BORDER_SUBTLE,
+            border_width=1,
+            text_color=self.COLOR_TEXT,
+            corner_radius=Radius.SM,
+            wrap="word",
+        )
+        self.text_whatsapp_mensaje.pack(fill="x", pady=(0, 4))
+        _plantilla_default = (
+            "Hola {nombre} 👋\n\n"
+            "Tu plan personalizado de {nombre_gym} ya está listo.\n"
+            "Adjunto encontrarás tu plan alimenticio.\n"
+            "Cualquier duda consúltala con tu entrenador.\n"
+            "{nombre_gym} agradece tu preferencia y te espera el próximo mes con tu plan actualizado.\n"
+            "📞 {telefono_gym}"
+        )
+        self.text_whatsapp_mensaje.insert(
+            "0.0",
+            self.branding.get("whatsapp.mensaje_plan", _plantilla_default),
+        )
+
+        ctk.CTkButton(
+            scroll,
+            text="↺ Restaurar mensaje predeterminado",
+            command=lambda: (
+                self.text_whatsapp_mensaje.delete("0.0", "end"),
+                self.text_whatsapp_mensaje.insert(
+                    "0.0",
+                    "Hola {nombre} 👋\n\n"
+                    "Tu plan personalizado de {nombre_gym} ya está listo.\n"
+                    "Adjunto encontrarás tu plan alimenticio.\n"
+                    "Cualquier duda consúltala con tu entrenador.\n"
+                    "{nombre_gym} agradece tu preferencia y te espera el próximo mes con tu plan actualizado.\n"
+                    "📞 {telefono_gym}",
+                ),
+            ),
+            height=Component.BUTTON_HEIGHT_SM,
+            corner_radius=Radius.SM,
+            font=ctk.CTkFont(family=Typography.FONT_STACK, size=Typography.SIZE_XS),
+            fg_color="transparent",
+            border_width=1,
+            border_color=self.COLOR_TEXT_MUTED,
+            text_color=self.COLOR_TEXT_MUTED,
+            hover_color=self.COLOR_CARD,
+        ).pack(anchor="w", pady=(0, 10))
+
         self._crear_seccion_admin(scroll, "Colores Corporativos")
 
         self.entry_color_primario = self._crear_campo_admin(
@@ -241,8 +312,10 @@ class VentanaAdmin(ctk.CTkToplevel):
             text="Seleccionar Logo...",
             command=self._seleccionar_logo_pdf,
             fg_color=self.COLOR_PRIMARY,
+            hover_color=Colors.ACTION_PRIMARY_HOVER,
+            corner_radius=Radius.SM,
             width=170,
-            height=34,
+            height=Component.BUTTON_HEIGHT_SM,
         ).pack(side="left")
         ctk.CTkButton(
             logo_botones,
@@ -252,8 +325,10 @@ class VentanaAdmin(ctk.CTkToplevel):
             border_width=1,
             border_color=self.COLOR_TEXT_MUTED,
             text_color=self.COLOR_TEXT,
+            hover_color=self.COLOR_CARD,
+            corner_radius=Radius.SM,
             width=210,
-            height=34,
+            height=Component.BUTTON_HEIGHT_SM,
         ).pack(side="left", padx=(10, 0))
 
         ctk.CTkLabel(
@@ -273,10 +348,11 @@ class VentanaAdmin(ctk.CTkToplevel):
             scroll,
             text="💾 Guardar Configuración",
             command=self._guardar_branding,
-            height=44,
-            font=ctk.CTkFont(size=13, weight="bold"),
+            height=Component.BUTTON_HEIGHT_LG,
+            corner_radius=Radius.MD,
+            font=ctk.CTkFont(family=Typography.FONT_STACK, size=Typography.SIZE_BASE, weight=Typography.WEIGHT_BOLD),
             fg_color=self.COLOR_SUCCESS,
-            hover_color="#43A047",
+            hover_color=Colors.SUCCESS_HOVER,
         ).pack(pady=30, fill="x")
 
     # ========== Pestaña Base de Datos ==========
@@ -355,7 +431,8 @@ class VentanaAdmin(ctk.CTkToplevel):
             acciones_lic,
             text="🔄 Renovar ahora",
             command=self._renovar_licencia_ahora,
-            height=38,
+            height=Component.BUTTON_HEIGHT_SM,
+            corner_radius=Radius.SM,
             fg_color=self.COLOR_WARNING,
         )
         self.btn_renovar_licencia.grid(row=0, column=0, padx=(0, 8), sticky="ew")
@@ -364,7 +441,8 @@ class VentanaAdmin(ctk.CTkToplevel):
             acciones_lic,
             text="📋 Copiar ID instalación",
             command=self._copiar_id_licencia,
-            height=38,
+            height=Component.BUTTON_HEIGHT_SM,
+            corner_radius=Radius.SM,
             fg_color="transparent",
             border_width=1,
             border_color=self.COLOR_TEXT_MUTED,
@@ -435,16 +513,20 @@ class VentanaAdmin(ctk.CTkToplevel):
             btn_backup_frame,
             text="📦 Crear Backup",
             command=self._crear_backup,
-            height=40,
+            height=Component.BUTTON_HEIGHT_SM,
+            corner_radius=Radius.SM,
             fg_color=self.COLOR_SUCCESS,
+            hover_color=Colors.SUCCESS_HOVER,
         ).grid(row=0, column=0, padx=(0, 10), sticky="ew")
 
         ctk.CTkButton(
             btn_backup_frame,
             text="🗑️ Limpiar Antiguos",
             command=self._limpiar_backups,
-            height=40,
+            height=Component.BUTTON_HEIGHT_SM,
+            corner_radius=Radius.SM,
             fg_color=self.COLOR_WARNING,
+            hover_color=Colors.WARNING_HOVER,
         ).grid(row=0, column=1, padx=(10, 0), sticky="ew")
 
         # Botón de reportes completos
@@ -452,9 +534,11 @@ class VentanaAdmin(ctk.CTkToplevel):
             container,
             text="📊 Ver Reportes Completos",
             command=lambda: VentanaReportes(self),
-            height=50,
-            font=ctk.CTkFont(size=14, weight="bold"),
+            height=Component.BUTTON_HEIGHT_LG,
+            corner_radius=Radius.MD,
+            font=ctk.CTkFont(family=Typography.FONT_STACK, size=Typography.SIZE_BASE, weight=Typography.WEIGHT_BOLD),
             fg_color=self.COLOR_PRIMARY,
+            hover_color=Colors.ACTION_PRIMARY_HOVER,
         ).pack(pady=20, fill="x", padx=20)
 
     # ========== Pestaña Búsqueda ==========
@@ -480,8 +564,13 @@ class VentanaAdmin(ctk.CTkToplevel):
         self.entry_busqueda = ctk.CTkEntry(
             entry_frame,
             placeholder_text="Nombre, teléfono o ID del cliente...",
-            height=40,
-            font=ctk.CTkFont(size=13),
+            height=Component.INPUT_HEIGHT,
+            corner_radius=Radius.SM,
+            border_width=1,
+            border_color=Colors.BORDER_SUBTLE,
+            fg_color=Colors.BG_TERTIARY,
+            text_color=Colors.TEXT_PRIMARY,
+            font=ctk.CTkFont(family=Typography.FONT_STACK, size=Typography.SIZE_SM),
         )
         self.entry_busqueda.pack(side="left", fill="x", expand=True, padx=(0, 10))
 
@@ -490,8 +579,11 @@ class VentanaAdmin(ctk.CTkToplevel):
             text="Buscar",
             command=self._buscar_clientes,
             width=100,
-            height=40,
+            height=Component.INPUT_HEIGHT,
+            corner_radius=Radius.SM,
+            font=ctk.CTkFont(family=Typography.FONT_STACK, size=Typography.SIZE_SM),
             fg_color=self.COLOR_PRIMARY,
+            hover_color=Colors.ACTION_PRIMARY_HOVER,
         ).pack(side="left")
 
         # Área de resultados
@@ -549,8 +641,13 @@ class VentanaAdmin(ctk.CTkToplevel):
         self.entry_alimentos_buscar = ctk.CTkEntry(
             buscador_inner,
             placeholder_text="Buscar alimento...",
-            height=38,
-            font=ctk.CTkFont(size=12),
+            height=Component.INPUT_HEIGHT,
+            corner_radius=Radius.SM,
+            border_width=1,
+            border_color=Colors.BORDER_SUBTLE,
+            fg_color=Colors.BG_TERTIARY,
+            text_color=Colors.TEXT_PRIMARY,
+            font=ctk.CTkFont(family=Typography.FONT_STACK, size=Typography.SIZE_SM),
         )
         self.entry_alimentos_buscar.pack(side="left", fill="x", expand=True, padx=(0, 10))
         self.entry_alimentos_buscar.bind("<KeyRelease>", self._filtrar_alimentos)
@@ -559,9 +656,12 @@ class VentanaAdmin(ctk.CTkToplevel):
             buscador_inner,
             text="Nuevo",
             command=self._nuevo_alimento,
-            height=38,
+            height=Component.INPUT_HEIGHT,
+            corner_radius=Radius.SM,
             width=110,
+            font=ctk.CTkFont(family=Typography.FONT_STACK, size=Typography.SIZE_SM),
             fg_color=self.COLOR_SUCCESS,
+            hover_color=Colors.SUCCESS_HOVER,
         ).pack(side="left")
 
         cuerpo = ctk.CTkFrame(container, fg_color="transparent")
@@ -653,15 +753,19 @@ class VentanaAdmin(ctk.CTkToplevel):
             acciones,
             text="Guardar",
             command=self._guardar_alimento,
-            height=36,
+            height=Component.BUTTON_HEIGHT_SM,
+            corner_radius=Radius.SM,
+            font=ctk.CTkFont(family=Typography.FONT_STACK, size=Typography.SIZE_SM),
             fg_color=self.COLOR_PRIMARY,
+            hover_color=Colors.ACTION_PRIMARY_HOVER,
         ).grid(row=0, column=0, padx=(0, 8), sticky="ew")
 
         ctk.CTkButton(
             acciones,
             text="Limpiar",
             command=self._nuevo_alimento,
-            height=36,
+            height=Component.BUTTON_HEIGHT_SM,
+            corner_radius=Radius.SM,
             fg_color=self.COLOR_CARD,
             border_width=1,
             border_color=self.COLOR_TEXT_MUTED,
@@ -671,9 +775,10 @@ class VentanaAdmin(ctk.CTkToplevel):
             acciones,
             text="Eliminar",
             command=self._eliminar_alimento,
-            height=36,
+            height=Component.BUTTON_HEIGHT_SM,
+            corner_radius=Radius.SM,
             fg_color=self.COLOR_ERROR,
-            hover_color="#D32F2F",
+            hover_color=Colors.ERROR_HOVER,
         ).grid(row=0, column=2, padx=(8, 0), sticky="ew")
 
         self.label_estado_alimentos = ctk.CTkLabel(
@@ -1080,20 +1185,20 @@ class VentanaAdmin(ctk.CTkToplevel):
 
     def _crear_stat_box(self, parent, label: str, valor: str, row: int, col: int):
         """Crea una caja de estadística."""
-        box = ctk.CTkFrame(parent, fg_color=self.COLOR_BG, corner_radius=8)
+        box = ctk.CTkFrame(parent, fg_color=Colors.BG_TERTIARY, corner_radius=Radius.MD)
         box.grid(row=row, column=col, padx=10, pady=10, sticky="nsew")
 
         ctk.CTkLabel(
             box,
             text=valor,
-            font=ctk.CTkFont(size=24, weight="bold"),
+            font=ctk.CTkFont(family=Typography.FONT_STACK, size=Typography.SIZE_2XL, weight=Typography.WEIGHT_BOLD),
             text_color=self.COLOR_PRIMARY,
         ).pack(pady=(15, 5))
 
         ctk.CTkLabel(
             box,
             text=label,
-            font=ctk.CTkFont(size=11),
+            font=ctk.CTkFont(family=Typography.FONT_STACK, size=Typography.SIZE_XS),
             text_color=self.COLOR_TEXT_MUTED,
         ).pack(pady=(0, 15))
 
@@ -1279,6 +1384,9 @@ class VentanaAdmin(ctk.CTkToplevel):
             cfg["pdf"]["color_encabezado"] = color_pdf
             cfg["pdf"]["logo_path"] = self.entry_logo_pdf_path.get().strip() or "assets/logo.png"
             cfg["tema_visual"] = self.var_tema_visual.get().strip() or "Metodo Base Clasico"
+
+            cfg.setdefault("whatsapp", {})
+            cfg["whatsapp"]["mensaje_plan"] = self.text_whatsapp_mensaje.get("0.0", "end").strip()
 
             if not self.branding.guardar():
                 raise RuntimeError("No se pudo guardar branding.json")

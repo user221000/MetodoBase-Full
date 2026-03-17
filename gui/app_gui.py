@@ -343,9 +343,9 @@ class GymApp(ctk.CTk):
             command=self.enviar_por_whatsapp, state="disabled",
             height=36, corner_radius=6,
             font=ctk.CTkFont(family=Typography.FONT_STACK, size=Typography.SIZE_SM),
-            fg_color=self.COLOR_SUCCESS, hover_color=self.COLOR_SUCCESS_HOVER,
-            border_width=1, border_color=self.COLOR_SUCCESS_HOVER,
-            text_color=self.COLOR_TEXT
+            fg_color="#25D366", hover_color="#1EBE58",
+            border_width=1, border_color="#1EBE58",
+            text_color="#FFFFFF"
         )
         self.btn_whatsapp.grid(row=0, column=0, sticky="ew", padx=(0, 4), pady=0)
 
@@ -1178,21 +1178,29 @@ class GymApp(ctk.CTk):
         nombre = self.entry_nombre.get().strip()
 
         nombre_gym = branding.get('nombre_gym', 'el gimnasio')
-        telefono_gym = branding.get('contacto.telefono', '')
-        mensaje = (
-            f"Hola {nombre} 👋\n\n"
-            f"Tu plan personalizado de {nombre_gym} ya está listo.\n"
-            f"Adjunto encontrarás tu plan alimenticio.\n"
-            f"Cualquier duda consúltala con tu entrenador.\n"
-            f"{nombre_gym} agradece tu preferencia y te espera el próximo mes con tu plan actualizado."
+        telefono_gym = branding.get('contacto.whatsapp', '') or branding.get('contacto.telefono', '')
+
+        plantilla = branding.get(
+            'whatsapp.mensaje_plan',
+            (
+                "Hola {nombre} 👋\n\n"
+                "Tu plan personalizado de {nombre_gym} ya está listo.\n"
+                "Adjunto encontrarás tu plan alimenticio.\n"
+                "Cualquier duda consúltala con tu entrenador.\n"
+                "{nombre_gym} agradece tu preferencia y te espera el próximo mes con tu plan actualizado.\n"
+                "📞 {telefono_gym}"
+            ),
         )
-        if telefono_gym:
-            mensaje += f"\n📞 {telefono_gym}"
+        mensaje = plantilla.format(
+            nombre=nombre,
+            nombre_gym=nombre_gym,
+            telefono_gym=telefono_gym,
+        )
 
         mensaje_codificado = urllib.parse.quote(mensaje)
         url = f"https://wa.me/{telefono}?text={mensaje_codificado}"
         webbrowser.open(url)
-        
+
         messagebox.showinfo(
             "WhatsApp",
             "WhatsApp Web abierto. Adjunta el PDF manualmente y envía."

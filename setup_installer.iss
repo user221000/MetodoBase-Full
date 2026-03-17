@@ -8,7 +8,7 @@
 ;   4. Se genera: Output\MetodoBaseSetup_v1.0.0.exe
 
 #define MyAppName "Método Base"
-#define MyAppVersion "1.0.0"
+#define MyAppVersion "2.0.0"
 #define MyAppPublisher "Consultoría Hernández"
 #define MyAppURL "https://consultoriahernandez.mx"
 #define MyAppExeName "MetodoBase.exe"

@@ -134,6 +134,16 @@ class GestorBranding:
         "alimentos": {
             "excluidos": [],
         },
+        "whatsapp": {
+            "mensaje_plan": (
+                "Hola {nombre} 👋\n\n"
+                "Tu plan personalizado de {nombre_gym} ya está listo.\n"
+                "Adjunto encontrarás tu plan alimenticio.\n"
+                "Cualquier duda consúltala con tu entrenador.\n"
+                "{nombre_gym} agradece tu preferencia y te espera el próximo mes con tu plan actualizado.\n"
+                "📞 {telefono_gym}"
+            ),
+        },
     }
 
     def __init__(self) -> None:
