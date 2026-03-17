@@ -187,6 +187,16 @@ for carpeta in (CARPETA_CONFIG, CARPETA_REGISTROS, CARPETA_PLANES):
 
 RUTA_LOGO = resource_path("assets/logo.png")
 
+# ============================================================================
+# FEATURE FLAGS
+# ============================================================================
+
+# Facturación — desactivada temporalmente.
+# Para reactivar: cambiar a True.
+# El código del módulo (facturacion_panel.py, sidebar "Facturación")
+# permanece en el repositorio; sólo queda oculto en la UI.
+ENABLE_BILLING = False
+
 
 # ============================================================================
 # MÍNIMOS REALISTAS POR ALIMENTO

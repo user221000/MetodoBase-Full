@@ -4,13 +4,15 @@ FlowController — Orquestador del flujo de usuarios regulares.
 
 Gestiona la secuencia de paneles para el flujo "Usuario Regular":
 
-  VentanaAuth ──login/registro──▶ PanelPerfilDetalle ──▶ PanelMetodoBase
+  VentanaLoginUnificada ──login──▶ PanelPerfilDetalle ──▶ PanelMetodoBase
                                                               │
                                               ┌───────────────▼───────────────┐
                                               │ PanelPreferenciasAlimentos     │
                                               └───────────────────────────────┘
 
-Para el flujo GYM este controlador no se usa; main.py lo maneja directamente.
+Para el flujo GYM devuelve RESULTADO_MODO_GYM; si la autenticación GYM ya
+se completó en VentanaLoginUnificada, expone ``sesion_gym`` para que main.py
+pueda omitir VentanaAccesoGym.
 
 Uso mínimo:
     ctrl = FlowController()
@@ -19,7 +21,7 @@ Uso mínimo:
         # sesion disponible en ctrl.sesion_activa
         ...
     elif resultado == FlowController.RESULTADO_MODO_GYM:
-        # continuar con activación de licencia + MainWindow
+        # gym session en ctrl.sesion_gym (puede ser None si es registro nuevo)
         ...
 """
 from __future__ import annotations
@@ -31,7 +33,10 @@ from PySide6.QtCore import Qt
 from PySide6.QtWidgets import QApplication, QDialog, QWidget
 
 from core.services.auth_service import AuthService, SesionActiva, crear_auth_service
-from ui_desktop.pyside.panel_inicio import PanelInicio, ResultadoInicio
+from ui_desktop.pyside.ventana_login_unificada import (
+    VentanaLoginUnificada,
+    ResultadoLogin,
+)
 from utils.logger import logger
 
 if TYPE_CHECKING:
@@ -50,6 +55,7 @@ class FlowController(QDialog):
         super().__init__(parent)
         self._auth_service: AuthService | None = None
         self._sesion: SesionActiva | None = None
+        self._sesion_gym: SesionActiva | None = None   # autenticación GYM ya hecha
         self._perfil: dict = {}
         self._excluidos: list[str] = []
         self._resultado_final = self.RESULTADO_CANCELADO
@@ -64,6 +70,11 @@ class FlowController(QDialog):
     @property
     def sesion_activa(self) -> SesionActiva | None:
         return self._sesion
+
+    @property
+    def sesion_gym(self) -> SesionActiva | None:
+        """Sesión GYM autenticada en VentanaLoginUnificada (o None si es primer registro)."""
+        return self._sesion_gym
 
     @property
     def perfil(self) -> dict:
@@ -84,32 +95,28 @@ class FlowController(QDialog):
     # ── Flujo principal ───────────────────────────────────────────────────
 
     def _ejecutar_flujo(self) -> int:
-        # 1) Selección de tipo de usuario
-        inicio = PanelInicio(self.parent())
-        code = inicio.exec()
+        # 1) Ventana de login unificada (modo selector + formulario integrado)
+        login = VentanaLoginUnificada(self.parent())
+        code = login.exec()
 
-        if code == ResultadoInicio.GYM:
-            logger.info("[FLOW] Usuario eligió flujo GYM.")
+        if code == ResultadoLogin.GYM:
+            # Puede traer sesion (login exitoso) o None (registro nuevo solicitado)
+            self._sesion_gym = login.sesion_gym
+            logger.info("[FLOW] Flujo GYM — sesion_previa=%s", self._sesion_gym is not None)
             return self.RESULTADO_MODO_GYM
 
-        if code != ResultadoInicio.USUARIO:
-            logger.info("[FLOW] Panel inicio cancelado.")
+        if code != ResultadoLogin.USUARIO:
+            logger.info("[FLOW] Login unificado cancelado.")
             return self.RESULTADO_CANCELADO
 
-        # 2) Autenticación (flujo usuario regular)
-        try:
-            self._auth_service = crear_auth_service()
-            from ui_desktop.pyside.ventana_auth import VentanaAuth
-            auth_dlg = VentanaAuth(auth_service=self._auth_service, parent=self.parent())
-            if not auth_dlg.exec() or not self._auth_service.autenticado:
-                logger.info("[FLOW] Autenticación cancelada.")
-                return self.RESULTADO_CANCELADO
-            self._sesion = self._auth_service.sesion_activa
-            logger.info("[FLOW] Autenticado id=%s rol=%s",
-                        self._sesion.id_usuario, self._sesion.rol)
-        except Exception as exc:
-            logger.error("[FLOW] Error en autenticación: %s", exc)
+        # 2) Sesión de usuario regular ya obtenida en VentanaLoginUnificada
+        self._sesion = login.sesion_usuario
+        if not self._sesion:
+            logger.error("[FLOW] USUARIO code pero sesion_usuario es None.")
             return self.RESULTADO_CANCELADO
+
+        logger.info("[FLOW] Autenticado id=%s rol=%s",
+                    self._sesion.id_usuario, self._sesion.rol)
 
         # 3) Cargar preferencias guardadas
         self._cargar_prefs()

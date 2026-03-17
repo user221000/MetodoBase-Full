@@ -248,6 +248,26 @@ class GestorBranding:
                 return resuelto
         return None
 
+    def obtener_fondo_login_path(self) -> Optional[Path]:
+        """
+        Ruta de la imagen de fondo para la pantalla de login.
+
+        Busca en orden:
+          1. ``login.fondo_path``  (configurable en branding.json)
+          2. ``assets/FONDO.PNG``  (imagen incluida por defecto en el repo)
+          3. ``assets/login_background.png`` (alias alternativo)
+        """
+        candidatos = [
+            self.get("login.fondo_path", ""),
+            "assets/FONDO.PNG",
+            "assets/login_background.png",
+        ]
+        for candidato in candidatos:
+            resuelto = self._resolver_ruta(candidato)
+            if resuelto:
+                return resuelto
+        return None
+
     @classmethod
     def obtener_temas_preconfigurados(cls) -> dict[str, dict[str, str]]:
         return cls.TEMAS_PRECONFIGURADOS.copy()

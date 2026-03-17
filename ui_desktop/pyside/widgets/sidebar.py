@@ -9,6 +9,11 @@ from PySide6.QtWidgets import (
 )
 from PySide6.QtCore import Qt, Signal
 
+try:
+    from config.constantes import ENABLE_BILLING
+except ImportError:
+    ENABLE_BILLING = True   # fallback: mostrar si no se puede importar
+
 
 class CustomSidebar(QFrame):
     """Sidebar de navegación con diseño verde premium."""
@@ -68,7 +73,8 @@ class CustomSidebar(QFrame):
         # ── Sección FINANZAS ──────────────────────────────────────────────────
         layout.addWidget(self._create_section_label("FINANZAS"))
 
-        self._add_nav("facturacion", "💰   Facturación", layout)
+        if ENABLE_BILLING:
+            self._add_nav("facturacion", "💰   Facturación", layout)
         self._add_nav("reportes", "📈   Reportes", layout)
 
         layout.addSpacing(20)

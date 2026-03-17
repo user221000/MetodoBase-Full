@@ -36,11 +36,16 @@ from ui_desktop.pyside.generar_plan_panel import GenerarPlanPanel
 from ui_desktop.pyside.suscripciones_panel import SuscripcionesPanel
 from ui_desktop.pyside.clases_panel import ClasesPanel
 from ui_desktop.pyside.instructores_panel import InstructoresPanel
-from ui_desktop.pyside.facturacion_panel import FacturacionPanel
+# FacturacionPanel importada condicionalmente según ENABLE_BILLING
 from ui_desktop.pyside.reportes_panel_gym import ReportesPanelGym
 from ui_desktop.pyside.configuracion_panel import ConfiguracionPanel
 from ui_desktop.pyside.widgets.sidebar import CustomSidebar
 from utils.logger import logger
+
+try:
+    from config.constantes import ENABLE_BILLING
+except ImportError:
+    ENABLE_BILLING = True   # fallback seguro: no deshabilitar si no se puede leer
 
 _VERDE_PREMIUM_QSS = Path(__file__).parent / "styles" / "verde_premium.qss"
 
@@ -125,7 +130,16 @@ class GymAppWindow(QMainWindow):
         self._panel_suscripciones = SuscripcionesPanel(gestor_bd=self._db, parent=self)
         self._panel_clases = ClasesPanel(gestor_bd=self._db, parent=self)
         self._panel_instructores = InstructoresPanel(gestor_bd=self._db, parent=self)
-        self._panel_facturacion = FacturacionPanel(gestor_bd=self._db, parent=self)
+
+        # Facturación — condicional según ENABLE_BILLING
+        if ENABLE_BILLING:
+            from ui_desktop.pyside.facturacion_panel import FacturacionPanel
+            self._panel_facturacion = FacturacionPanel(gestor_bd=self._db, parent=self)
+        else:
+            self._panel_facturacion = QWidget()   # placeholder vacío
+            self._panel_facturacion.setVisible(False)
+            logger.info("[GYM] Módulo de facturación desactivado (ENABLE_BILLING=False)")
+
         self._panel_reportes = ReportesPanelGym(gestor_bd=self._db, parent=self)
         self._panel_configuracion = ConfiguracionPanel(gestor_bd=self._db, parent=self)
 
@@ -181,6 +195,11 @@ class GymAppWindow(QMainWindow):
     # ── Navegación ────────────────────────────────────────────────────────────
 
     def _navegar(self, page_id: str) -> None:
+        # Bloquear navegación a facturación si el módulo está desactivado
+        if page_id == "facturacion" and not ENABLE_BILLING:
+            logger.debug("[NAV] Facturación desactivada — redirigiendo a dashboard")
+            page_id = "dashboard"
+
         idx = _PAGE_INDEX.get(page_id)
         if idx is None:
             # API Docs → abrir navegador

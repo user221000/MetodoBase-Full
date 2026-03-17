@@ -167,22 +167,32 @@ if __name__ == "__main__":
                 sys.exit(0)
 
             elif _resultado == 2:  # RESULTADO_MODO_GYM
-                # ── GYM: autenticación gym → wizard colores/logo → licencia → MainWindow ──
+                # ── GYM: wizard colores/logo → licencia → MainWindow ──────
                 logger.info("[FLOW] Flujo GYM iniciado.")
 
-                # 1) Acceso GYM (registro primera vez / login si ya existe cuenta)
-                try:
-                    from ui_desktop.pyside.ventana_acceso_gym import VentanaAccesoGym
-                    _acceso_gym = VentanaAccesoGym()
-                    if not _acceso_gym.exec() or _acceso_gym.sesion_gym is None:
-                        logger.info("[GYM] Acceso GYM cancelado.")
-                        sys.exit(0)
-                    _sesion_gym = _acceso_gym.sesion_gym
-                    logger.info("[GYM] Autenticado rol=%s", _sesion_gym.rol)
-                    _branding.recargar()
-                except Exception as _gym_auth_err:
-                    logger.error("[GYM] Error en acceso GYM: %s", _gym_auth_err)
-                    sys.exit(1)
+                # 1) Autenticación GYM
+                # Si VentanaLoginUnificada ya autenticó → saltar VentanaAccesoGym.
+                # Si sesion_gym es None el usuario pidió "Registrar mi gym" →
+                # abrir VentanaAccesoGym en modo registro.
+                _sesion_gym = getattr(_flow, "sesion_gym", None)
+                if _sesion_gym is None:
+                    try:
+                        from ui_desktop.pyside.ventana_acceso_gym import VentanaAccesoGym
+                        _acceso_gym = VentanaAccesoGym()
+                        if not _acceso_gym.exec() or _acceso_gym.sesion_gym is None:
+                            logger.info("[GYM] Acceso GYM cancelado.")
+                            sys.exit(0)
+                        _sesion_gym = _acceso_gym.sesion_gym
+                        logger.info("[GYM] Autenticado vía VentanaAccesoGym rol=%s",
+                                    _sesion_gym.rol)
+                    except Exception as _gym_auth_err:
+                        logger.error("[GYM] Error en acceso GYM: %s", _gym_auth_err)
+                        sys.exit(1)
+                else:
+                    logger.info("[GYM] Sesión GYM ya disponible desde login unificado rol=%s",
+                                _sesion_gym.rol)
+
+                _branding.recargar()
 
                 # 2) Wizard de colores / logo (solo si aún no está configurado)
                 _colores_ok = bool(_branding.get("colores.primario", "").strip()
