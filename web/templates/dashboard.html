@@ -1,0 +1,285 @@
+{% extends "base.html" %}
+
+{% block title %}Dashboard{% endblock %}
+
+{% block content %}
+<!-- =========================================================
+     HEADER DE PÁGINA
+========================================================= -->
+<div class="mb-8">
+    <h1 class="text-3xl font-bold text-gray-800">📊 Dashboard</h1>
+    <p class="text-gray-500 mt-1">Resumen general de actividad del gym</p>
+</div>
+
+<!-- =========================================================
+     CARDS KPI
+========================================================= -->
+<div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 mb-10">
+
+    <!-- Total Clientes -->
+    <div class="bg-white rounded-2xl shadow-sm border border-gray-100 p-6 flex items-center gap-4
+                hover:shadow-md transition-shadow">
+        <div class="w-12 h-12 bg-blue-100 rounded-xl flex items-center justify-center text-2xl flex-shrink-0">
+            👥
+        </div>
+        <div>
+            <p class="text-xs text-gray-500 font-medium uppercase tracking-wide">Total Clientes</p>
+            <p id="kpi-total-clientes" class="text-3xl font-bold text-gray-800 mt-0.5">—</p>
+        </div>
+    </div>
+
+    <!-- Planes del Mes -->
+    <div class="bg-white rounded-2xl shadow-sm border border-gray-100 p-6 flex items-center gap-4
+                hover:shadow-md transition-shadow">
+        <div class="w-12 h-12 bg-orange-100 rounded-xl flex items-center justify-center text-2xl flex-shrink-0">
+            📋
+        </div>
+        <div>
+            <p class="text-xs text-gray-500 font-medium uppercase tracking-wide">Planes (mes)</p>
+            <p id="kpi-planes-mes" class="text-3xl font-bold text-gray-800 mt-0.5">—</p>
+        </div>
+    </div>
+
+    <!-- Promedio Calorías -->
+    <div class="bg-white rounded-2xl shadow-sm border border-gray-100 p-6 flex items-center gap-4
+                hover:shadow-md transition-shadow">
+        <div class="w-12 h-12 bg-green-100 rounded-xl flex items-center justify-center text-2xl flex-shrink-0">
+            🔥
+        </div>
+        <div>
+            <p class="text-xs text-gray-500 font-medium uppercase tracking-wide">Prom. Calorías</p>
+            <p id="kpi-promedio-kcal" class="text-3xl font-bold text-gray-800 mt-0.5">—</p>
+            <p class="text-xs text-gray-400">kcal/día</p>
+        </div>
+    </div>
+
+    <!-- Clientes Activos -->
+    <div class="bg-white rounded-2xl shadow-sm border border-gray-100 p-6 flex items-center gap-4
+                hover:shadow-md transition-shadow">
+        <div class="w-12 h-12 bg-purple-100 rounded-xl flex items-center justify-center text-2xl flex-shrink-0">
+            ⚡
+        </div>
+        <div>
+            <p class="text-xs text-gray-500 font-medium uppercase tracking-wide">Activos (30d)</p>
+            <p id="kpi-activos" class="text-3xl font-bold text-gray-800 mt-0.5">—</p>
+            <p id="kpi-retencion" class="text-xs text-gray-400">—% retención</p>
+        </div>
+    </div>
+</div>
+
+<!-- =========================================================
+     FILA: OBJETIVOS + TOP CLIENTES
+========================================================= -->
+<div class="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
+
+    <!-- Distribución de objetivos -->
+    <div class="bg-white rounded-2xl shadow-sm border border-gray-100 p-6">
+        <h2 class="text-lg font-semibold text-gray-800 mb-4">🎯 Objetivos del Período</h2>
+        <div id="objetivos-chart" class="space-y-3">
+            <div class="animate-pulse h-4 bg-gray-100 rounded w-full"></div>
+            <div class="animate-pulse h-4 bg-gray-100 rounded w-4/5"></div>
+            <div class="animate-pulse h-4 bg-gray-100 rounded w-3/5"></div>
+        </div>
+    </div>
+
+    <!-- Top clientes -->
+    <div class="lg:col-span-2 bg-white rounded-2xl shadow-sm border border-gray-100 p-6">
+        <div class="flex items-center justify-between mb-4">
+            <h2 class="text-lg font-semibold text-gray-800">🏆 Top Clientes</h2>
+            <a href="/clientes" class="text-sm text-primary hover:underline font-medium">Ver todos →</a>
+        </div>
+        <div id="top-clientes-list" class="space-y-2">
+            <div class="animate-pulse h-8 bg-gray-100 rounded w-full"></div>
+            <div class="animate-pulse h-8 bg-gray-100 rounded w-full"></div>
+            <div class="animate-pulse h-8 bg-gray-100 rounded w-full"></div>
+        </div>
+    </div>
+</div>
+
+<!-- =========================================================
+     TABLA DE CLIENTES RECIENTES
+========================================================= -->
+<div class="bg-white rounded-2xl shadow-sm border border-gray-100 p-6">
+    <div class="flex items-center justify-between mb-5">
+        <h2 class="text-lg font-semibold text-gray-800">🕒 Clientes Recientes</h2>
+        <a href="/clientes" class="text-sm text-primary hover:underline font-medium">Ver todos →</a>
+    </div>
+
+    <div class="overflow-x-auto">
+        <table class="w-full text-sm">
+            <thead>
+                <tr class="text-left text-gray-500 border-b border-gray-100">
+                    <th class="pb-3 font-medium">Nombre</th>
+                    <th class="pb-3 font-medium hidden sm:table-cell">Edad</th>
+                    <th class="pb-3 font-medium hidden md:table-cell">Objetivo</th>
+                    <th class="pb-3 font-medium hidden lg:table-cell">Último Plan</th>
+                    <th class="pb-3 font-medium">Acciones</th>
+                </tr>
+            </thead>
+            <tbody id="clientes-recientes-body" class="divide-y divide-gray-50">
+                <tr>
+                    <td colspan="5" class="py-8 text-center text-gray-400">
+                        <div class="animate-spin inline-block w-6 h-6 border-2 border-primary border-t-transparent rounded-full mr-2"></div>
+                        Cargando clientes...
+                    </td>
+                </tr>
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<!-- =========================================================
+     FAB: NUEVO CLIENTE
+========================================================= -->
+<a href="/generar-plan"
+   class="fixed bottom-8 right-8 w-14 h-14 bg-primary text-white rounded-full shadow-lg
+          flex items-center justify-center text-2xl font-bold
+          hover:bg-orange-500 active:scale-95 transition-all z-40"
+   title="Nuevo Plan">
+    +
+</a>
+{% endblock %}
+
+{% block scripts %}
+<script>
+async function cargarDashboard() {
+    try {
+        const stats = await MetodoBaseAPI.obtenerEstadisticas();
+
+        // KPIs
+        document.getElementById('kpi-total-clientes').textContent = stats.total_clientes ?? 0;
+        document.getElementById('kpi-planes-mes').textContent = stats.planes_periodo ?? 0;
+        document.getElementById('kpi-promedio-kcal').textContent =
+            stats.promedio_kcal ? Math.round(stats.promedio_kcal) : 0;
+        document.getElementById('kpi-activos').textContent = stats.clientes_activos ?? 0;
+        document.getElementById('kpi-retencion').textContent =
+            `${stats.tasa_retencion ?? 0}% retención`;
+
+        // Objetivos chart
+        renderObjetivos(stats.objetivos || {});
+
+        // Top clientes
+        renderTopClientes(stats.top_clientes || []);
+
+    } catch (err) {
+        mostrarToast('Error cargando estadísticas: ' + err.message, 'error');
+    }
+
+    // Cargar clientes recientes
+    try {
+        const clientes = await MetodoBaseAPI.listarClientes({ por_pagina: 10 });
+        renderClientesRecientes(clientes);
+    } catch (err) {
+        document.getElementById('clientes-recientes-body').innerHTML =
+            `<tr><td colspan="5" class="py-4 text-center text-red-400">Error cargando clientes</td></tr>`;
+    }
+}
+
+function renderObjetivos(objetivos) {
+    const colores = {
+        deficit: 'bg-orange-400',
+        mantenimiento: 'bg-blue-400',
+        superavit: 'bg-green-400',
+    };
+    const etiquetas = {
+        deficit: 'Déficit 🔥',
+        mantenimiento: 'Mantenimiento ⚖️',
+        superavit: 'Superávit 💪',
+    };
+    const total = Object.values(objetivos).reduce((a, b) => a + b, 0) || 1;
+    const container = document.getElementById('objetivos-chart');
+    container.innerHTML = '';
+
+    if (Object.keys(objetivos).length === 0) {
+        container.innerHTML = '<p class="text-sm text-gray-400 text-center py-4">Sin datos</p>';
+        return;
+    }
+
+    for (const [obj, count] of Object.entries(objetivos)) {
+        const pct = Math.round((count / total) * 100);
+        container.innerHTML += `
+            <div>
+                <div class="flex justify-between text-xs text-gray-600 mb-1">
+                    <span>${etiquetas[obj] || obj}</span>
+                    <span class="font-semibold">${count} (${pct}%)</span>
+                </div>
+                <div class="h-2 bg-gray-100 rounded-full overflow-hidden">
+                    <div class="${colores[obj] || 'bg-gray-400'} h-2 rounded-full transition-all duration-500"
+                         style="width: ${pct}%"></div>
+                </div>
+            </div>
+        `;
+    }
+}
+
+function renderTopClientes(lista) {
+    const container = document.getElementById('top-clientes-list');
+    if (!lista.length) {
+        container.innerHTML = '<p class="text-sm text-gray-400 text-center py-4">Sin datos</p>';
+        return;
+    }
+    container.innerHTML = lista.map((c, i) => `
+        <div class="flex items-center justify-between py-2 border-b border-gray-50 last:border-0">
+            <div class="flex items-center gap-3">
+                <span class="w-6 text-xs text-gray-400 font-bold text-right">${i + 1}</span>
+                <div class="w-7 h-7 bg-secondary/10 rounded-full flex items-center justify-center
+                            text-xs font-bold text-secondary">
+                    ${(c.nombre || '?')[0].toUpperCase()}
+                </div>
+                <span class="text-sm text-gray-700 font-medium">${c.nombre || 'N/A'}</span>
+            </div>
+            <span class="text-xs bg-primary/10 text-primary px-2 py-0.5 rounded-full font-semibold">
+                ${c.planes} planes
+            </span>
+        </div>
+    `).join('');
+}
+
+function renderClientesRecientes(clientes) {
+    const tbody = document.getElementById('clientes-recientes-body');
+    if (!clientes.length) {
+        tbody.innerHTML = `<tr><td colspan="5" class="py-8 text-center text-gray-400">
+            No hay clientes registrados aún.
+            <a href="/generar-plan" class="text-primary hover:underline ml-1">Crear primero →</a>
+        </td></tr>`;
+        return;
+    }
+
+    tbody.innerHTML = clientes.map(c => `
+        <tr class="hover:bg-gray-50 transition-colors">
+            <td class="py-3 pr-4">
+                <div class="flex items-center gap-2">
+                    <div class="w-7 h-7 bg-secondary/10 rounded-full flex items-center justify-center
+                                text-xs font-bold text-secondary flex-shrink-0">
+                        ${(c.nombre || '?')[0].toUpperCase()}
+                    </div>
+                    <span class="font-medium text-gray-800">${c.nombre || 'N/A'}</span>
+                </div>
+            </td>
+            <td class="py-3 pr-4 text-gray-500 hidden sm:table-cell">${c.edad ?? '—'}</td>
+            <td class="py-3 pr-4 hidden md:table-cell">
+                <span class="px-2 py-0.5 rounded-full text-xs font-semibold
+                    ${c.objetivo === 'deficit' ? 'bg-orange-100 text-orange-700' :
+                      c.objetivo === 'superavit' ? 'bg-green-100 text-green-700' :
+                      'bg-blue-100 text-blue-700'}">
+                    ${c.objetivo || '—'}
+                </span>
+            </td>
+            <td class="py-3 pr-4 text-gray-400 text-xs hidden lg:table-cell">
+                ${c.ultimo_plan ? new Date(c.ultimo_plan).toLocaleDateString('es-MX') : '—'}
+            </td>
+            <td class="py-3">
+                <a href="/generar-plan?id=${c.id_cliente}"
+                   class="text-xs bg-primary text-white px-3 py-1.5 rounded-lg
+                          hover:bg-orange-500 transition-colors font-medium">
+                    + Plan
+                </a>
+            </td>
+        </tr>
+    `).join('');
+}
+
+// Cargar al iniciar
+cargarDashboard();
+</script>
+{% endblock %}

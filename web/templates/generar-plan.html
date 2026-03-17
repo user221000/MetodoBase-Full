@@ -1,0 +1,528 @@
+{% extends "base.html" %}
+
+{% block title %}Generar Plan{% endblock %}
+
+{% block content %}
+<!-- =========================================================
+     HEADER DE PÁGINA
+========================================================= -->
+<div class="mb-8">
+    <h1 class="text-3xl font-bold text-gray-800">📋 Generar Plan Nutricional</h1>
+    <p class="text-gray-500 mt-1">Sigue los pasos para crear un plan personalizado</p>
+</div>
+
+<!-- =========================================================
+     STEPPER
+========================================================= -->
+<div class="flex items-center gap-2 mb-10">
+    <!-- Paso 1 -->
+    <div id="step-indicator-1" class="flex items-center gap-2">
+        <div class="w-8 h-8 rounded-full bg-primary text-white flex items-center justify-center
+                    text-sm font-bold shadow-sm">1</div>
+        <span class="text-sm font-medium text-gray-700 hidden sm:inline">Cliente</span>
+    </div>
+    <div class="flex-1 h-0.5 bg-gray-200" id="step-line-1"></div>
+
+    <!-- Paso 2 -->
+    <div id="step-indicator-2" class="flex items-center gap-2">
+        <div class="w-8 h-8 rounded-full bg-gray-200 text-gray-500 flex items-center justify-center
+                    text-sm font-bold" id="step-num-2">2</div>
+        <span class="text-sm font-medium text-gray-400 hidden sm:inline" id="step-label-2">
+            Datos Antropométricos
+        </span>
+    </div>
+    <div class="flex-1 h-0.5 bg-gray-200" id="step-line-2"></div>
+
+    <!-- Paso 3 -->
+    <div id="step-indicator-3" class="flex items-center gap-2">
+        <div class="w-8 h-8 rounded-full bg-gray-200 text-gray-500 flex items-center justify-center
+                    text-sm font-bold" id="step-num-3">3</div>
+        <span class="text-sm font-medium text-gray-400 hidden sm:inline" id="step-label-3">
+            Generar Plan
+        </span>
+    </div>
+</div>
+
+<!-- =========================================================
+     PASO 1: BUSCAR / CREAR CLIENTE
+========================================================= -->
+<div id="paso-1" class="bg-white rounded-2xl shadow-sm border border-gray-100 p-6 mb-6">
+    <h2 class="text-lg font-semibold text-gray-800 mb-5">
+        👤 Paso 1 — Buscar o Crear Cliente
+    </h2>
+
+    <!-- Búsqueda -->
+    <div class="relative mb-4">
+        <svg class="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400"
+             fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                  d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/>
+        </svg>
+        <input id="buscar-cliente" type="search" placeholder="Buscar por nombre, teléfono o ID..."
+               class="w-full pl-9 pr-4 py-3 border border-gray-200 rounded-xl text-sm
+                      focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary">
+    </div>
+
+    <!-- Resultados de búsqueda -->
+    <div id="resultados-busqueda" class="hidden space-y-2 mb-4"></div>
+
+    <!-- Cliente seleccionado -->
+    <div id="cliente-seleccionado-card" class="hidden bg-secondary/5 border border-secondary/20
+         rounded-xl p-4 flex items-center justify-between">
+        <div>
+            <p id="sel-nombre" class="font-semibold text-gray-800"></p>
+            <p id="sel-info" class="text-xs text-gray-500 mt-0.5"></p>
+        </div>
+        <button onclick="limpiarCliente()" class="text-xs text-gray-400 hover:text-gray-600">
+            × Cambiar
+        </button>
+    </div>
+
+    <!-- Separador -->
+    <div class="flex items-center gap-3 my-5">
+        <div class="flex-1 h-px bg-gray-200"></div>
+        <span class="text-xs text-gray-400 font-medium">O CREAR NUEVO CLIENTE</span>
+        <div class="flex-1 h-px bg-gray-200"></div>
+    </div>
+
+    <!-- Formulario nuevo cliente (colapsable) -->
+    <details id="form-nuevo-cliente-details" class="group">
+        <summary class="cursor-pointer text-sm font-medium text-primary hover:text-orange-500
+                        transition-colors list-none flex items-center gap-2">
+            <span class="text-base">+</span>
+            <span>Crear nuevo cliente</span>
+        </summary>
+
+        <div class="mt-4 space-y-4">
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div class="sm:col-span-2">
+                    <label class="block text-xs font-medium text-gray-600 mb-1">Nombre *</label>
+                    <input id="nuevo-nombre" type="text" placeholder="Nombre completo"
+                           class="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm
+                                  focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary">
+                </div>
+                <div>
+                    <label class="block text-xs font-medium text-gray-600 mb-1">Teléfono</label>
+                    <input id="nuevo-telefono" type="tel" placeholder="33 1234 5678"
+                           class="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm
+                                  focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary">
+                </div>
+                <div>
+                    <label class="block text-xs font-medium text-gray-600 mb-1">Email</label>
+                    <input id="nuevo-email" type="email" placeholder="correo@ejemplo.com"
+                           class="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm
+                                  focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary">
+                </div>
+                <div>
+                    <label class="block text-xs font-medium text-gray-600 mb-1">Edad *</label>
+                    <input id="nuevo-edad" type="number" min="14" max="80" placeholder="25"
+                           class="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm
+                                  focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary">
+                </div>
+                <div>
+                    <label class="block text-xs font-medium text-gray-600 mb-1">Peso (kg) *</label>
+                    <input id="nuevo-peso" type="number" step="0.1" min="30.1" placeholder="70.5"
+                           class="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm
+                                  focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary">
+                </div>
+                <div>
+                    <label class="block text-xs font-medium text-gray-600 mb-1">Estatura (cm) *</label>
+                    <input id="nuevo-estatura" type="number" step="0.1" min="100" max="230" placeholder="170"
+                           class="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm
+                                  focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary">
+                </div>
+                <div>
+                    <label class="block text-xs font-medium text-gray-600 mb-1">Grasa corporal (%) *</label>
+                    <input id="nuevo-grasa" type="number" step="0.1" min="3" max="60" placeholder="20"
+                           class="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm
+                                  focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary">
+                </div>
+                <div>
+                    <label class="block text-xs font-medium text-gray-600 mb-1">Nivel Actividad *</label>
+                    <select id="nuevo-actividad"
+                            class="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm
+                                   focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary bg-white">
+                        <option value="">Selecciona...</option>
+                        <option value="nula">Nula (sedentario)</option>
+                        <option value="leve">Leve (1-2 días/sem)</option>
+                        <option value="moderada">Moderada (3-4 días/sem)</option>
+                        <option value="intensa">Intensa (5+ días/sem)</option>
+                    </select>
+                </div>
+                <div>
+                    <label class="block text-xs font-medium text-gray-600 mb-1">Objetivo *</label>
+                    <select id="nuevo-objetivo"
+                            class="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm
+                                   focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary bg-white">
+                        <option value="">Selecciona...</option>
+                        <option value="deficit">Déficit (bajar grasa)</option>
+                        <option value="mantenimiento">Mantenimiento</option>
+                        <option value="superavit">Superávit (ganar masa)</option>
+                    </select>
+                </div>
+            </div>
+
+            <div id="error-nuevo-cliente" class="hidden text-sm text-red-600 bg-red-50 p-3 rounded-xl"></div>
+
+            <button onclick="crearNuevoCliente()"
+                    class="w-full bg-secondary text-white py-3 rounded-xl font-semibold text-sm
+                           hover:bg-blue-800 active:scale-[0.99] transition-all">
+                Crear Cliente y Continuar →
+            </button>
+        </div>
+    </details>
+</div>
+
+<!-- =========================================================
+     PASO 2: DATOS ANTROPOMÉTRICOS (aparece al seleccionar cliente)
+========================================================= -->
+<div id="paso-2" class="hidden bg-white rounded-2xl shadow-sm border border-gray-100 p-6 mb-6">
+    <h2 class="text-lg font-semibold text-gray-800 mb-5">
+        📏 Paso 2 — Datos para el Plan
+    </h2>
+    <p class="text-sm text-gray-500 mb-5">
+        Los campos ya tienen los datos actuales del cliente. Puedes ajustarlos si hay cambios.
+    </p>
+
+    <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+        <div>
+            <label class="block text-xs font-medium text-gray-600 mb-1">Peso actual (kg) *</label>
+            <input id="plan-peso" type="number" step="0.1" min="30.1"
+                   class="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm
+                          focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary">
+        </div>
+        <div>
+            <label class="block text-xs font-medium text-gray-600 mb-1">Grasa corporal (%) *</label>
+            <input id="plan-grasa" type="number" step="0.1" min="3" max="60"
+                   class="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm
+                          focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary">
+        </div>
+        <div>
+            <label class="block text-xs font-medium text-gray-600 mb-1">Nivel Actividad *</label>
+            <select id="plan-actividad"
+                    class="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm
+                           focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary bg-white">
+                <option value="nula">Nula (sedentario)</option>
+                <option value="leve">Leve (1-2 días/sem)</option>
+                <option value="moderada">Moderada (3-4 días/sem)</option>
+                <option value="intensa">Intensa (5+ días/sem)</option>
+            </select>
+        </div>
+        <div>
+            <label class="block text-xs font-medium text-gray-600 mb-1">Objetivo *</label>
+            <select id="plan-objetivo"
+                    class="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm
+                           focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary bg-white">
+                <option value="deficit">Déficit (bajar grasa)</option>
+                <option value="mantenimiento">Mantenimiento</option>
+                <option value="superavit">Superávit (ganar masa)</option>
+            </select>
+        </div>
+    </div>
+
+    <button onclick="irAPaso3()"
+            class="mt-6 w-full bg-primary text-white py-3 rounded-xl font-semibold text-sm
+                   hover:bg-orange-500 active:scale-[0.99] transition-all">
+        Continuar a Generar Plan →
+    </button>
+</div>
+
+<!-- =========================================================
+     PASO 3: GENERAR PLAN Y RESULTADO
+========================================================= -->
+<div id="paso-3" class="hidden bg-white rounded-2xl shadow-sm border border-gray-100 p-6">
+    <h2 class="text-lg font-semibold text-gray-800 mb-5">
+        🚀 Paso 3 — Generar Plan
+    </h2>
+
+    <!-- Preview de configuración -->
+    <div id="config-preview" class="bg-gray-50 rounded-xl p-4 mb-6 text-sm text-gray-600 space-y-1">
+        <p><strong>Cliente:</strong> <span id="preview-nombre">—</span></p>
+        <p><strong>Peso:</strong> <span id="preview-peso">—</span></p>
+        <p><strong>Grasa:</strong> <span id="preview-grasa">—</span></p>
+        <p><strong>Actividad:</strong> <span id="preview-actividad">—</span></p>
+        <p><strong>Objetivo:</strong> <span id="preview-objetivo">—</span></p>
+    </div>
+
+    <!-- Botón generar -->
+    <button id="btn-generar" onclick="generarPlan()"
+            class="w-full bg-primary text-white py-4 rounded-xl font-bold text-base
+                   hover:bg-orange-500 active:scale-[0.99] transition-all shadow-sm">
+        ⚡ Generar Plan Nutricional
+    </button>
+
+    <!-- Loading spinner -->
+    <div id="loading-generar" class="hidden text-center py-10">
+        <div class="animate-spin inline-block w-10 h-10 border-4 border-primary
+                    border-t-transparent rounded-full mb-4"></div>
+        <p class="text-gray-500 font-medium">Generando plan personalizado...</p>
+        <p class="text-xs text-gray-400 mt-1">Esto puede tomar unos segundos</p>
+    </div>
+
+    <!-- Resultado -->
+    <div id="resultado-plan" class="hidden mt-6">
+        <!-- Macros preview -->
+        <div class="bg-green-50 border border-green-200 rounded-xl p-5 mb-5">
+            <h3 class="text-base font-semibold text-green-800 mb-4">✅ Plan Generado Exitosamente</h3>
+            <div id="macros-preview" class="grid grid-cols-2 sm:grid-cols-4 gap-4">
+                <!-- Se llena dinámicamente -->
+            </div>
+        </div>
+
+        <!-- Botón descargar PDF -->
+        <a id="btn-descargar-pdf" href="#" target="_blank"
+           class="block w-full text-center bg-secondary text-white py-3.5 rounded-xl font-semibold
+                  hover:bg-blue-800 active:scale-[0.99] transition-all shadow-sm">
+            📥 Descargar PDF del Plan
+        </a>
+
+        <button onclick="reiniciar()" class="mt-3 w-full text-sm text-gray-500 hover:text-gray-700
+                                              py-2 transition-colors">
+            + Generar otro plan
+        </button>
+    </div>
+
+    <!-- Error -->
+    <div id="error-generar" class="hidden mt-4 text-sm text-red-600 bg-red-50 p-4 rounded-xl"></div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+let clienteSeleccionado = null;
+let busquedaTimeout = null;
+
+// ---- Pre-cargar cliente por URL param ----
+window.addEventListener('DOMContentLoaded', () => {
+    const params = new URLSearchParams(window.location.search);
+    const idParam = params.get('id');
+    if (idParam) cargarClientePorId(idParam);
+});
+
+async function cargarClientePorId(id) {
+    try {
+        const c = await MetodoBaseAPI.obtenerCliente(id);
+        seleccionarCliente(c);
+    } catch (err) {
+        mostrarToast('Cliente no encontrado: ' + id, 'error');
+    }
+}
+
+// ---- Búsqueda de cliente ----
+document.getElementById('buscar-cliente').addEventListener('input', (e) => {
+    clearTimeout(busquedaTimeout);
+    const q = e.target.value.trim();
+    if (!q) {
+        document.getElementById('resultados-busqueda').classList.add('hidden');
+        return;
+    }
+    busquedaTimeout = setTimeout(() => buscarClientes(q), 350);
+});
+
+async function buscarClientes(q) {
+    const container = document.getElementById('resultados-busqueda');
+    try {
+        const lista = await MetodoBaseAPI.listarClientes({ buscar: q, por_pagina: 5 });
+        if (!lista.length) {
+            container.innerHTML = `<p class="text-sm text-gray-400 px-2">Sin resultados para "${q}"</p>`;
+            container.classList.remove('hidden');
+            return;
+        }
+        container.innerHTML = lista.map(c => `
+            <button class="btn-seleccionar-cliente w-full text-left px-4 py-3 border border-gray-200 rounded-xl hover:bg-gray-50
+                           transition-colors text-sm"
+                    data-cliente="${encodeURIComponent(JSON.stringify(c))}">
+                <span class="font-medium text-gray-800">${c.nombre || 'N/A'}</span>
+                <span class="text-gray-400 text-xs ml-2">${c.id_cliente}</span>
+                <span class="text-gray-400 text-xs ml-2">
+                    ${c.objetivo || ''} · ${c.nivel_actividad || ''}
+                </span>
+            </button>
+        `).join('');
+        container.classList.remove('hidden');
+
+        // Usar delegación de eventos para evitar XSS con onclick inline
+        container.querySelectorAll('.btn-seleccionar-cliente').forEach(btn => {
+            btn.addEventListener('click', () => {
+                try {
+                    const cliente = JSON.parse(decodeURIComponent(btn.dataset.cliente));
+                    seleccionarCliente(cliente);
+                } catch (_) {
+                    mostrarToast('Error al seleccionar el cliente', 'error');
+                }
+            });
+        });
+    } catch (err) {
+        container.innerHTML = `<p class="text-sm text-red-400 px-2">Error: ${err.message}</p>`;
+        container.classList.remove('hidden');
+    }
+}
+
+function seleccionarCliente(c) {
+    clienteSeleccionado = c;
+    document.getElementById('resultados-busqueda').classList.add('hidden');
+    document.getElementById('buscar-cliente').value = '';
+
+    // Mostrar card del cliente seleccionado
+    document.getElementById('sel-nombre').textContent = c.nombre || 'N/A';
+    document.getElementById('sel-info').textContent =
+        `ID: ${c.id_cliente} · ${c.objetivo || ''} · ${c.nivel_actividad || ''}`;
+    document.getElementById('cliente-seleccionado-card').classList.remove('hidden');
+
+    // Pre-llenar paso 2
+    document.getElementById('plan-peso').value      = c.peso_kg || '';
+    document.getElementById('plan-grasa').value     = c.grasa_corporal_pct || '';
+    document.getElementById('plan-actividad').value = c.nivel_actividad || '';
+    document.getElementById('plan-objetivo').value  = c.objetivo || '';
+
+    // Mostrar paso 2
+    document.getElementById('paso-2').classList.remove('hidden');
+    activarStep(2);
+    document.getElementById('paso-2').scrollIntoView({ behavior: 'smooth' });
+}
+
+function limpiarCliente() {
+    clienteSeleccionado = null;
+    document.getElementById('cliente-seleccionado-card').classList.add('hidden');
+    document.getElementById('paso-2').classList.add('hidden');
+    document.getElementById('paso-3').classList.add('hidden');
+    activarStep(1);
+}
+
+async function crearNuevoCliente() {
+    const errDiv = document.getElementById('error-nuevo-cliente');
+    errDiv.classList.add('hidden');
+
+    const payload = {
+        nombre:             document.getElementById('nuevo-nombre').value.trim(),
+        telefono:           document.getElementById('nuevo-telefono').value.trim() || null,
+        email:              document.getElementById('nuevo-email').value.trim() || null,
+        edad:               parseInt(document.getElementById('nuevo-edad').value),
+        peso_kg:            parseFloat(document.getElementById('nuevo-peso').value),
+        estatura_cm:        parseFloat(document.getElementById('nuevo-estatura').value),
+        grasa_corporal_pct: parseFloat(document.getElementById('nuevo-grasa').value),
+        nivel_actividad:    document.getElementById('nuevo-actividad').value,
+        objetivo:           document.getElementById('nuevo-objetivo').value,
+    };
+
+    if (!payload.nombre || !payload.edad || !payload.peso_kg ||
+        !payload.estatura_cm || !payload.grasa_corporal_pct ||
+        !payload.nivel_actividad || !payload.objetivo) {
+        errDiv.textContent = 'Por favor, completa todos los campos obligatorios (*)';
+        errDiv.classList.remove('hidden');
+        return;
+    }
+
+    try {
+        const cliente = await MetodoBaseAPI.crearCliente(payload);
+        mostrarToast('✅ Cliente creado exitosamente', 'success');
+        seleccionarCliente(cliente);
+        document.getElementById('form-nuevo-cliente-details').removeAttribute('open');
+    } catch (err) {
+        errDiv.textContent = 'Error: ' + err.message;
+        errDiv.classList.remove('hidden');
+    }
+}
+
+function irAPaso3() {
+    if (!clienteSeleccionado) {
+        mostrarToast('Selecciona un cliente primero', 'error');
+        return;
+    }
+    const peso     = parseFloat(document.getElementById('plan-peso').value);
+    const grasa    = parseFloat(document.getElementById('plan-grasa').value);
+    const activ    = document.getElementById('plan-actividad').value;
+    const objetivo = document.getElementById('plan-objetivo').value;
+
+    if (!peso || !grasa || !activ || !objetivo) {
+        mostrarToast('Completa todos los campos del plan', 'error');
+        return;
+    }
+
+    // Preview
+    document.getElementById('preview-nombre').textContent    = clienteSeleccionado.nombre;
+    document.getElementById('preview-peso').textContent      = peso + ' kg';
+    document.getElementById('preview-grasa').textContent     = grasa + '%';
+    document.getElementById('preview-actividad').textContent = activ;
+    document.getElementById('preview-objetivo').textContent  = objetivo;
+
+    document.getElementById('paso-3').classList.remove('hidden');
+    activarStep(3);
+    document.getElementById('paso-3').scrollIntoView({ behavior: 'smooth' });
+}
+
+async function generarPlan() {
+    const btnGenerar = document.getElementById('btn-generar');
+    const loading    = document.getElementById('loading-generar');
+    const resultado  = document.getElementById('resultado-plan');
+    const errDiv     = document.getElementById('error-generar');
+
+    btnGenerar.classList.add('hidden');
+    loading.classList.remove('hidden');
+    resultado.classList.add('hidden');
+    errDiv.classList.add('hidden');
+
+    try {
+        const payload = {
+            id_cliente:         clienteSeleccionado.id_cliente,
+            peso_kg:            parseFloat(document.getElementById('plan-peso').value),
+            grasa_corporal_pct: parseFloat(document.getElementById('plan-grasa').value),
+            nivel_actividad:    document.getElementById('plan-actividad').value,
+            objetivo:           document.getElementById('plan-objetivo').value,
+        };
+
+        const respuesta = await MetodoBaseAPI.generarPlan(payload);
+
+        // Mostrar macros
+        const m = respuesta.macros || {};
+        document.getElementById('macros-preview').innerHTML = [
+            { label: 'Calorías', value: Math.round(m.kcal_objetivo || 0) + ' kcal', color: 'text-orange-600' },
+            { label: 'Proteína', value: Math.round(m.proteina_g || 0) + ' g', color: 'text-blue-600' },
+            { label: 'Carbos', value: Math.round(m.carbs_g || 0) + ' g', color: 'text-green-600' },
+            { label: 'Grasas', value: Math.round(m.grasa_g || 0) + ' g', color: 'text-yellow-600' },
+        ].map(({ label, value, color }) => `
+            <div class="text-center">
+                <p class="text-xs text-gray-500 mb-1">${label}</p>
+                <p class="text-xl font-bold ${color}">${value}</p>
+            </div>
+        `).join('');
+
+        // Botón PDF
+        document.getElementById('btn-descargar-pdf').href = respuesta.pdf_url;
+
+        loading.classList.add('hidden');
+        resultado.classList.remove('hidden');
+        mostrarToast(respuesta.mensaje || '✅ Plan generado', 'success');
+
+    } catch (err) {
+        loading.classList.add('hidden');
+        btnGenerar.classList.remove('hidden');
+        errDiv.textContent = 'Error generando el plan: ' + err.message;
+        errDiv.classList.remove('hidden');
+    }
+}
+
+function reiniciar() {
+    limpiarCliente();
+    document.getElementById('resultado-plan').classList.add('hidden');
+    document.getElementById('btn-generar').classList.remove('hidden');
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+
+// ---- Stepper visual ----
+function activarStep(n) {
+    for (let i = 1; i <= 3; i++) {
+        const numEl = document.getElementById(`step-num-${i}`);
+        const labelEl = document.getElementById(`step-label-${i}`);
+        if (!numEl) continue;
+        if (i <= n) {
+            numEl.className = 'w-8 h-8 rounded-full bg-primary text-white flex items-center justify-center text-sm font-bold shadow-sm';
+            if (labelEl) labelEl.className = 'text-sm font-medium text-gray-700 hidden sm:inline';
+        } else {
+            numEl.className = 'w-8 h-8 rounded-full bg-gray-200 text-gray-500 flex items-center justify-center text-sm font-bold';
+            if (labelEl) labelEl.className = 'text-sm font-medium text-gray-400 hidden sm:inline';
+        }
+    }
+}
+</script>
+{% endblock %}
