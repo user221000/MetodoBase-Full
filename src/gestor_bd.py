@@ -296,7 +296,7 @@ class GestorBDClientes:
                      grasa_corporal_pct, nivel_actividad, objetivo, plantilla_tipo, ultimo_plan,
                      total_planes_generados, nombre_enc, telefono_enc, email_enc, notas_enc,
                      nombre_idx, telefono_idx, email_idx, datos_cifrados)
-                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 ''', (
                     cliente.id_cliente,
                     self._placeholder_nombre(cliente.id_cliente) if usar_seguridad else cliente.nombre,
