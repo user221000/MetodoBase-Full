@@ -68,10 +68,9 @@ def estadisticas_gym(
             planes_por_cliente_promedio=por_cliente,
         )
 
-        semana = datos.get("clientes_nuevos_semana", [0] * 7)
-        # Normalizar a exactamente 7 elementos
-        if len(semana) < 7:
-            semana = semana + [0] * (7 - len(semana))
+        semana = datos.get("clientes_nuevos_semana", [])
+        # Normalizar a exactamente 7 elementos (pad con ceros o truncar)
+        semana = (list(semana) + [0] * 7)[:7]
 
         return EstadisticasGymResponse(
             periodo_dias=dias,

@@ -267,7 +267,7 @@ class PanelMetodoBase(QDialog):
         nivel = p.get("nivel_actividad")
         objetivo = p.get("objetivo")
 
-        if not all([peso, grasa, nivel, objetivo]):
+        if not all((peso, grasa, nivel, objetivo)):
             return None
 
         try:

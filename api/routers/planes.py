@@ -60,7 +60,14 @@ def calcular_plan(
     - Los `alimentos_excluidos` permiten personalizar el catálogo por cliente.
     """
     try:
-        factor = FACTORES_ACTIVIDAD.get(body.nivel_actividad, 1.2)
+        factor = FACTORES_ACTIVIDAD.get(body.nivel_actividad)
+        if factor is None:
+            # PlanRequest ya valida nivel_actividad; esto solo ocurriría por inconsistencia de datos
+            logger.warning(
+                "[API][planes] nivel_actividad '%s' validado por schema pero no en FACTORES_ACTIVIDAD. Usando 1.2",
+                body.nivel_actividad,
+            )
+            factor = 1.2
         cliente = ClienteEvaluacion(
             nombre=body.nombre,
             telefono=body.telefono,

@@ -27,12 +27,17 @@ from src.gestor_bd import GestorBDClientes
 
 # ── Configuración JWT ────────────────────────────────────────────────────────
 
-_SECRET_KEY: str = os.environ.get("MB_JWT_SECRET", "CAMBIAR_EN_PRODUCCION_USAR_SECRETO_LARGO")
+_SECRET_KEY: str = os.environ.get("MB_JWT_SECRET", "")
 _ALGORITHM = "HS256"
 _ACCESS_TOKEN_EXPIRE_MINUTES = 15
 _REFRESH_TOKEN_EXPIRE_DAYS = 7
 
 _bearer = HTTPBearer(auto_error=False)
+
+# En producción, MB_JWT_SECRET debe ser una cadena aleatoria de al menos 32 chars.
+# Si no está configurada, la API lanza un error claro en el primer request.
+_SECRET_KEY_FALLBACK = "METODO_BASE_DEV_INSECURE_KEY_CAMBIAR_EN_PROD"
+_IS_DEV = os.environ.get("MB_ENV", "development") == "development"
 
 
 # ── Gestor de BD ─────────────────────────────────────────────────────────────
@@ -44,6 +49,26 @@ def get_gestor_bd() -> GestorBDClientes:
 
 # ── JWT helpers ───────────────────────────────────────────────────────────────
 
+def _get_secret_key() -> str:
+    """Retorna la clave JWT. En producción falla si no está configurada."""
+    key = os.environ.get("MB_JWT_SECRET", "")
+    if key:
+        return key
+    if not _IS_DEV:
+        raise RuntimeError(
+            "MB_JWT_SECRET no está configurado. "
+            "Define esta variable de entorno en producción con una clave segura de 32+ caracteres."
+        )
+    # Solo en desarrollo se usa una clave insegura con advertencia visible
+    import warnings
+    warnings.warn(
+        "MB_JWT_SECRET no configurado — usando clave insegura de desarrollo. "
+        "NUNCA deploys en producción sin esta variable.",
+        stacklevel=2,
+    )
+    return _SECRET_KEY_FALLBACK
+
+
 def crear_access_token(data: dict, expires_delta: Optional[timedelta] = None) -> str:
     """Genera un JWT de acceso con expiración corta."""
     if not _JWT_OK:
@@ -53,7 +78,7 @@ def crear_access_token(data: dict, expires_delta: Optional[timedelta] = None) ->
         expires_delta or timedelta(minutes=_ACCESS_TOKEN_EXPIRE_MINUTES)
     )
     to_encode["exp"] = expire
-    return jwt.encode(to_encode, _SECRET_KEY, algorithm=_ALGORITHM)
+    return jwt.encode(to_encode, _get_secret_key(), algorithm=_ALGORITHM)
 
 
 def _decodificar_token(token: str) -> dict:
@@ -64,7 +89,7 @@ def _decodificar_token(token: str) -> dict:
             detail="JWT no disponible — instala python-jose[cryptography]",
         )
     try:
-        payload = jwt.decode(token, _SECRET_KEY, algorithms=[_ALGORITHM])
+        payload = jwt.decode(token, _get_secret_key(), algorithms=[_ALGORITHM])
         return payload
     except JWTError as exc:
         raise HTTPException(
