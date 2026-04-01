@@ -103,7 +103,8 @@ class Settings:
         self.STRIPE_PRICE_STANDARD: str = os.getenv("STRIPE_PRICE_STANDARD", "")
         self.STRIPE_PRICE_GYM_COMERCIAL: str = os.getenv("STRIPE_PRICE_GYM_COMERCIAL", "")
         self.STRIPE_PRICE_CLINICA: str = os.getenv("STRIPE_PRICE_CLINICA", "")
-        self.STRIPE_PRICE_PRO_USUARIO: str = os.getenv("STRIPE_PRICE_PRO_USUARIO", "")
+        # Support both STRIPE_PRICE_PRO_USUARIO and STRIPE_PRICE_PRO (legacy)
+        self.STRIPE_PRICE_PRO_USUARIO: str = os.getenv("STRIPE_PRICE_PRO_USUARIO", "") or os.getenv("STRIPE_PRICE_PRO", "")
 
         # ── Licencias ────────────────────────────────────────────────────
         self.LICENSE_SALT: str = self._require_in_prod(
