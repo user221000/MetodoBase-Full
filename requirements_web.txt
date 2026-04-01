@@ -1,6 +1,6 @@
 # Runtime dependencies — MetodoBase Web (server only, no desktop GUI)
 # Use this for Railway/Docker/cloud deployments.
-# CACHE INVALIDATION: 2026-04-01-20:30-v5
+# CACHE INVALIDATION: 2026-04-01-21:25-v6-TEMPLATEFIX
 fastapi>=0.115.0
 uvicorn[standard]>=0.30.0
 jinja2>=3.1.0
