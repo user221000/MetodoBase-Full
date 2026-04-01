@@ -1,15 +1,16 @@
 """
 web/main_web.py — MetodoBase Web App v2 (dark premium fitness theme)
-BUILD_VERSION: 2026-04-01-v6-TEMPLATEFIX
+BUILD_VERSION: 2026-04-01-v7-TEMPLATECOMPAT
 
 Uso:
     python web/main_web.py                      # puerto 8001
     python web/main_web.py --port 8000          # puerto 8000
     python web/main_web.py --no-browser         # sin abrir browser
 """
-# BUILD MARKER: v6-20260401-2130
+# BUILD MARKER: v7-20260401-2210
 import argparse
 import hashlib
+import inspect
 import logging
 import os
 import sys
@@ -35,6 +36,7 @@ from fastapi.middleware.gzip import GZipMiddleware
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from fastapi.responses import JSONResponse, HTMLResponse
+from web.template_compat import template_response
 
 from web.middleware import (
     SecurityHeadersMiddleware,
@@ -122,6 +124,11 @@ def create_app() -> FastAPI:
     ensure_data_dirs()
     
     settings = get_settings()
+    logger.info(
+        "[BOOT] BUILD_VERSION=%s | TemplateResponse signature=%s",
+        "2026-04-01-v7-TEMPLATECOMPAT",
+        inspect.signature(Jinja2Templates.TemplateResponse),
+    )
 
     # ── Sentry: inicializar antes de crear la app ────────────────────────────
     from web.observability.sentry_setup import init_sentry
@@ -324,7 +331,9 @@ def create_app() -> FastAPI:
         return "text/html" in accept and "/api/" not in request.url.path
 
     def _render_error(request: Request, code: int, title: str, message: str):
-        return templates.TemplateResponse(
+        return template_response(
+            templates,
+            request,
             "error.html",
             {"request": request, "code": code, "title": title, "message": message},
             status_code=code,

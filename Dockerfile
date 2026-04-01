@@ -1,6 +1,6 @@
 # ══════════════════════════════════════════════════════════════════════════════
 # MetodoBase Web — Dockerfile de producción
-# REBUILD FORCED: 2026-04-01-21:25-v6
+# REBUILD FORCED: 2026-04-01-22:10-v7
 #
 # Multi-stage build:
 #   1. Instala dependencias web-only (sin PySide6, sin GUI)
@@ -14,7 +14,7 @@
 FROM python:3.12-slim AS base
 
 # Cache buster - change this value to force rebuild
-ARG CACHEBUST=20260401v6
+ARG CACHEBUST=20260401v7
 
 # Prevenir bytecode + buffered output
 ENV PYTHONDONTWRITEBYTECODE=1 \
@@ -36,7 +36,7 @@ COPY --from=deps /usr/local/lib/python3.12/site-packages /usr/local/lib/python3.
 COPY --from=deps /usr/local/bin /usr/local/bin
 
 # CACHE BUSTER - Forces rebuild of all subsequent layers
-RUN echo "Build timestamp: 2026-04-01T21:30:00-v6-TEMPLATEFIX-FORCE" > /tmp/build_version
+RUN echo "Build timestamp: 2026-04-01T22:10:00-v7-TEMPLATECOMPAT-FORCE" > /tmp/build_version
 
 # Copy build version file FIRST to bust cache when it changes
 COPY web/.build_version /tmp/web_build_version
