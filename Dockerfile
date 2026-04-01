@@ -36,6 +36,9 @@ FROM base AS runtime
 COPY --from=deps /usr/local/lib/python3.12/site-packages /usr/local/lib/python3.12/site-packages
 COPY --from=deps /usr/local/bin /usr/local/bin
 
+# CACHE BUSTER - Forces rebuild of all subsequent layers
+RUN echo "Build timestamp: 2026-04-01T20:30:00-v5-FORCE" > /tmp/build_version
+
 # Copiar solo los módulos necesarios para el web server
 COPY config/ config/
 COPY core/ core/
