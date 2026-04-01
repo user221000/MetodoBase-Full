@@ -1,7 +1,27 @@
 """
 Gestor de base de datos SQLite para clientes y planes.
 
-Gestiona:
+⚠️ DEPRECATION WARNING ⚠️
+========================
+Este módulo está DEPRECADO desde 2026-03-24.
+La nueva arquitectura usa SQLAlchemy via web/database/.
+
+MIGRAR A:
+- Para operaciones CRUD: src/repositories/cliente_repository.py
+- Para modelos: web/database/models.py
+- Para sesiones: web/database/engine.py
+
+Este módulo se mantiene SOLO para:
+1. Compatibilidad con UI desktop (ui_desktop/) durante transición
+2. Rollback de emergencia si falla SQLAlchemy
+
+NO AGREGAR NUEVA FUNCIONALIDAD AQUÍ.
+TODO el código nuevo debe usar ClienteRepository o web/database/.
+
+Para la capa de compatibilidad, ver: src/compat/gestor_bd_compat.py
+========================
+
+Gestiona (LEGACY):
 - Registro de clientes con todos sus datos
 - Historial de planes generados
 - Búsqueda rápida de clientes
@@ -12,6 +32,7 @@ Base de datos: registros/clientes.db
 Backups: registros/backups/clientes_YYYYMMDD_HHMMSS.db
 """
 
+import warnings
 import sqlite3
 import shutil
 import hashlib
@@ -22,6 +43,18 @@ from pathlib import Path
 from utils.logger import logger
 from utils.telemetria import registrar_evento
 from config.constantes import CARPETA_REGISTROS
+
+# Emitir warning de deprecación al importar
+warnings.warn(
+    "src.gestor_bd está deprecado. Usar src.repositories.cliente_repository o web.database.",
+    DeprecationWarning,
+    stacklevel=2
+)
+
+# ── sqlite3 datetime adapters (required since Python 3.12) ───────────────────
+sqlite3.register_adapter(datetime, lambda dt: dt.isoformat())
+sqlite3.register_converter("timestamp", lambda b: datetime.fromisoformat(b.decode()))
+
 
 
 class GestorBDClientes:
@@ -54,9 +87,19 @@ class GestorBDClientes:
 
         logger.info("[BD] Gestor inicializado: %s", self.db_path)
 
+    def _conn(self) -> sqlite3.Connection:
+        """Abre una conexión con WAL mode y foreign keys habilitados."""
+        conn = sqlite3.connect(self.db_path)
+        conn.execute("PRAGMA journal_mode=WAL")
+        conn.execute("PRAGMA foreign_keys=ON")
+        conn.row_factory = sqlite3.Row
+        return conn
+
+    _TABLAS_VALIDAS = frozenset({"clientes", "planes_generados", "estadisticas_gym"})
+
     def _crear_tablas(self) -> None:
         """Crea las tablas de la base de datos si no existen."""
-        conn = sqlite3.connect(self.db_path)
+        conn = self._conn()
         c = conn.cursor()
 
         c.execute('''
@@ -152,10 +195,14 @@ class GestorBDClientes:
         logger.info("[BD] Tablas creadas/verificadas exitosamente")
 
     def _obtener_columnas_tabla(self, cursor, tabla: str) -> set[str]:
+        if tabla not in self._TABLAS_VALIDAS:
+            raise ValueError(f"Tabla no permitida: {tabla}")
         cursor.execute(f"PRAGMA table_info({tabla})")
         return {row[1] for row in cursor.fetchall()}
 
     def _asegurar_columna(self, cursor, tabla: str, definicion_columna: str) -> None:
+        if tabla not in self._TABLAS_VALIDAS:
+            raise ValueError(f"Tabla no permitida: {tabla}")
         nombre_columna = definicion_columna.split()[0].strip()
         columnas = self._obtener_columnas_tabla(cursor, tabla)
         if nombre_columna in columnas:
@@ -225,7 +272,7 @@ class GestorBDClientes:
     def registrar_cliente(self, cliente, secure_mode: bool | None = None, crypto_service: Any | None = None) -> bool:
         """Registra o actualiza un cliente en la base de datos."""
         usar_seguridad, crypto = self._usar_seguridad(secure_mode, crypto_service)
-        conn = sqlite3.connect(self.db_path)
+        conn = self._conn()
         c = conn.cursor()
         plantilla_tipo = getattr(cliente, 'plantilla_tipo', 'general') or 'general'
 
@@ -246,11 +293,13 @@ class GestorBDClientes:
                         telefono = ?,
                         email = ?,
                         edad = ?,
+                        sexo = ?,
                         peso_kg = ?,
                         estatura_cm = ?,
                         grasa_corporal_pct = ?,
                         nivel_actividad = ?,
                         objetivo = ?,
+                        notas = ?,
                         plantilla_tipo = ?,
                         nombre_enc = ?,
                         telefono_enc = ?,
@@ -268,11 +317,13 @@ class GestorBDClientes:
                     None if usar_seguridad else getattr(cliente, 'telefono', None),
                     None if usar_seguridad else getattr(cliente, 'email', None),
                     cliente.edad,
+                    getattr(cliente, 'sexo', None),
                     cliente.peso_kg,
                     cliente.estatura_cm,
                     cliente.grasa_corporal_pct,
                     cliente.nivel_actividad,
                     cliente.objetivo,
+                    None if usar_seguridad else getattr(cliente, 'notas', None),
                     plantilla_tipo,
                     campos_seg.get("nombre_enc"),
                     campos_seg.get("telefono_enc"),
@@ -292,22 +343,25 @@ class GestorBDClientes:
                     campos_seg = self._cifrar_campos(cliente, crypto)
                 c.execute('''
                     INSERT INTO clientes
-                    (id_cliente, nombre, telefono, email, edad, peso_kg, estatura_cm,
-                     grasa_corporal_pct, nivel_actividad, objetivo, plantilla_tipo, ultimo_plan,
-                     total_planes_generados, nombre_enc, telefono_enc, email_enc, notas_enc,
+                    (id_cliente, nombre, telefono, email, edad, sexo, peso_kg, estatura_cm,
+                     grasa_corporal_pct, nivel_actividad, objetivo, notas, plantilla_tipo,
+                     ultimo_plan, total_planes_generados,
+                     nombre_enc, telefono_enc, email_enc, notas_enc,
                      nombre_idx, telefono_idx, email_idx, datos_cifrados)
-                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 ''', (
                     cliente.id_cliente,
                     self._placeholder_nombre(cliente.id_cliente) if usar_seguridad else cliente.nombre,
                     None if usar_seguridad else getattr(cliente, 'telefono', None),
                     None if usar_seguridad else getattr(cliente, 'email', None),
                     cliente.edad,
+                    getattr(cliente, 'sexo', None),
                     cliente.peso_kg,
                     cliente.estatura_cm,
                     cliente.grasa_corporal_pct,
                     cliente.nivel_actividad,
                     cliente.objetivo,
+                    None if usar_seguridad else getattr(cliente, 'notas', None),
                     plantilla_tipo,
                     datetime.now(),
                     1,
@@ -337,7 +391,7 @@ class GestorBDClientes:
         self, cliente, plan: Dict, ruta_pdf: str, tipo_plan: str | None = None
     ) -> bool:
         """Registra un plan generado en el historial."""
-        conn = sqlite3.connect(self.db_path)
+        conn = self._conn()
         c = conn.cursor()
         plantilla_tipo = getattr(cliente, 'plantilla_tipo', 'general') or 'general'
         tipo_plan_normalizado = self._normalizar_tipo_plan(tipo_plan)
@@ -411,8 +465,7 @@ class GestorBDClientes:
                         crypto_service: Any | None = None) -> List[Dict]:
         """Busca clientes por nombre, teléfono o ID."""
         usar_seguridad, crypto = self._usar_seguridad(secure_mode, crypto_service)
-        conn = sqlite3.connect(self.db_path)
-        conn.row_factory = sqlite3.Row
+        conn = self._conn()
         c = conn.cursor()
 
         try:
@@ -501,8 +554,7 @@ class GestorBDClientes:
                                crypto_service: Any | None = None) -> Optional[Dict]:
         """Obtiene todos los datos de un cliente por su ID."""
         usar_seguridad, crypto = self._usar_seguridad(secure_mode, crypto_service)
-        conn = sqlite3.connect(self.db_path)
-        conn.row_factory = sqlite3.Row
+        conn = self._conn()
         c = conn.cursor()
 
         try:
@@ -523,8 +575,7 @@ class GestorBDClientes:
     def obtener_historial_planes(self, id_cliente: str,
                                  limite: int = 20) -> List[Dict]:
         """Obtiene el historial de planes generados para un cliente."""
-        conn = sqlite3.connect(self.db_path)
-        conn.row_factory = sqlite3.Row
+        conn = self._conn()
         c = conn.cursor()
 
         try:
@@ -551,8 +602,7 @@ class GestorBDClientes:
 
     def obtener_progreso_cliente(self, id_cliente: str) -> Dict:
         """Calcula progreso de peso y grasa a partir del historial de planes."""
-        conn = sqlite3.connect(self.db_path)
-        conn.row_factory = sqlite3.Row
+        conn = self._conn()
         c = conn.cursor()
 
         try:
@@ -638,7 +688,7 @@ class GestorBDClientes:
                                  fecha_inicio: Optional[datetime] = None,
                                  fecha_fin: Optional[datetime] = None) -> Dict:
         """Obtiene estadísticas generales del gimnasio."""
-        conn = sqlite3.connect(self.db_path)
+        conn = self._conn()
         c = conn.cursor()
 
         try:
@@ -677,14 +727,24 @@ class GestorBDClientes:
             objetivos = {row[0]: row[1] for row in c.fetchall()}
 
             c.execute('''
-                SELECT c.nombre, c.total_planes_generados
+                SELECT c.nombre, c.telefono, c.objetivo, c.ultimo_plan,
+                       (SELECT pg.kcal_objetivo FROM planes_generados pg
+                        WHERE pg.id_cliente = c.id_cliente
+                        ORDER BY pg.fecha_generacion DESC LIMIT 1) as kcal_objetivo
                 FROM clientes c
                 WHERE c.activo = 1
-                ORDER BY c.total_planes_generados DESC
+                ORDER BY c.ultimo_plan DESC NULLS LAST
                 LIMIT 10
             ''')
             top_clientes = [
-                {'nombre': row[0], 'planes': row[1]} for row in c.fetchall()
+                {
+                    'nombre': row[0],
+                    'telefono': row[1],
+                    'objetivo': row[2],
+                    'ultima_actualizacion': row[3],
+                    'kcal_objetivo': row[4],
+                }
+                for row in c.fetchall()
             ]
 
             # --- KPIs de negocio adicionales ---
@@ -722,6 +782,30 @@ class GestorBDClientes:
             ''', (fecha_inicio, fecha_fin))
             planes_por_tipo = {row[0] or "menu_fijo": row[1] for row in c.fetchall()}
 
+            # Clientes activos sin plan generado nunca
+            c.execute('''
+                SELECT COUNT(*) FROM clientes
+                WHERE activo = 1 AND ultimo_plan IS NULL
+            ''')
+            sin_plan = c.fetchone()[0]
+
+            # Planes por día (últimos 7 días) para gráfica de evolución
+            DIAS = ["Lun", "Mar", "Mié", "Jue", "Vie", "Sáb", "Dom"]
+            planes_por_dia = []
+            planes_labels = []
+            ahora = fecha_fin or datetime.now()
+            for i in range(6, -1, -1):
+                dia = ahora - timedelta(days=i)
+                inicio_dia = dia.replace(hour=0, minute=0, second=0, microsecond=0)
+                fin_dia = dia.replace(hour=23, minute=59, second=59, microsecond=999999)
+                c.execute(
+                    "SELECT COUNT(*) FROM planes_generados "
+                    "WHERE fecha_generacion BETWEEN ? AND ?",
+                    (inicio_dia.isoformat(), fin_dia.isoformat()),
+                )
+                planes_por_dia.append(c.fetchone()[0])
+                planes_labels.append(DIAS[dia.weekday()])
+
             return {
                 'total_clientes': total_clientes,
                 'clientes_nuevos': clientes_nuevos,
@@ -733,6 +817,9 @@ class GestorBDClientes:
                 'renovaciones': renovaciones,
                 'tasa_retencion': tasa_retencion,
                 'planes_por_tipo': planes_por_tipo,
+                'sin_plan': sin_plan,
+                'planes_por_dia': planes_por_dia,
+                'planes_labels': planes_labels,
                 'fecha_inicio': fecha_inicio.isoformat(),
                 'fecha_fin': fecha_fin.isoformat(),
             }
@@ -746,7 +833,7 @@ class GestorBDClientes:
 
     def desactivar_cliente(self, id_cliente: str) -> bool:
         """Marca un cliente como inactivo (no lo elimina)."""
-        conn = sqlite3.connect(self.db_path)
+        conn = self._conn()
         c = conn.cursor()
 
         try:
@@ -765,7 +852,7 @@ class GestorBDClientes:
 
     def reactivar_cliente(self, id_cliente: str) -> bool:
         """Reactiva un cliente previamente desactivado."""
-        conn = sqlite3.connect(self.db_path)
+        conn = self._conn()
         c = conn.cursor()
 
         try:
@@ -841,8 +928,7 @@ class GestorBDClientes:
 
         Retorna cantidad de filas migradas.
         """
-        conn = sqlite3.connect(self.db_path)
-        conn.row_factory = sqlite3.Row
+        conn = self._conn()
         c = conn.cursor()
         migrados = 0
 
@@ -904,8 +990,7 @@ class GestorBDClientes:
                                crypto_service: Any | None = None) -> list[dict]:
         """Devuelve todos los clientes de la base de datos para exportación."""
         usar_seguridad, crypto = self._usar_seguridad(secure_mode, crypto_service)
-        conn = sqlite3.connect(self.db_path)
-        conn.row_factory = sqlite3.Row
+        conn = self._conn()
         c = conn.cursor()
 
         try:
@@ -935,12 +1020,87 @@ class GestorBDClientes:
         finally:
             conn.close()
 
+    def obtener_clientes_recientes(self, limite: int = 10,
+                                  solo_activos: bool = True) -> list[dict]:
+        """Devuelve los clientes con actividad más reciente (último plan o registro)."""
+        conn = self._conn()
+        c = conn.cursor()
+        try:
+            query = '''
+                SELECT id_cliente, nombre, telefono, edad, peso_kg,
+                       estatura_cm, grasa_corporal_pct, nivel_actividad,
+                       objetivo, plantilla_tipo, fecha_registro,
+                       ultimo_plan, total_planes_generados
+                FROM clientes
+            '''
+            if solo_activos:
+                query += ' WHERE activo = 1'
+            query += ' ORDER BY COALESCE(ultimo_plan, fecha_registro) DESC LIMIT ?'
+            c.execute(query, (limite,))
+            return [dict(row) for row in c.fetchall()]
+        except Exception as e:
+            logger.error("[BD] Error obteniendo clientes recientes: %s", e)
+            return []
+        finally:
+            conn.close()
+
+    def buscar_duplicados_nombre(self, nombre: str,
+                                 solo_activos: bool = True) -> list[dict]:
+        """Busca clientes con nombre similar para detectar duplicados."""
+        conn = self._conn()
+        c = conn.cursor()
+        try:
+            query = '''
+                SELECT id_cliente, nombre, telefono, edad, peso_kg, objetivo,
+                       fecha_registro, total_planes_generados
+                FROM clientes
+                WHERE nombre LIKE ?
+            '''
+            if solo_activos:
+                query += ' AND activo = 1'
+            query += ' LIMIT 5'
+            c.execute(query, (f'%{nombre}%',))
+            return [dict(row) for row in c.fetchall()]
+        except Exception as e:
+            logger.error("[BD] Error buscando duplicados: %s", e)
+            return []
+        finally:
+            conn.close()
+
+    def importar_clientes_csv(self, filas: list[dict]) -> tuple[int, int]:
+        """Importa clientes desde lista de dicts CSV. Retorna (exitosos, fallidos)."""
+        from core.modelos import ClienteEvaluacion
+        ok, fail = 0, 0
+        for fila in filas:
+            try:
+                cliente = ClienteEvaluacion(
+                    nombre=fila.get("nombre", "").strip(),
+                    telefono=fila.get("telefono", "").strip() or None,
+                    edad=int(fila["edad"]) if fila.get("edad") else 25,
+                    peso_kg=float(fila["peso_kg"]) if fila.get("peso_kg") else 70.0,
+                    estatura_cm=float(fila["estatura_cm"]) if fila.get("estatura_cm") else 170.0,
+                    grasa_corporal_pct=float(fila["grasa_corporal_pct"]) if fila.get("grasa_corporal_pct") else 15.0,
+                    nivel_actividad=fila.get("nivel_actividad", "moderada").strip(),
+                    objetivo=fila.get("objetivo", "Mantenimiento").strip(),
+                )
+                if not cliente.nombre:
+                    fail += 1
+                    continue
+                if self.registrar_cliente(cliente):
+                    ok += 1
+                else:
+                    fail += 1
+            except Exception as exc:
+                logger.warning("[BD] Error importando fila CSV: %s", exc)
+                fail += 1
+        logger.info("[BD] Import CSV: %d OK, %d fallidos", ok, fail)
+        return ok, fail
+
     def obtener_planes_periodo(self,
                                fecha_inicio: datetime,
                                fecha_fin: datetime) -> list[dict]:
         """Devuelve todos los planes generados en el período con nombre del cliente."""
-        conn = sqlite3.connect(self.db_path)
-        conn.row_factory = sqlite3.Row
+        conn = self._conn()
         c = conn.cursor()
 
         try:

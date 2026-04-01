@@ -15,7 +15,6 @@ import json
 import os
 import threading
 from datetime import datetime
-from pathlib import Path
 from typing import Any, Dict, Optional
 
 from config.constantes import CARPETA_REGISTROS
@@ -23,7 +22,9 @@ from utils.logger import logger
 
 _ARCHIVO_TELEMETRIA = os.path.join(CARPETA_REGISTROS, "telemetria.jsonl")
 _MAX_LINEAS = 50_000
+_ROTACION_CADA = 500
 _lock = threading.Lock()
+_contador_escrituras = 0
 
 
 def registrar_evento(
@@ -49,9 +50,14 @@ def registrar_evento(
 
     try:
         with _lock:
+            global _contador_escrituras
             os.makedirs(os.path.dirname(_ARCHIVO_TELEMETRIA), exist_ok=True)
             with open(_ARCHIVO_TELEMETRIA, "a", encoding="utf-8") as f:
                 f.write(json.dumps(evento, ensure_ascii=False) + "\n")
+            _contador_escrituras += 1
+            if _contador_escrituras >= _ROTACION_CADA:
+                _contador_escrituras = 0
+                rotar_si_necesario()
     except OSError as e:
         logger.debug("[TELEMETRIA] Error escribiendo evento: %s", e)
 

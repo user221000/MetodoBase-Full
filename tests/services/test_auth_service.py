@@ -13,14 +13,12 @@ Verifican:
 """
 from __future__ import annotations
 
-import sqlite3
 
 import pytest
 
-from core.services.auth_service import AuthService, crear_auth_service
+from core.services.auth_service import AuthService
 from core.services.crypto_service import CryptoService
 from core.services.key_manager import KeyManager
-from core.services.password_hasher import PasswordHasher
 from src.gestor_usuarios import GestorUsuarios
 
 

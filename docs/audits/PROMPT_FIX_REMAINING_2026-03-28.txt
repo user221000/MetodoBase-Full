@@ -1,0 +1,250 @@
+════════════════════════════════════════════════════════════════════════════════
+PROMPT — FIX ALL REMAINING ISSUES FROM FULL AUDIT (2026-03-28)
+════════════════════════════════════════════════════════════════════════════════
+
+CONTEXT:
+- Project: MetodoBase-Full (FastAPI + SQLAlchemy + Jinja2 SaaS)
+- Current state: 1138 tests passing, 0 failures, 3 skipped
+- Previous audit fixed 20 critical/high issues
+- This prompt covers the 7 HIGH + 10 MEDIUM remaining issues
+
+RULES:
+- Never break existing tests. Run `python -m pytest tests/ -x --tb=short -q`
+  after every change.
+- Each fix must be minimal and surgical — do not refactor surrounding code.
+- Add tests for every fix in the appropriate test file.
+- Do not modify any existing test assertions unless they test the wrong behavior.
+
+════════════════════════════════════════════════════════════════════════════════
+H-01: REDIS RATE LIMITER FOR PRODUCTION
+════════════════════════════════════════════════════════════════════════════════
+
+FILE:    web/rate_limiter.py
+PROBLEM: Rate limiter uses in-memory dict. Multi-pod deployments bypass it.
+         Any horizontal scaling makes rate limiting ineffective.
+
+SPEC:
+1. Create `web/rate_limiter_redis.py` implementing the same RateLimiterMiddleware
+   interface but backed by Redis.
+2. Use `redis.asyncio` for non-blocking calls.
+3. Key format: `rl:{client_ip}:{path}` with TTL = window_seconds.
+4. Use Redis MULTI/EXEC (pipeline) for atomic increment + expire.
+5. In `api/app.py`, select implementation based on `REDIS_URL` env var:
+   - If REDIS_URL is set → use RedisRateLimiterMiddleware
+   - If not set → fall back to in-memory (current behavior)
+6. Add `REDIS_URL` field to `config/settings.py` (default: "").
+7. Test: Mock redis.asyncio and verify keys are set, incremented, and expired.
+
+VERIFICATION:
+  grep -n "redis" web/rate_limiter_redis.py | head
+  python -m pytest tests/test_rate_limiter.py -q
+
+════════════════════════════════════════════════════════════════════════════════
+H-02: PLANS.PY GLOBAL CATEGORIAS RACE CONDITION
+════════════════════════════════════════════════════════════════════════════════
+
+FILE:    core/generador_planes.py, web/routes/plans.py (if applicable)
+PROBLEM: Code modifies global CATEGORIAS dict during plan generation.
+         Concurrent requests corrupt shared state.
+
+SPEC:
+1. Find every location where CATEGORIAS (or any imported global dict from
+   config/catalogo_alimentos.py) is mutated (pop, del, update, []=).
+2. Replace each mutation with a local copy: `cats = copy.deepcopy(CATEGORIAS)`.
+3. Do NOT change the original config/catalogo_alimentos.py source dict.
+4. If using threading, consider using threading.local() for the mutable copy.
+5. Test: Call plan generation concurrently (3 threads) and verify no KeyError
+   or data corruption.
+
+VERIFICATION:
+  grep -rn "CATEGORIAS\[" core/ web/routes/ | grep -v "==" | grep -v "get("
+  python -m pytest tests/test_generador_planes.py -q
+
+════════════════════════════════════════════════════════════════════════════════
+H-03: EMAIL PDF PATH TRAVERSAL
+════════════════════════════════════════════════════════════════════════════════
+
+FILE:    api/factura_pdf.py
+PROBLEM: PDF paths may incorporate user-supplied strings without validation.
+
+SPEC:
+1. Read api/factura_pdf.py fully.
+2. Find every `os.path.join()` or `Path()` that includes user input
+   (client name, gym name, plan name, etc.).
+3. After resolving the final path, assert:
+   `final_path.resolve().is_relative_to(ALLOWED_OUTPUT_DIR.resolve())`
+4. If the check fails, raise ValueError (do not serve the file).
+5. Set ALLOWED_OUTPUT_DIR = Path("registros/") or configurable.
+6. Test: Attempt to generate PDF with name "../../../etc/passwd" and verify
+   it raises ValueError.
+
+VERIFICATION:
+  grep -n "resolve\|is_relative_to" api/factura_pdf.py
+  python -m pytest tests/test_factura_pdf.py -q
+
+════════════════════════════════════════════════════════════════════════════════
+H-04: MERCADOPAGO WEBHOOK SIGNATURE VERIFICATION
+════════════════════════════════════════════════════════════════════════════════
+
+FILE:    api/routes/pagos.py (mp_webhook function)
+PROBLEM: MP webhook accepts any POST without verifying origin. Attackers
+         can send fake payment confirmations.
+
+SPEC:
+1. Add env var MERCADOPAGO_WEBHOOK_SECRET to config/settings.py.
+2. In mp_webhook(), extract the signature header (x-signature from MP docs).
+3. Compute HMAC-SHA256 of request body using MERCADOPAGO_WEBHOOK_SECRET.
+4. Compare signatures using hmac.compare_digest() (constant time).
+5. If signature is missing or invalid, return 400 (not 403, to match Stripe pattern).
+6. In development (DEBUG=true), allow unverified webhooks with a warning log.
+7. Test: Send webhook with valid/invalid/missing signature and verify behavior.
+
+VERIFICATION:
+  grep -n "hmac\|compare_digest\|x-signature" api/routes/pagos.py
+  python -m pytest tests/test_pagos_webhook.py -q
+
+════════════════════════════════════════════════════════════════════════════════
+H-05: FEATURE FLAGS STRICT MODE
+════════════════════════════════════════════════════════════════════════════════
+
+FILE:    config/feature_flags.py
+PROBLEM: Unknown/misconfigured feature flags silently return False in prod.
+
+SPEC:
+1. Add `FEATURE_FLAGS_STRICT` bool to config/settings.py (default True in prod).
+2. In feature_flags.py, if STRICT and a flag name is not in the registry,
+   raise ValueError(f"Unknown feature flag: {flag_name}").
+3. Register all valid flag names in a KNOWN_FLAGS frozenset.
+4. In dev mode (STRICT=False), log a warning but return False (current behavior).
+5. Test: In strict mode, requesting unknown flag raises ValueError.
+         In non-strict mode, returns False with warning.
+
+VERIFICATION:
+  grep -n "KNOWN_FLAGS\|STRICT" config/feature_flags.py
+  python -m pytest tests/test_feature_flags.py -q
+
+════════════════════════════════════════════════════════════════════════════════
+H-06: ALEMBIC MIGRATION CHECK AT STARTUP
+════════════════════════════════════════════════════════════════════════════════
+
+FILE:    web/main_web.py
+PROBLEM: No verification that DB schema matches alembic head. In production,
+         create_all() is skipped, so if migrations haven't run, the app
+         starts with a broken schema.
+
+SPEC:
+1. In web/main_web.py's startup_event(), after init_db():
+   a. If is_production:
+      - Import alembic.config and alembic.script
+      - Get current revision from alembic_version table
+      - Get head revision from migration scripts
+      - If current != head, log CRITICAL and raise RuntimeError
+2. Wrap in try/except to handle missing alembic tables gracefully.
+3. Add env var SKIP_MIGRATION_CHECK=false for emergency overrides.
+4. Test: Mock alembic functions and verify startup fails when behind.
+
+VERIFICATION:
+  grep -n "alembic\|migration_check" web/main_web.py
+  python -m pytest tests/test_startup.py -q
+
+════════════════════════════════════════════════════════════════════════════════
+H-07: COMPLETE RBAC MIGRATION (C1 FIX COMMENTS)
+════════════════════════════════════════════════════════════════════════════════
+
+FILES:   Multiple route files (grep "C1 FIX" across web/routes/ and api/routes/)
+PROBLEM: 20+ TODO/FIXME comments marked "C1 FIX" indicate RBAC system
+         was not fully rolled out.
+
+SPEC:
+1. Run: grep -rn "C1 FIX\|c1.fix\|C1_FIX" web/routes/ api/routes/
+2. For each marked location:
+   a. Determine the required role from context (owner, admin, nutriologo, viewer)
+   b. Add proper role check using get_usuario_with_role() dependency
+   c. Remove the C1 FIX comment
+3. Use this mapping:
+   - DELETE endpoints → owner, admin
+   - POST/PUT (create/update) → owner, admin, nutriologo
+   - GET (read) → owner, admin, nutriologo, viewer
+4. Test: For each modified endpoint, verify:
+   - Authorized role gets 200
+   - Unauthorized role gets 403
+
+VERIFICATION:
+  grep -rn "C1.FIX" web/routes/ api/routes/ | wc -l  # Should be 0
+  python -m pytest tests/ -q
+
+════════════════════════════════════════════════════════════════════════════════
+M-01: METRICS ENDPOINT AUTH
+════════════════════════════════════════════════════════════════════════════════
+
+FILE:    web/routes/ (wherever /metrics is served)
+PROBLEM: Metrics endpoint is accessible without authentication,
+         potentially leaking performance and business data.
+
+SPEC:
+1. Find the /metrics endpoint.
+2. Add authentication requirement (admin or owner only).
+3. In production, consider IP whitelist instead of/in addition to auth.
+4. Test: Verify unauthenticated request returns 401.
+
+════════════════════════════════════════════════════════════════════════════════
+M-02: DEAD CSS CLEANUP (17 classes)
+════════════════════════════════════════════════════════════════════════════════
+
+FILE:    web/static/css/styles.css, web/static/css/styles-auth.css
+PROBLEM: 17 CSS classes not referenced in any HTML template or JS file.
+
+SPEC:
+1. For each class, grep across templates/ and static/js/ to confirm unused.
+2. Only remove classes confirmed as dead (no matches in HTML or JS).
+3. Do NOT remove utility classes that might be added dynamically via JS.
+4. Document removed classes in a comment at the top of the CSS file.
+
+════════════════════════════════════════════════════════════════════════════════
+M-03: HARDCODED VALUES → CONSTANTS
+════════════════════════════════════════════════════════════════════════════════
+
+FILES:   api/routes/*.py, web/routes/*.py
+PROBLEM: 15+ hardcoded strings/numbers in route handlers.
+
+SPEC:
+1. Extract hardcoded values to config/constantes.py.
+2. Typical candidates:
+   - Error messages (already partially in constantes)
+   - Default page sizes
+   - Max upload sizes
+   - Timeout values
+3. Import from constantes.py instead of inline values.
+
+════════════════════════════════════════════════════════════════════════════════
+M-04: DUAL DATABASE CONSOLIDATION PLAN
+════════════════════════════════════════════════════════════════════════════════
+
+FILES:   web/auth.py, web/database/engine.py
+PROBLEM: Auth uses raw SQLite3 (web_usuarios.db) while ORM uses
+         metodobase_web.db. User data is dual-written and can desync.
+
+SPEC:
+1. This is a significant refactor — create a migration plan document.
+2. Phase 1: Add a sync check that verifies both DBs have same users.
+3. Phase 2: Migrate auth to use SQLAlchemy Usuario model.
+4. Phase 3: Remove web_usuarios.db dependency.
+5. Each phase should have its own migration script and rollback plan.
+
+════════════════════════════════════════════════════════════════════════════════
+EXECUTION ORDER
+════════════════════════════════════════════════════════════════════════════════
+
+Priority 1 (Security): H-01, H-03, H-04
+Priority 2 (Stability): H-02, H-06, H-05
+Priority 3 (Architecture): H-07, M-04
+Priority 4 (Cleanup): M-01, M-02, M-03
+
+After each fix:
+  1. Run: python -m pytest tests/ -x --tb=short -q
+  2. Verify: 1138+ passed, 0 failed
+  3. Commit with descriptive message
+
+════════════════════════════════════════════════════════════════════════════════
+END OF FIX PROMPT
+════════════════════════════════════════════════════════════════════════════════

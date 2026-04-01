@@ -21,13 +21,10 @@ from src.alimentos_seed import (
     ALIMENTOS_BASE_SEED,
     CATEGORIAS_SEED,
     LIMITES_ALIMENTOS_SEED,
-    EQUIVALENCIAS_PRACTICAS_SEED,
 )
 from src.alimentos_seed_runtime import (
     ALIMENTOS_BASE_EXTRA,
-    LIMITES_ALIMENTOS_EXTRA,
     ALIMENTOS_BASE_SEED as RUNTIME_SEED,
-    CATEGORIAS_SEED as RUNTIME_CATEGORIAS,
 )
 from core.services.alimentos_alias import ALIAS_MAPA
 

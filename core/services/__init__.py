@@ -23,6 +23,15 @@ from core.services.crypto_service import CryptoService
 from core.services.key_manager import KeyManager
 from core.services.password_hasher import PasswordHasher, PasswordPolicy
 from core.services.cliente_service import ClienteService
+from core.services.strangler_fig import (
+    StranglerProxy,
+    get_strangler_proxy,
+    MigrationPhase,
+    DataSource,
+    RoutingDecision,
+    get_routing_decision,
+    migration_phase,
+)
 
 __all__ = [
     "calcular_plan_nutricional",
@@ -35,4 +44,12 @@ __all__ = [
     "PasswordHasher",
     "PasswordPolicy",
     "ClienteService",
+    # Strangler Fig pattern
+    "StranglerProxy",
+    "get_strangler_proxy",
+    "MigrationPhase",
+    "DataSource",
+    "RoutingDecision",
+    "get_routing_decision",
+    "migration_phase",
 ]

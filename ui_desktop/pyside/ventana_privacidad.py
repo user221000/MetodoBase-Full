@@ -17,7 +17,6 @@ from __future__ import annotations
 from PySide6.QtCore import Qt
 from PySide6.QtWidgets import (
     QDialog,
-    QFrame,
     QHBoxLayout,
     QLabel,
     QPushButton,
@@ -27,9 +26,10 @@ from PySide6.QtWidgets import (
 )
 
 from utils.logger import logger
+from design_system.tokens import Colors
 
 _POLITICA_TEXTO = """
-<h3 style="color:#9B4FB0;">Aviso de Privacidad — Método Base</h3>
+<h3 style="color:#FFEB3B;">Aviso de Privacidad — Método Base</h3>
 
 <p><b>¿Qué datos recopilamos?</b><br>
 Al registrarte almacenamos: nombre, apellido, correo electrónico, datos
@@ -63,7 +63,7 @@ de la instalación.</p>
 Tus datos se conservan mientras tengas una cuenta activa. Al desactivarla,
 los datos quedan marcados como inactivos y pueden eliminarse a petición.</p>
 
-<p style="color:#FF9800;"><b>⚠️  Al pulsar «Acepto» confirmas que has leído
+<p style="color:#FFEB3B;"><b>⚠️  Al pulsar «Acepto» confirmas que has leído
 este aviso y consientes el tratamiento de tus datos según lo descrito.</b></p>
 """
 
@@ -91,20 +91,20 @@ class DialogoPrivacidad(QDialog):
         # Título
         titulo = QLabel("Aviso de Privacidad y Consentimiento")
         titulo.setAlignment(Qt.AlignHCenter)
-        titulo.setStyleSheet("color: #9B4FB0; font-size: 18px; font-weight: bold;")
+        titulo.setStyleSheet(f"color: {Colors.PRIMARY}; font-size: 18px; font-weight: bold;")
         root.addWidget(titulo)
 
         # Área con scroll para la política
         scroll = QScrollArea()
         scroll.setWidgetResizable(True)
         scroll.setStyleSheet(
-            "QScrollArea { border: 1px solid #444444; border-radius: 8px; background-color: #1A1A1A; }"
+            f"QScrollArea {{ border: 1px solid {Colors.BORDER_DEFAULT}; border-radius: 8px; background-color: {Colors.BG_INPUT}; }}"
         )
         contenido = QLabel(_POLITICA_TEXTO)
         contenido.setWordWrap(True)
         contenido.setTextFormat(Qt.RichText)
         contenido.setStyleSheet(
-            "color: #F5F5F5; font-size: 11px; padding: 14px; background-color: #1A1A1A; line-height: 1.5;"
+            f"color: {Colors.TEXT_PRIMARY}; font-size: 11px; padding: 14px; background-color: {Colors.BG_INPUT}; line-height: 1.5;"
         )
         contenido.setAlignment(Qt.AlignTop | Qt.AlignLeft)
         scroll.setWidget(contenido)
@@ -113,25 +113,19 @@ class DialogoPrivacidad(QDialog):
         # Aviso
         aviso = QLabel("Debes desplazarte y leer el aviso completo antes de continuar.")
         aviso.setAlignment(Qt.AlignHCenter)
-        aviso.setStyleSheet("color: #B8B8B8; font-size: 10px;")
+        aviso.setStyleSheet(f"color: {Colors.TEXT_SECONDARY}; font-size: 10px;")
         root.addWidget(aviso)
 
         # Botones
         fila = QHBoxLayout()
         btn_rechazar = QPushButton("Rechazar")
-        btn_rechazar.setStyleSheet(
-            "QPushButton { background-color: transparent; border: 1px solid #F44336;"
-            " color: #F44336; border-radius: 8px; padding: 9px 20px; font-size: 13px; }"
-            "QPushButton:hover { background-color: #2A0A0A; }"
-        )
+        btn_rechazar.setObjectName("dangerButton")
+        btn_rechazar.setCursor(Qt.CursorShape.PointingHandCursor)
         btn_rechazar.clicked.connect(self.reject)
 
         btn_aceptar = QPushButton("Acepto — Continuar")
-        btn_aceptar.setStyleSheet(
-            "QPushButton { background-color: #9B4FB0; color: #FFFFFF; border: none;"
-            " border-radius: 8px; padding: 9px 20px; font-size: 13px; font-weight: bold; }"
-            "QPushButton:hover { background-color: #B565C6; }"
-        )
+        btn_aceptar.setObjectName("premiumButton")
+        btn_aceptar.setCursor(Qt.CursorShape.PointingHandCursor)
         btn_aceptar.clicked.connect(self._on_aceptar)
 
         fila.addWidget(btn_rechazar)

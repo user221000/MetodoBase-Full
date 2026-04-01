@@ -12,7 +12,6 @@ El script asume que el entorno virtual está activo.
 """
 import argparse
 import logging
-import os
 import platform
 import shutil
 import subprocess

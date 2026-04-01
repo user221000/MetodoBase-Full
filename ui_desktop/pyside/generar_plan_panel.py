@@ -16,14 +16,15 @@ import webbrowser
 from datetime import datetime
 from pathlib import Path
 
-from PySide6.QtCore import Qt, QObject, Signal, QTimer
-from PySide6.QtGui import QColor, QFont
+from PySide6.QtCore import Qt, QObject, Signal
 from PySide6.QtWidgets import (
     QComboBox, QDoubleSpinBox, QFrame, QGridLayout, QHBoxLayout,
-    QLabel, QLineEdit, QMessageBox, QPushButton, QScrollArea,
+    QLabel, QLineEdit, QPushButton, QScrollArea,
     QSizePolicy, QSpinBox, QStackedWidget, QVBoxLayout, QWidget,
     QPlainTextEdit,
 )
+from ui_desktop.pyside.widgets.toast import mostrar_toast
+
 
 from config.constantes import (
     FACTORES_ACTIVIDAD, NIVELES_ACTIVIDAD, OBJETIVOS_VALIDOS,
@@ -35,12 +36,18 @@ from config.plantillas_cliente import (
 from core.modelos import ClienteEvaluacion
 from core.motor_nutricional import MotorNutricional
 from core.generador_planes import ConstructorPlanNuevo
-from core.exportador_salida import GeneradorPDFProfesional
+from api.pdf_generator import PDFGenerator
 from core.exportador_multi import ExportadorMultiformato
 from src.gestor_bd import GestorBDClientes
+from src.gestor_preferencias import GestorPreferencias
 from ui_desktop.pyside.widgets.progress_indicator import ProgressIndicator
-from utils.helpers import resource_path, abrir_carpeta_pdf
+from ui_desktop.pyside.dialogo_registro_cliente import DialogoRegistroCliente
+from design_system.tokens import Colors
+from utils.helpers import abrir_carpeta_pdf
 from utils.logger import logger
+
+# Clave para preferencias de gym
+_PREF_GYM_ID = "gym_default"
 
 
 # ── Señales de hilo ───────────────────────────────────────────────────────────
@@ -72,6 +79,7 @@ class GenerarPlanPanel(QWidget):
         self._ultimo_pdf: str | None = None
         self._preview_confirmed = False
         self._preview_event: threading.Event | None = None
+        self._prefs = GestorPreferencias(_PREF_GYM_ID)
 
         # Señales thread-safe
         self._sig = _Senales()
@@ -98,10 +106,9 @@ class GenerarPlanPanel(QWidget):
         root.addWidget(scroll)
 
         content = QWidget()
-        content.setStyleSheet("background: transparent;")
         self._vbox = QVBoxLayout(content)
-        self._vbox.setContentsMargins(32, 24, 32, 32)
-        self._vbox.setSpacing(24)
+        self._vbox.setContentsMargins(28, 20, 28, 28)
+        self._vbox.setSpacing(20)
         scroll.setWidget(content)
 
         self._crear_header()
@@ -144,7 +151,6 @@ class GenerarPlanPanel(QWidget):
     def _crear_wizard_steps(self) -> None:
         """Barra de progreso visual de los 3 pasos."""
         container = QWidget()
-        container.setStyleSheet("background: transparent;")
         layout = QHBoxLayout(container)
         layout.setContentsMargins(0, 0, 0, 0)
         layout.setSpacing(0)
@@ -163,12 +169,13 @@ class GenerarPlanPanel(QWidget):
             circle = QLabel(num)
             circle.setAlignment(Qt.AlignmentFlag.AlignCenter)
             circle.setFixedSize(36, 36)
+            circle.setObjectName("stepInactive")
             self._step_circles.append(circle)
             layout.addWidget(circle)
 
             # Texto
             lbl = QLabel(texto)
-            lbl.setStyleSheet("background: transparent; font-size: 13px;")
+            lbl.setObjectName("stepLabelInactive")
             self._step_labels.append(lbl)
             layout.addWidget(lbl)
 
@@ -176,7 +183,8 @@ class GenerarPlanPanel(QWidget):
             if i < len(pasos) - 1:
                 sep = QFrame()
                 sep.setFrameShape(QFrame.Shape.HLine)
-                sep.setStyleSheet("background-color: #2d2d40; max-height: 2px; margin: 0 12px;")
+                sep.setFixedHeight(2)
+                sep.setStyleSheet(f"background-color: {Colors.BORDER_DEFAULT};")
                 sep.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
                 layout.addWidget(sep, 1)
 
@@ -188,45 +196,42 @@ class GenerarPlanPanel(QWidget):
             zip(self._step_circles, self._step_labels)
         ):
             if i < paso_actual:
-                circle.setStyleSheet(
-                    "background-color: #10b981; color: white; border-radius: 18px;"
-                    " font-weight: 700;"
-                )
-                lbl.setStyleSheet("background: transparent; color: #8e8e93; font-size: 13px;")
+                circle.setObjectName("stepCompleted")
+                lbl.setObjectName("stepLabelInactive")
             elif i == paso_actual:
-                circle.setStyleSheet(
-                    "background-color: #667eea; color: white; border-radius: 18px;"
-                    " font-weight: 700;"
-                )
-                lbl.setStyleSheet(
-                    "background: transparent; color: #f2f2f7; font-size: 13px; font-weight: 600;"
-                )
+                circle.setObjectName("stepActive")
+                lbl.setObjectName("stepLabelActive")
             else:
-                circle.setStyleSheet(
-                    "background-color: #2d2d40; color: #8e8e93; border-radius: 18px;"
-                )
-                lbl.setStyleSheet("background: transparent; color: #5e5e6e; font-size: 13px;")
+                circle.setObjectName("stepInactive")
+                lbl.setObjectName("stepLabelInactive")
+            circle.style().unpolish(circle)
+            circle.style().polish(circle)
+            lbl.style().unpolish(lbl)
+            lbl.style().polish(lbl)
 
     # ── Página 1: Selección de cliente ────────────────────────────────────────
 
     def _crear_pagina1(self) -> QWidget:
         page = QWidget()
-        page.setStyleSheet("background: transparent;")
         layout = QVBoxLayout(page)
         layout.setContentsMargins(0, 0, 0, 0)
         layout.setSpacing(16)
 
-        # Barra de búsqueda
+        # Barra de búsqueda — Premium styling
         search_row = QHBoxLayout()
+        search_row.setSpacing(12)
+        
         self.entry_busqueda = QLineEdit()
         self.entry_busqueda.setPlaceholderText("🔍  Buscar cliente o crear nuevo...")
         self.entry_busqueda.textChanged.connect(self._on_buscar_cliente)
         search_row.addWidget(self.entry_busqueda, 1)
 
-        btn_nuevo = QPushButton("+ Nuevo cliente")
-        btn_nuevo.setObjectName("btnNuevoCliente")
+        btn_nuevo = QPushButton("➕  Nuevo cliente")
         btn_nuevo.setCursor(Qt.CursorShape.PointingHandCursor)
-        btn_nuevo.clicked.connect(self._toggle_form_nuevo)
+        btn_nuevo.setObjectName("btnNuevoCliente")
+        btn_nuevo.setFixedHeight(42)
+        btn_nuevo.setMinimumWidth(160)
+        btn_nuevo.clicked.connect(self._abrir_dialogo_nuevo_cliente)
         search_row.addWidget(btn_nuevo)
         layout.addLayout(search_row)
 
@@ -234,207 +239,106 @@ class GenerarPlanPanel(QWidget):
         self.resultado_container = QFrame()
         self.resultado_container.setObjectName("formCard")
         results_layout = QVBoxLayout(self.resultado_container)
-        results_layout.setContentsMargins(12, 12, 12, 12)
-        results_layout.setSpacing(4)
-        self.lbl_sin_resultados = QLabel("Ingresa un nombre para buscar clientes existentes.")
-        self.lbl_sin_resultados.setStyleSheet("color: #8e8e93; padding: 8px;")
-        results_layout.addWidget(self.lbl_sin_resultados)
+        results_layout.setContentsMargins(16, 16, 16, 16)
+        results_layout.setSpacing(8)
         self._results_layout = results_layout
         layout.addWidget(self.resultado_container)
 
-        # Formulario nuevo cliente (oculto por defecto)
-        self.form_nuevo = self._crear_form_nuevo_cliente()
-        self.form_nuevo.setVisible(False)
-        layout.addWidget(self.form_nuevo)
+        # Cargar clientes recientes al iniciar
+        self._mostrar_clientes_recientes()
 
         layout.addStretch()
         return page
-
-    def _crear_form_nuevo_cliente(self) -> QFrame:
-        """Formulario para registrar un cliente nuevo en el paso 1."""
-        form = QFrame()
-        form.setObjectName("formCard")
-        layout = QVBoxLayout(form)
-        layout.setContentsMargins(20, 16, 20, 16)
-        layout.setSpacing(12)
-
-        hdr = QLabel("REGISTRAR NUEVO CLIENTE")
-        hdr.setStyleSheet(
-            "color: #8e8e93; font-size: 12px; font-weight: 600; "
-            "letter-spacing: 0.5px; background: transparent;"
-        )
-        layout.addWidget(hdr)
-
-        grid = QGridLayout()
-        grid.setSpacing(12)
-        grid.setColumnStretch(0, 1)
-        grid.setColumnStretch(1, 1)
-        grid.setColumnStretch(2, 1)
-
-        def lbl(t: str) -> QLabel:
-            l = QLabel(t)
-            l.setObjectName("fieldLabel")
-            return l
-
-        # Fila 0: Nombre | Teléfono
-        grid.addWidget(lbl("Nombre completo *"), 0, 0, 1, 2)
-        grid.addWidget(lbl("Teléfono"), 0, 2)
-
-        self.f_nombre = QLineEdit()
-        self.f_nombre.setPlaceholderText("Ej: Juan Pérez")
-        self.f_nombre.textChanged.connect(self._validar_form_nuevo)
-        grid.addWidget(self.f_nombre, 1, 0, 1, 2)
-
-        self.f_telefono = QLineEdit()
-        self.f_telefono.setPlaceholderText("10 dígitos")
-        grid.addWidget(self.f_telefono, 1, 2)
-
-        # Fila 2: Edad | Sexo | Objetivo
-        grid.addWidget(lbl("Edad *"), 2, 0)
-        grid.addWidget(lbl("Sexo"), 2, 1)
-        grid.addWidget(lbl("Objetivo *"), 2, 2)
-
-        self.f_edad = QSpinBox()
-        self.f_edad.setRange(14, 100)
-        self.f_edad.setValue(25)
-        grid.addWidget(self.f_edad, 3, 0)
-
-        self.f_sexo = QComboBox()
-        self.f_sexo.addItems(["M", "F", "Otro"])
-        grid.addWidget(self.f_sexo, 3, 1)
-
-        self.f_objetivo = QComboBox()
-        objetivos = OBJETIVOS_VALIDOS if OBJETIVOS_VALIDOS else [
-            "Déficit calórico", "Mantenimiento", "Superávit calórico"
-        ]
-        self.f_objetivo.addItems(objetivos)
-        grid.addWidget(self.f_objetivo, 3, 2)
-
-        # Fila 4: Peso | Estatura | % Grasa
-        grid.addWidget(lbl("Peso (kg) *"), 4, 0)
-        grid.addWidget(lbl("Estatura (cm) *"), 4, 1)
-        grid.addWidget(lbl("% Grasa"), 4, 2)
-
-        self.f_peso = QDoubleSpinBox()
-        self.f_peso.setRange(30, 250)
-        self.f_peso.setValue(70.0)
-        self.f_peso.setSingleStep(0.5)
-        grid.addWidget(self.f_peso, 5, 0)
-
-        self.f_estatura = QDoubleSpinBox()
-        self.f_estatura.setRange(100, 250)
-        self.f_estatura.setValue(170.0)
-        grid.addWidget(self.f_estatura, 5, 1)
-
-        self.f_grasa = QDoubleSpinBox()
-        self.f_grasa.setRange(3, 60)
-        self.f_grasa.setValue(15.0)
-        self.f_grasa.setSingleStep(0.5)
-        grid.addWidget(self.f_grasa, 5, 2)
-
-        # Fila 6: Nivel actividad
-        grid.addWidget(lbl("Nivel actividad *"), 6, 0)
-        self.f_actividad = QComboBox()
-        niveles = NIVELES_ACTIVIDAD if NIVELES_ACTIVIDAD else [
-            "nula", "leve", "moderada", "intensa"
-        ]
-        self.f_actividad.addItems(niveles)
-        self.f_actividad.setCurrentText("moderada")
-        grid.addWidget(self.f_actividad, 7, 0, 1, 2)
-
-        layout.addLayout(grid)
-
-        # Botones del formulario
-        btns_row = QHBoxLayout()
-        btn_cancelar = QPushButton("Cancelar")
-        btn_cancelar.setObjectName("secondaryButton")
-        btn_cancelar.clicked.connect(self._toggle_form_nuevo)
-        btns_row.addWidget(btn_cancelar)
-        btns_row.addStretch()
-
-        self.btn_registrar_continuar = QPushButton("Registrar y continuar →")
-        self.btn_registrar_continuar.setObjectName("btnRegistrarContinuar")
-        self.btn_registrar_continuar.setCursor(Qt.CursorShape.PointingHandCursor)
-        self.btn_registrar_continuar.setEnabled(False)
-        self.btn_registrar_continuar.clicked.connect(self._on_registrar_cliente_nuevo)
-        btns_row.addWidget(self.btn_registrar_continuar)
-
-        layout.addLayout(btns_row)
-        return form
 
     # ── Página 2: Parámetros del plan ─────────────────────────────────────────
 
     def _crear_pagina2(self) -> QWidget:
         page = QWidget()
-        page.setStyleSheet("background: transparent;")
         layout = QVBoxLayout(page)
         layout.setContentsMargins(0, 0, 0, 0)
-        layout.setSpacing(20)
+        layout.setSpacing(16)
 
-        # Info del cliente seleccionado
-        self.lbl_cliente_info = QLabel("Sin cliente seleccionado")
-        self.lbl_cliente_info.setStyleSheet(
-            "background-color: #1e1e2e; border: 1px solid #2d2d40;"
-            " border-radius: 10px; padding: 12px 16px; color: #f2f2f7; font-weight: 600;"
+        # ── Cliente badge ─────────────────────────────────────────────
+        cliente_badge = QFrame()
+        cliente_badge.setObjectName("formCard")
+        badge_lay = QHBoxLayout(cliente_badge)
+        badge_lay.setContentsMargins(16, 12, 16, 12)
+        badge_lay.setSpacing(10)
+
+        avatar_lbl = QLabel("👤")
+        avatar_lbl.setFixedSize(36, 36)
+        avatar_lbl.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        avatar_lbl.setStyleSheet(
+            f"background:{Colors.PRIMARY};color:#000;border-radius:18px;"
+            "font-size:18px;"
         )
-        layout.addWidget(self.lbl_cliente_info)
+        badge_lay.addWidget(avatar_lbl)
 
-        # Tipo de plan
-        tipo_card = QFrame()
-        tipo_card.setObjectName("formCard")
-        tipo_layout = QVBoxLayout(tipo_card)
-        tipo_layout.setContentsMargins(20, 16, 20, 16)
-        tipo_layout.setSpacing(12)
+        self.lbl_cliente_info = QLabel("Sin cliente seleccionado")
+        self.lbl_cliente_info.setObjectName("clienteNombre")
+        badge_lay.addWidget(self.lbl_cliente_info, 1)
+        layout.addWidget(cliente_badge)
 
+        # ── Configuración del plan (single card) ─────────────────────
+        config_card = QFrame()
+        config_card.setObjectName("formCard")
+        config_lay = QVBoxLayout(config_card)
+        config_lay.setContentsMargins(20, 16, 20, 16)
+        config_lay.setSpacing(14)
+
+        # Formato de entrega
         lbl_tipo = QLabel("Formato de entrega")
         lbl_tipo.setObjectName("sectionTitle")
-        tipo_layout.addWidget(lbl_tipo)
+        config_lay.addWidget(lbl_tipo)
 
         tipo_row = QHBoxLayout()
         self.btn_menu_fijo = QPushButton("📋  Menú Fijo")
         self.btn_menu_fijo.setCheckable(True)
         self.btn_menu_fijo.setChecked(True)
         self.btn_menu_fijo.clicked.connect(lambda: self._cambiar_tipo("menu_fijo"))
-        self.btn_menu_fijo.setStyleSheet(self._btn_toggle_style(True))
+        self.btn_menu_fijo.setObjectName("toggleButtonActive")
         tipo_row.addWidget(self.btn_menu_fijo)
 
         self.btn_con_opciones = QPushButton("🔀  Con Opciones")
         self.btn_con_opciones.setCheckable(True)
         self.btn_con_opciones.clicked.connect(lambda: self._cambiar_tipo("con_opciones"))
-        self.btn_con_opciones.setStyleSheet(self._btn_toggle_style(False))
+        self.btn_con_opciones.setObjectName("toggleButtonInactive")
         tipo_row.addWidget(self.btn_con_opciones)
         tipo_row.addStretch()
-        tipo_layout.addLayout(tipo_row)
-        layout.addWidget(tipo_card)
+        config_lay.addLayout(tipo_row)
 
-        # Plantilla
-        plant_card = QFrame()
-        plant_card.setObjectName("formCard")
-        plant_layout = QVBoxLayout(plant_card)
-        plant_layout.setContentsMargins(20, 16, 20, 16)
-        plant_layout.setSpacing(10)
+        # Divider
+        div = QFrame()
+        div.setFrameShape(QFrame.Shape.HLine)
+        div.setFixedHeight(1)
+        div.setStyleSheet(f"background:{Colors.BORDER_SUBTLE};")
+        config_lay.addWidget(div)
 
+        # Plantilla del cliente
         lbl_plant = QLabel("Plantilla del cliente")
         lbl_plant.setObjectName("sectionTitle")
-        plant_layout.addWidget(lbl_plant)
+        config_lay.addWidget(lbl_plant)
 
         self.combo_plantilla = QComboBox()
         self.combo_plantilla.addItems(PLANTILLAS_LABELS)
-        plant_layout.addWidget(self.combo_plantilla)
+        config_lay.addWidget(self.combo_plantilla)
 
         self.lbl_plantilla_desc = QLabel("")
-        self.lbl_plantilla_desc.setStyleSheet("color: #8e8e93; font-size: 12px;")
+        self.lbl_plantilla_desc.setObjectName("clienteInfo")
         self.lbl_plantilla_desc.setWordWrap(True)
-        plant_layout.addWidget(self.lbl_plantilla_desc)
+        config_lay.addWidget(self.lbl_plantilla_desc)
 
         self.combo_plantilla.currentTextChanged.connect(self._on_plantilla_change)
         self._on_plantilla_change(self.combo_plantilla.currentText())
 
-        layout.addWidget(plant_card)
+        # Restaurar última plantilla y tipo usados
+        self._restaurar_preferencias_plan()
+
+        layout.addWidget(config_card)
 
         # Botones
         btns_row = QHBoxLayout()
-        btn_atras = QPushButton("← Atrás")
+        btn_atras = QPushButton("←  Atrás")
         btn_atras.setObjectName("secondaryButton")
         btn_atras.clicked.connect(lambda: self._ir_a_paso(0))
         btns_row.addWidget(btn_atras)
@@ -454,7 +358,6 @@ class GenerarPlanPanel(QWidget):
 
     def _crear_pagina3(self) -> QWidget:
         page = QWidget()
-        page.setStyleSheet("background: transparent;")
         layout = QVBoxLayout(page)
         layout.setContentsMargins(0, 0, 0, 0)
         layout.setSpacing(20)
@@ -471,18 +374,59 @@ class GenerarPlanPanel(QWidget):
         res_layout.setSpacing(12)
 
         self.lbl_resultado = QLabel("Generando plan nutricional...")
-        self.lbl_resultado.setStyleSheet(
-            "color: #f2f2f7; font-size: 16px; font-weight: 600;"
-        )
+        self.lbl_resultado.setObjectName("loadingLabel")
         self.lbl_resultado.setWordWrap(True)
         res_layout.addWidget(self.lbl_resultado)
 
         self.lbl_pdf_ruta = QLabel("")
-        self.lbl_pdf_ruta.setStyleSheet("color: #8e8e93; font-size: 12px;")
+        self.lbl_pdf_ruta.setObjectName("clienteInfo")
         self.lbl_pdf_ruta.setWordWrap(True)
         res_layout.addWidget(self.lbl_pdf_ruta)
 
         layout.addWidget(resultado_card)
+
+        # ── Resumen de macronutrientes (oculto hasta que se genera) ──────────
+        self._macro_card = QFrame()
+        self._macro_card.setObjectName("formCard")
+        self._macro_card.setVisible(False)
+        macro_layout = QVBoxLayout(self._macro_card)
+        macro_layout.setContentsMargins(20, 16, 20, 16)
+        macro_layout.setSpacing(12)
+
+        macro_header = QLabel("📊  Resumen Nutricional")
+        macro_header.setObjectName("sectionTitle")
+        macro_layout.addWidget(macro_header)
+
+        macro_grid = QHBoxLayout()
+        macro_grid.setSpacing(16)
+
+        def _macro_kpi(label: str, color: str) -> tuple[QFrame, QLabel]:
+            card = QFrame()
+            card.setObjectName("kpiCard")
+            cl = QVBoxLayout(card)
+            cl.setContentsMargins(16, 12, 16, 12)
+            cl.setSpacing(4)
+            lbl_t = QLabel(label)
+            lbl_t.setObjectName("kpiLabel")
+            cl.addWidget(lbl_t)
+            lbl_v = QLabel("—")
+            lbl_v.setObjectName("statCardValue")
+            lbl_v.setProperty("color", color)
+            cl.addWidget(lbl_v)
+            return card, lbl_v
+
+        card_kcal, self._lbl_macro_kcal = _macro_kpi("🔥 Kcal objetivo", "yellow")
+        card_prot, self._lbl_macro_prot = _macro_kpi("🥩 Proteína", "green")
+        card_carbs, self._lbl_macro_carbs = _macro_kpi("🌾 Carbohidratos", "cyan")
+        card_grasa, self._lbl_macro_grasa = _macro_kpi("🥑 Grasa", "orange")
+
+        macro_grid.addWidget(card_kcal)
+        macro_grid.addWidget(card_prot)
+        macro_grid.addWidget(card_carbs)
+        macro_grid.addWidget(card_grasa)
+
+        macro_layout.addLayout(macro_grid)
+        layout.addWidget(self._macro_card)
 
         # Bitácora
         log_card = QFrame()
@@ -491,15 +435,12 @@ class GenerarPlanPanel(QWidget):
         log_layout.setContentsMargins(16, 12, 16, 12)
 
         lbl_log = QLabel("Bitácora")
-        lbl_log.setStyleSheet("color: #8e8e93; font-size: 12px; font-weight: 600;")
+        lbl_log.setObjectName("formSectionHeader")
         log_layout.addWidget(lbl_log)
 
         self.textbox_log = QPlainTextEdit()
         self.textbox_log.setReadOnly(True)
         self.textbox_log.setFixedHeight(100)
-        self.textbox_log.setStyleSheet(
-            "background-color: #0f0f1a; border: none; font-size: 12px; color: #8e8e93;"
-        )
         log_layout.addWidget(self.textbox_log)
         layout.addWidget(log_card)
 
@@ -507,17 +448,19 @@ class GenerarPlanPanel(QWidget):
         btns_row = QHBoxLayout()
         btns_row.setSpacing(10)
 
-        self.btn_nuevo_plan = QPushButton("+ Nuevo Plan")
+        self.btn_nuevo_plan = QPushButton("🔄  Nuevo Plan")
         self.btn_nuevo_plan.setObjectName("secondaryButton")
         self.btn_nuevo_plan.clicked.connect(self._reset_wizard)
         btns_row.addWidget(self.btn_nuevo_plan)
 
         self.btn_abrir_carpeta = QPushButton("📁  Abrir carpeta")
+        self.btn_abrir_carpeta.setObjectName("ghostButton")
         self.btn_abrir_carpeta.setEnabled(False)
         self.btn_abrir_carpeta.clicked.connect(self._abrir_carpeta)
         btns_row.addWidget(self.btn_abrir_carpeta)
 
         self.btn_whatsapp = QPushButton("💬  WhatsApp")
+        self.btn_whatsapp.setObjectName("btnWhatsApp")
         self.btn_whatsapp.setEnabled(False)
         self.btn_whatsapp.clicked.connect(self._enviar_whatsapp)
         btns_row.addWidget(self.btn_whatsapp)
@@ -539,21 +482,52 @@ class GenerarPlanPanel(QWidget):
         self._cargar_cliente_de_dict(cliente)
         self._ir_a_paso(1)
 
-    # ── Lógica paso 1 ─────────────────────────────────────────────────────────
+    def iniciar_plan_rapido(self, cliente: dict) -> None:
+        """Plan rápido: carga cliente + última configuración y genera directo."""
+        self._cargar_cliente_de_dict(cliente)
+        self._restaurar_preferencias_plan()
+        self._ir_a_paso(1)
+        # Auto-trigger generation after brief UI update
+        from PySide6.QtCore import QTimer
+        QTimer.singleShot(100, self._on_generar_click)
 
-    def _on_buscar_cliente(self, texto: str) -> None:
-        # Limpiar resultados anteriores
+    # ── Clientes recientes ─────────────────────────────────────────────────────
+
+    def _mostrar_clientes_recientes(self) -> None:
+        """Muestra los últimos 10 clientes activos en el paso 1."""
+        self._limpiar_resultados()
+        try:
+            recientes = self.gestor_bd.obtener_clientes_recientes(limite=10)
+        except Exception:
+            recientes = []
+
+        if not recientes:
+            lbl = QLabel("No hay clientes registrados aún. Crea uno nuevo con el botón de arriba.")
+            lbl.setObjectName("clienteInfo")
+            self._results_layout.addWidget(lbl)
+            return
+
+        header = QLabel("⏱  Clientes recientes")
+        header.setObjectName("sectionTitle")
+        self._results_layout.addWidget(header)
+        for c in recientes:
+            row = self._crear_cliente_row(c)
+            self._results_layout.addWidget(row)
+
+    def _limpiar_resultados(self) -> None:
+        """Limpia todos los widgets del contenedor de resultados."""
         while self._results_layout.count() > 0:
             item = self._results_layout.takeAt(0)
             if item.widget():
                 item.widget().deleteLater()
 
+    # ── Lógica paso 1 ─────────────────────────────────────────────────────────
+
+    def _on_buscar_cliente(self, texto: str) -> None:
+        self._limpiar_resultados()
+
         if not texto.strip():
-            self.lbl_sin_resultados = QLabel(
-                "Ingresa un nombre para buscar clientes existentes."
-            )
-            self.lbl_sin_resultados.setStyleSheet("color: #8e8e93; padding: 8px;")
-            self._results_layout.addWidget(self.lbl_sin_resultados)
+            self._mostrar_clientes_recientes()
             return
 
         try:
@@ -563,7 +537,7 @@ class GenerarPlanPanel(QWidget):
 
         if not clientes:
             lbl = QLabel("No se encontraron clientes.")
-            lbl.setStyleSheet("color: #8e8e93; padding: 8px;")
+            lbl.setObjectName("clienteInfo")
             self._results_layout.addWidget(lbl)
             return
 
@@ -590,24 +564,20 @@ class GenerarPlanPanel(QWidget):
         info_col = QVBoxLayout()
         info_col.setSpacing(2)
         nombre_lbl = QLabel(cliente.get("nombre", "—"))
-        nombre_lbl.setStyleSheet("font-weight: 600; color: #f2f2f7; font-size: 14px;")
+        nombre_lbl.setObjectName("clienteNombre")
         info_col.addWidget(nombre_lbl)
         detalle = QLabel(
             f"{cliente.get('objetivo', '—')} · {cliente.get('edad', '—')} años · "
             f"{cliente.get('peso_kg', '—')} kg"
         )
-        detalle.setStyleSheet("color: #8e8e93; font-size: 12px;")
+        detalle.setObjectName("clienteInfo")
         info_col.addWidget(detalle)
         layout.addLayout(info_col)
         layout.addStretch()
 
         # Botón seleccionar
-        btn = QPushButton("Seleccionar →")
-        btn.setStyleSheet(
-            "QPushButton { background-color: #2d2d40; color: #f2f2f7; border-radius: 6px;"
-            " padding: 6px 12px; font-size: 12px; }"
-            "QPushButton:hover { background-color: #667eea; }"
-        )
+        btn = QPushButton("✅  Seleccionar")
+        btn.setObjectName("primaryButton")
         _c = dict(cliente)
         btn.clicked.connect(lambda _, cl=_c: self._on_seleccionar_cliente(cl))
         layout.addWidget(btn)
@@ -641,48 +611,42 @@ class GenerarPlanPanel(QWidget):
             f"·  {self._cliente_actual.edad} años  ·  {self._cliente_actual.peso_kg} kg"
         )
 
-    def _toggle_form_nuevo(self) -> None:
-        visible = not self.form_nuevo.isVisible()
-        self.form_nuevo.setVisible(visible)
-        self.resultado_container.setVisible(not visible)
-        if visible:
-            self.f_nombre.setFocus()
+    # ── Dialog para nuevo cliente ─────────────────────────────────────────────
 
-    def _validar_form_nuevo(self) -> None:
-        ok = bool(self.f_nombre.text().strip())
-        self.btn_registrar_continuar.setEnabled(ok)
-
-    def _on_registrar_cliente_nuevo(self) -> None:
-        nombre = self.f_nombre.text().strip()
-        if not nombre:
-            return
-
-        nivel = self.f_actividad.currentText()
-        self._cliente_actual = ClienteEvaluacion(
-            nombre=nombre,
-            telefono=self.f_telefono.text().strip() or None,
-            edad=self.f_edad.value(),
-            peso_kg=self.f_peso.value(),
-            estatura_cm=self.f_estatura.value(),
-            grasa_corporal_pct=self.f_grasa.value(),
-            nivel_actividad=nivel,
-            objetivo=self.f_objetivo.currentText(),
+    def _abrir_dialogo_nuevo_cliente(self) -> None:
+        """Abre el diálogo unificado para registrar un nuevo cliente."""
+        from PySide6.QtWidgets import QDialog
+        
+        dlg = DialogoRegistroCliente(
+            gestor_bd=self.gestor_bd,
+            modo="registrar_y_continuar",
+            parent=self
         )
-        self._cliente_actual.factor_actividad = FACTORES_ACTIVIDAD.get(nivel, 1.375)
-
-        # Registrar en BD
-        try:
-            self.gestor_bd.registrar_cliente(self._cliente_actual)
-        except Exception as exc:
-            logger.warning("[PLAN] No se pudo pre-registrar cliente: %s", exc)
-
-        self.lbl_cliente_info.setText(
-            f"👤  {self._cliente_actual.nombre}  ·  {self._cliente_actual.objetivo}  "
-            f"·  {self._cliente_actual.edad} años  ·  {self._cliente_actual.peso_kg} kg"
-        )
-        self.form_nuevo.setVisible(False)
-        self.resultado_container.setVisible(True)
-        self._ir_a_paso(1)
+        result = dlg.exec()
+        if result == QDialog.DialogCode.Accepted and dlg.cliente_registrado:
+            # Construir ClienteEvaluacion desde los datos registrados
+            datos = dlg.cliente_registrado
+            self._cliente_actual = ClienteEvaluacion(
+                nombre=datos["nombre"],
+                telefono=datos.get("telefono"),
+                edad=datos["edad"],
+                peso_kg=datos["peso_kg"],
+                estatura_cm=datos["estatura_cm"],
+                grasa_corporal_pct=datos.get("grasa_corporal_pct", 15.0),
+                nivel_actividad=datos["nivel_actividad"],
+                objetivo=datos["objetivo"],
+            )
+            self._cliente_actual.factor_actividad = datos.get("factor_actividad", 1.375)
+            self._cliente_actual.id_cliente = datos.get("id_cliente")
+            
+            # Actualizar badge de cliente en paso 2
+            self.lbl_cliente_info.setText(
+                f"👤  {self._cliente_actual.nombre}  ·  {self._cliente_actual.objetivo}  "
+                f"·  {self._cliente_actual.edad} años  ·  {self._cliente_actual.peso_kg} kg"
+            )
+            
+            # Ir directamente al paso 2 (parámetros del plan)
+            self._ir_a_paso(1)
 
     # ── Lógica paso 2 ─────────────────────────────────────────────────────────
 
@@ -690,22 +654,15 @@ class GenerarPlanPanel(QWidget):
         es_fijo = (tipo == "menu_fijo")
         self.btn_menu_fijo.setChecked(es_fijo)
         self.btn_con_opciones.setChecked(not es_fijo)
-        self.btn_menu_fijo.setStyleSheet(self._btn_toggle_style(es_fijo))
-        self.btn_con_opciones.setStyleSheet(self._btn_toggle_style(not es_fijo))
-
-    @staticmethod
-    def _btn_toggle_style(activo: bool) -> str:
-        if activo:
-            return (
-                "QPushButton { background: qlineargradient("
-                "x1:0,y1:0,x2:1,y2:0, stop:0 #a855f7, stop:1 #ec4899);"
-                " color: white; font-weight: 600; border-radius: 8px; padding: 10px 20px; }"
-            )
-        return (
-            "QPushButton { background-color: #2d2d40; color: #8e8e93;"
-            " border-radius: 8px; padding: 10px 20px; }"
-            "QPushButton:hover { background-color: #3a3a50; color: #f2f2f7; }"
+        self.btn_menu_fijo.setObjectName(
+            "toggleButtonActive" if es_fijo else "toggleButtonInactive"
         )
+        self.btn_con_opciones.setObjectName(
+            "toggleButtonActive" if not es_fijo else "toggleButtonInactive"
+        )
+        for btn in (self.btn_menu_fijo, self.btn_con_opciones):
+            btn.style().unpolish(btn)
+            btn.style().polish(btn)
 
     def _on_plantilla_change(self, label: str) -> None:
         key = PLANTILLAS_POR_LABEL.get(label, "perdida_grasa")
@@ -713,13 +670,37 @@ class GenerarPlanPanel(QWidget):
         desc = data.get("descripcion", "")
         self.lbl_plantilla_desc.setText(desc)
 
+    def _restaurar_preferencias_plan(self) -> None:
+        """Restaura la última plantilla y tipo de plan usados."""
+        last_plantilla = self._prefs.obtener("ultima_plantilla")
+        last_tipo = self._prefs.obtener("ultimo_tipo_plan", "menu_fijo")
+        if last_plantilla:
+            idx = self.combo_plantilla.findText(last_plantilla)
+            if idx >= 0:
+                self.combo_plantilla.setCurrentIndex(idx)
+        if last_tipo == "con_opciones":
+            self._cambiar_tipo("con_opciones")
+
+    def _guardar_preferencias_plan(self) -> None:
+        """Persiste la plantilla y tipo de plan seleccionados."""
+        datos = self._prefs.cargar()
+        datos["ultima_plantilla"] = self.combo_plantilla.currentText()
+        datos["ultimo_tipo_plan"] = self._tipo_plan_activo()
+        self._prefs.guardar(datos)
+
     def _tipo_plan_activo(self) -> str:
         return "menu_fijo" if self.btn_menu_fijo.isChecked() else "con_opciones"
 
     def _on_generar_click(self) -> None:
         if self._cliente_actual is None:
-            QMessageBox.warning(self, "Sin cliente", "Selecciona o registra un cliente primero.")
+            mostrar_toast(self, "Selecciona o registra un cliente primero.", "warning")
             return
+
+        if getattr(self, '_generating', False):
+            return
+
+        # Guardar preferencias de plantilla/tipo para próxima vez
+        self._guardar_preferencias_plan()
 
         # Aplicar plantilla al objetivo
         plantilla_lbl = self.combo_plantilla.currentText()
@@ -734,13 +715,16 @@ class GenerarPlanPanel(QWidget):
         self.btn_whatsapp.setEnabled(False)
         self.btn_abrir_carpeta.setEnabled(False)
         self.lbl_resultado.setText("Generando plan nutricional...")
-        self.lbl_resultado.setStyleSheet("color: #f2f2f7; font-size: 16px; font-weight: 600;")
+        self.lbl_resultado.setObjectName("loadingLabel")
+        self.lbl_resultado.style().unpolish(self.lbl_resultado)
+        self.lbl_resultado.style().polish(self.lbl_resultado)
         self.lbl_pdf_ruta.setText("")
         self.textbox_log.clear()
         self.progress.reset()
         self.progress.setVisible(True)
 
         self.btn_generar.setEnabled(False)
+        self._generating = True
         thread = threading.Thread(target=self._procesar_en_hilo, daemon=True)
         thread.start()
 
@@ -819,8 +803,9 @@ class GenerarPlanPanel(QWidget):
                 carpeta_cli.mkdir(parents=True, exist_ok=True)
 
                 ruta_pdf = str(carpeta_cli / f"{nombre_san}_{fecha}_{hora}.pdf")
-                gen = GeneradorPDFProfesional(ruta_pdf)
-                ruta_pdf = gen.generar(cliente, plan)
+                pdf_gen = PDFGenerator()
+                datos_pdf = PDFGenerator.datos_from_cliente(cliente, plan)
+                ruta_pdf = str(pdf_gen.generar_plan(datos_pdf, Path(ruta_pdf)))
                 if not (ruta_pdf and os.path.exists(ruta_pdf)):
                     ruta_pdf = None
 
@@ -852,6 +837,7 @@ class GenerarPlanPanel(QWidget):
             traceback.print_exc()
             self._sig.error_msg.emit(f"Error inesperado: {exc}")
         finally:
+            self._generating = False
             self._sig.btn_spinner.emit(False)
 
     # ── Callbacks de señales ──────────────────────────────────────────────────
@@ -868,9 +854,9 @@ class GenerarPlanPanel(QWidget):
         self._ultimo_pdf = ruta_pdf or None
         self.progress.complete("✓ Plan generado exitosamente")
         self.lbl_resultado.setText("✅  Plan nutricional generado con éxito")
-        self.lbl_resultado.setStyleSheet(
-            "color: #10b981; font-size: 16px; font-weight: 600;"
-        )
+        self.lbl_resultado.setObjectName("successLabel")
+        self.lbl_resultado.style().unpolish(self.lbl_resultado)
+        self.lbl_resultado.style().polish(self.lbl_resultado)
         if self._ultimo_pdf:
             self.lbl_pdf_ruta.setText(f"📄  {self._ultimo_pdf}")
             self.btn_abrir_carpeta.setEnabled(True)
@@ -879,14 +865,23 @@ class GenerarPlanPanel(QWidget):
             )
         self.btn_generar.setEnabled(True)
 
+        # Mostrar resumen de macronutrientes
+        cli = self._cliente_actual
+        if cli and cli.kcal_objetivo:
+            self._lbl_macro_kcal.setText(f"{cli.kcal_objetivo:.0f} kcal")
+            self._lbl_macro_prot.setText(f"{cli.proteina_g:.0f} g" if cli.proteina_g else "—")
+            self._lbl_macro_carbs.setText(f"{cli.carbs_g:.0f} g" if cli.carbs_g else "—")
+            self._lbl_macro_grasa.setText(f"{cli.grasa_g:.0f} g" if cli.grasa_g else "—")
+            self._macro_card.setVisible(True)
+
     def _on_error(self, msg: str) -> None:
         self.progress.setVisible(False)
         self.lbl_resultado.setText(f"❌  {msg}")
-        self.lbl_resultado.setStyleSheet(
-            "color: #ef4444; font-size: 15px; font-weight: 500;"
-        )
+        self.lbl_resultado.setObjectName("errorLabel")
+        self.lbl_resultado.style().unpolish(self.lbl_resultado)
+        self.lbl_resultado.style().polish(self.lbl_resultado)
         self.btn_generar.setEnabled(True)
-        QMessageBox.critical(self, "Error", msg)
+        mostrar_toast(self, msg, "error")
 
     def _set_btn_spinner(self, spin: bool) -> None:
         self.btn_generar.setEnabled(not spin)
@@ -909,10 +904,10 @@ class GenerarPlanPanel(QWidget):
 
     def _enviar_whatsapp(self) -> None:
         if not self._ultimo_pdf or not os.path.exists(self._ultimo_pdf):
-            QMessageBox.critical(self, "Error", "Primero genera el plan.")
+            mostrar_toast(self, "Primero genera el plan.", "error")
             return
         if not self._cliente_actual or not self._cliente_actual.telefono:
-            QMessageBox.warning(self, "Sin teléfono", "El cliente no tiene teléfono registrado.")
+            mostrar_toast(self, "El cliente no tiene teléfono registrado.", "warning")
             return
         tel = self._cliente_actual.telefono
         nombre = self._cliente_actual.nombre
@@ -928,11 +923,11 @@ class GenerarPlanPanel(QWidget):
         self._cliente_actual = None
         self._ultimo_pdf = None
         self.entry_busqueda.clear()
-        self._on_buscar_cliente("")
+        self._mostrar_clientes_recientes()
         self.lbl_cliente_info.setText("Sin cliente seleccionado")
-        self.form_nuevo.setVisible(False)
         self.resultado_container.setVisible(True)
         self.textbox_log.clear()
         self.progress.reset()
         self.btn_generar.setEnabled(True)
+        self._macro_card.setVisible(False)
         self._ir_a_paso(0)

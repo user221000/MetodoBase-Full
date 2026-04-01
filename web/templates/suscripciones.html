@@ -1,0 +1,1271 @@
+{% extends "base.html" %}
+{% block title %}Suscripción{% endblock %}
+
+{% block content %}
+
+<!-- ── Page header ────────────────────────────────────────────── -->
+<div class="page-header">
+  <div>
+    <h1 class="page-title">Tu Suscripción</h1>
+    <p class="page-subtitle">Gestiona tu plan, facturación y métodos de pago</p>
+  </div>
+</div>
+
+<!-- ── Trust bar ──────────────────────────────────────────────── -->
+<div style="display:flex;align-items:center;gap:16px;flex-wrap:wrap;margin-bottom:20px;padding:12px 18px;border-radius:12px;background:rgba(255,255,255,.02);border:1px solid rgba(255,255,255,.04);">
+  <span style="font-size:.75rem;color:var(--text-muted);display:flex;align-items:center;gap:6px;">🔒 Pagos procesados con cifrado TLS 1.3</span>
+  <span style="font-size:.75rem;color:var(--text-muted);display:flex;align-items:center;gap:6px;">🛡️ Sin almacenamiento de datos de tarjeta</span>
+  <span style="font-size:.75rem;color:var(--text-muted);display:flex;align-items:center;gap:6px;">✓ Cancela en cualquier momento</span>
+  <span style="font-size:.75rem;color:var(--text-muted);display:flex;align-items:center;gap:6px;">🏆 +500 nutriólogos confían en nosotros</span>
+</div>
+
+<!-- ── Current plan status ────────────────────────────────────── -->
+<div class="chart-container mb-6" id="sub-status-panel" style="padding:28px;">
+  <div class="flex items-center gap-4" style="flex-wrap:wrap;">
+    <div style="display:flex;align-items:center;gap:14px;">
+      <div id="sub-plan-icon" style="width:48px;height:48px;border-radius:14px;background:var(--accent-primary-glow);display:flex;align-items:center;justify-content:center;">
+        <svg width="24" height="24" fill="none" viewBox="0 0 24 24" stroke="var(--accent-primary)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M12 2L2 7l10 5 10-5-10-5z"/>
+          <path d="M2 17l10 5 10-5"/>
+          <path d="M2 12l10 5 10-5"/>
+        </svg>
+      </div>
+      <div>
+        <p style="font-size:.72rem;color:var(--text-muted);margin-bottom:4px;text-transform:uppercase;letter-spacing:.04em;font-weight:600;">Plan actual</p>
+        <p style="font-size:1.5rem;font-weight:800;letter-spacing:-0.5px;color:var(--text-primary);" id="sub-plan-name">Cargando...</p>
+      </div>
+    </div>
+    <div style="margin-left:auto;display:flex;align-items:center;gap:12px;flex-wrap:wrap;">
+      <span class="badge" id="sub-status-badge" style="font-size:.78rem;padding:4px 14px;">—</span>
+      <button class="btn btn-outline btn-sm" id="btn-portal" style="display:none;">Gestionar facturación →</button>
+      <button class="btn btn-outline btn-sm" id="btn-cancel-plan" style="display:none;border-color:rgba(255,59,92,.35);color:var(--accent-red);">Cancelar plan</button>
+    </div>
+  </div>
+  <div class="sub-stat-grid sub-stat-grid-3" style="margin-top:18px;">
+    <div class="transfer-details subscription-info-card" style="margin:0;">
+      <p class="text-xs text-muted" style="text-transform:uppercase;letter-spacing:.08em;">Renovación</p>
+      <p style="font-weight:700;font-size:1rem;color:var(--text-primary);" id="sub-renewal">—</p>
+      <p style="font-size:.72rem;color:var(--text-muted);" id="sub-renewal-note">—</p>
+    </div>
+    <div class="transfer-details subscription-info-card" style="margin:0;">
+      <p class="text-xs text-muted" style="text-transform:uppercase;letter-spacing:.08em;">Proveedor</p>
+      <p style="font-weight:700;font-size:1rem;color:var(--text-primary);" id="sub-provider">—</p>
+      <p style="font-size:.72rem;color:var(--text-muted);">Cobro seguro y tokenizado</p>
+    </div>
+    <div class="transfer-details subscription-info-card" style="margin:0;">
+      <p class="text-xs text-muted" style="text-transform:uppercase;letter-spacing:.08em;">Facturación</p>
+      <p style="font-weight:700;font-size:1rem;color:var(--text-primary);" id="sub-invoice">—</p>
+      <p style="font-size:.72rem;color:var(--text-muted);">Recibos disponibles en el portal</p>
+    </div>
+  </div>
+  <div class="sub-stat-grid sub-stat-grid-4" style="margin-top:20px;padding-top:16px;border-top:1px solid rgba(255,255,255,.04);">
+    <div>
+      <p class="text-xs text-muted">Clientes usados</p>
+      <p style="font-weight:700;font-size:1.1rem;color:var(--text-primary);" id="sub-clientes-uso">—</p>
+    </div>
+    <div>
+      <p class="text-xs text-muted">Límite del plan</p>
+      <p style="font-weight:700;font-size:1.1rem;color:var(--text-primary);" id="sub-max-clientes">—</p>
+    </div>
+    <div>
+      <p class="text-xs text-muted">Próximo cobro</p>
+      <p style="font-weight:600;font-size:1.1rem;color:var(--text-secondary);" id="sub-next-billing">—</p>
+    </div>
+    <div>
+      <p class="text-xs text-muted">Precio mensual</p>
+      <p style="font-weight:700;font-size:1.1rem;color:var(--accent-primary);" id="sub-precio">—</p>
+    </div>
+  </div>
+</div>
+
+<!-- ── Plans grid ─────────────────────────────────────────────── -->
+<p class="chart-title mb-4">Planes disponibles</p>
+<div id="plans-grid" style="display:grid;grid-template-columns:repeat(3,1fr);gap:18px;margin-bottom:32px;">
+
+  <!-- Standard -->
+  <div class="chart-container plan-card" id="plan-standard" data-plan="standard">
+    <span class="plan-badge" style="display:none;"></span>
+    <div class="flex items-center gap-3 mb-4">
+      <div class="plan-icon" style="background:rgba(251,191,36,.08);">
+        <svg width="20" height="20" fill="none" viewBox="0 0 24 24" stroke="var(--accent-primary)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"/>
+        </svg>
+      </div>
+      <span class="plan-name">Standard</span>
+    </div>
+    <p class="plan-price" style="color:var(--accent-primary);">$159<span class="plan-period"> MXN/mes</span></p>
+    <p class="plan-desc">Para nutriólogos independientes</p>
+    <ul class="plan-features">
+      <li><span class="check">✓</span> Hasta 25 clientes</li>
+      <li><span class="check">✓</span> 2 sesiones simultáneas</li>
+      <li><span class="check">✓</span> 1 plan por cliente al día</li>
+      <li><span class="check">✓</span> Exportación PDF</li>
+      <li><span class="cross">✗</span> Preferencias de alimentos</li>
+    </ul>
+    <button class="btn btn-outline btn-full btn-plan" data-plan="standard">Activar plan ahora</button>
+  </div>
+
+  <!-- Gym Comercial -->
+  <div class="chart-container plan-card plan-featured" id="plan-gym_comercial" data-plan="gym_comercial">
+    <span class="plan-badge">Más popular</span>
+    <div class="flex items-center gap-3 mb-4">
+      <div class="plan-icon" style="background:rgba(45,212,191,.08);">
+        <svg width="20" height="20" fill="none" viewBox="0 0 24 24" stroke="var(--accent-purple)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/>
+        </svg>
+      </div>
+      <span class="plan-name">Gym Comercial</span>
+    </div>
+    <p class="plan-price" style="color:var(--accent-purple);">$479<span class="plan-period"> MXN/mes</span></p>
+    <p class="plan-desc">Para gimnasios en crecimiento</p>
+    <ul class="plan-features">
+      <li><span class="check">✓</span> Hasta 75 clientes</li>
+      <li><span class="check">✓</span> 4 sesiones simultáneas</li>
+      <li><span class="check">✓</span> 3 planes por cliente al día</li>
+      <li><span class="check">✓</span> Gestión de suscripciones</li>
+      <li><span class="check">✓</span> Preferencias de alimentos</li>
+    </ul>
+    <button class="btn btn-primary btn-full btn-plan" data-plan="gym_comercial">Activar plan ahora</button>
+  </div>
+
+  <!-- Clínica -->
+  <div class="chart-container plan-card" id="plan-clinica" data-plan="clinica">
+    <span class="plan-badge" style="display:none;"></span>
+    <div class="flex items-center gap-3 mb-4">
+      <div class="plan-icon" style="background:rgba(52,211,153,.08);">
+        <svg width="20" height="20" fill="none" viewBox="0 0 24 24" stroke="var(--accent-green)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M3 21h18"/>
+          <path d="M5 21V7l8-4v18"/>
+          <path d="M19 21V11l-6-4"/>
+          <path d="M9 9v.01"/><path d="M9 12v.01"/><path d="M9 15v.01"/><path d="M9 18v.01"/>
+        </svg>
+      </div>
+      <span class="plan-name">Clínica</span>
+    </div>
+    <p class="plan-price" style="color:var(--accent-green);">$979<span class="plan-period"> MXN/mes</span></p>
+    <p class="plan-desc">Sin límites, para equipos grandes</p>
+    <ul class="plan-features">
+      <li><span class="check">✓</span> Clientes ilimitados</li>
+      <li><span class="check">✓</span> Sesiones ilimitadas</li>
+      <li><span class="check">✓</span> Generación diaria ilimitada</li>
+      <li><span class="check">✓</span> Gestión de suscripciones</li>
+      <li><span class="check">✓</span> Progresión de clientes</li>
+      <li><span class="check">✓</span> Preferencias de alimentos</li>
+    </ul>
+    <button class="btn btn-outline btn-full btn-plan" data-plan="clinica">Activar plan ahora</button>
+  </div>
+
+</div>
+
+<!-- ══════════════════════════════════════════════════════════════
+     Modal — Panel de Pago (aparece al seleccionar plan)
+══════════════════════════════════════════════════════════════ -->
+<div id="modal-pago" class="modal-backdrop hidden">
+  <div class="modal" style="max-width:540px;">
+    <button id="pago-modal-close" class="btn btn-icon btn-secondary modal-close" type="button">✕</button>
+
+    <!-- ── Step indicator ── -->
+    <div id="pago-steps" class="flex items-center gap-3 mb-6">
+      <div class="step-dot active" data-step="1">1</div>
+      <div class="step-line"></div>
+      <div class="step-dot" data-step="2">2</div>
+      <div class="step-line"></div>
+      <div class="step-dot" data-step="3">3</div>
+    </div>
+
+    <!-- ═══ Step 1: Resumen del plan ═══ -->
+    <div id="pago-step-1" class="pago-step">
+      <div style="display:flex;align-items:center;gap:12px;margin-bottom:20px;">
+        <div style="width:44px;height:44px;border-radius:12px;background:var(--accent-primary-glow);display:flex;align-items:center;justify-content:center;flex-shrink:0">
+          <svg width="22" height="22" fill="none" viewBox="0 0 24 24" stroke="var(--accent-primary)" stroke-width="2">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>
+          </svg>
+        </div>
+        <div>
+          <h2 class="chart-title" style="margin:0;font-size:1.1rem;">Confirmar plan</h2>
+          <p style="margin:2px 0 0;font-size:.78rem;color:var(--text-secondary);">Revisa los detalles antes de continuar</p>
+        </div>
+      </div>
+
+      <div id="pago-plan-summary" class="chart-container" style="padding:20px;border:1px solid var(--accent-purple);margin-bottom:20px;">
+        <!-- Filled by JS -->
+      </div>
+
+      <div style="display:flex;gap:10px;">
+        <button id="pago-btn-cancel" class="btn btn-outline" style="flex:1;" type="button">Cancelar</button>
+        <button id="pago-btn-next-1" class="btn btn-primary" style="flex:2;" type="button">
+          Continuar al pago →
+        </button>
+      </div>
+    </div>
+
+    <!-- ═══ Step 2: Método de pago ═══ -->
+    <div id="pago-step-2" class="pago-step" style="display:none;">
+      <div style="display:flex;align-items:center;gap:12px;margin-bottom:20px;">
+        <div style="width:44px;height:44px;border-radius:12px;background:rgba(45,212,191,.12);display:flex;align-items:center;justify-content:center;flex-shrink:0">
+          <svg width="22" height="22" fill="none" viewBox="0 0 24 24" stroke="var(--accent-purple)" stroke-width="2">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z"/>
+          </svg>
+        </div>
+        <div>
+          <h2 class="chart-title" style="margin:0;font-size:1.1rem;">Método de pago</h2>
+          <p style="margin:2px 0 0;font-size:.78rem;color:var(--text-secondary);">Elige cómo deseas pagar</p>
+        </div>
+      </div>
+
+      <div id="payment-methods" style="display:flex;flex-direction:column;gap:10px;margin-bottom:16px;">
+        <button id="pm-card" class="payment-method-btn" data-method="card" type="button" disabled>
+          <div style="display:flex;align-items:center;gap:12px;width:100%;">
+            <div style="width:40px;height:40px;border-radius:10px;background:rgba(45,212,191,.12);display:flex;align-items:center;justify-content:center;flex-shrink:0;">
+              <svg width="20" height="20" fill="none" viewBox="0 0 24 24" stroke="var(--accent-purple)" stroke-width="2">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z"/>
+              </svg>
+            </div>
+            <div style="text-align:left;flex:1;">
+              <p style="font-weight:600;font-size:.9rem;color:var(--text-primary);margin:0;">Tarjeta de crédito / débito</p>
+              <p style="font-size:.75rem;color:var(--text-muted);margin:2px 0 0;">Visa, Mastercard, Amex · Checkout seguro</p>
+            </div>
+            <span class="badge badge-active" style="font-size:.68rem;">Recomendado</span>
+          </div>
+        </button>
+
+        <button id="pm-mercadopago" class="payment-method-btn" data-method="mercadopago" type="button">
+          <div style="display:flex;align-items:center;gap:12px;width:100%;">
+            <div style="width:40px;height:40px;border-radius:10px;background:rgba(45,212,191,.08);display:flex;align-items:center;justify-content:center;flex-shrink:0;">
+              <svg width="20" height="20" fill="none" viewBox="0 0 24 24" stroke="var(--accent-purple)" stroke-width="2">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M12 8c-3.314 0-6 2.239-6 5 0 1.657.924 3.123 2.35 4.041L7 21l4.05-2.025A7.45 7.45 0 0012 19c3.314 0 6-2.239 6-5s-2.686-5-6-5z"/>
+              </svg>
+            </div>
+            <div style="text-align:left;flex:1;">
+              <p style="font-weight:600;font-size:.9rem;color:var(--text-primary);margin:0;">Mercado Pago</p>
+              <p style="font-size:.75rem;color:var(--text-muted);margin:2px 0 0;">Tarjetas, saldo y SPEI desde MP</p>
+            </div>
+          </div>
+        </button>
+
+        <button id="pm-nu" class="payment-method-btn" data-method="nu" type="button">
+          <div style="display:flex;align-items:center;gap:12px;width:100%;">
+            <div style="width:40px;height:40px;border-radius:10px;background:rgba(45,212,191,.08);display:flex;align-items:center;justify-content:center;flex-shrink:0;">
+              <svg width="20" height="20" fill="none" viewBox="0 0 24 24" stroke="var(--accent-purple)" stroke-width="2">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M7 7h10a3 3 0 013 3v4a3 3 0 01-3 3H7l-3 3V10a3 3 0 013-3z"/>
+              </svg>
+            </div>
+            <div style="text-align:left;flex:1;">
+              <p style="font-weight:600;font-size:.9rem;color:var(--text-primary);margin:0;">Nu</p>
+              <p style="font-size:.75rem;color:var(--text-muted);margin:2px 0 0;">Pago con Nu (tarjeta o transferencia)</p>
+            </div>
+          </div>
+        </button>
+      </div>
+
+      <div id="payment-method-panel" class="transfer-details" style="display:none;margin-top:4px;">
+      </div>
+
+      <div id="stripe-config-hint" style="font-size:.72rem;color:var(--text-muted);margin-bottom:10px;display:none;">
+        Configura STRIPE_PUBLISHABLE_KEY y STRIPE_SECRET_KEY para activar el cobro con tarjeta.
+      </div>
+
+      <div style="font-size:.72rem;color:var(--text-muted);margin-bottom:18px;">
+        Seguridad: checkout certificado, tokenización y 3DS. Nunca almacenamos datos de tu tarjeta.
+      </div>
+
+      <div style="display:flex;gap:10px;">
+        <button id="pago-btn-back-2" class="btn btn-outline" style="flex:1;" type="button">← Atrás</button>
+        <button id="pago-btn-next-2" class="btn btn-primary" style="flex:2;" type="button" disabled>
+          Confirmar pago →
+        </button>
+      </div>
+    </div>
+
+    <!-- ═══ Step 3: Confirmación / Procesando ═══ -->
+    <div id="pago-step-3" class="pago-step" style="display:none;">
+      <!-- Content filled by JS depending on payment method -->
+      <div id="pago-step-3-content" style="text-align:center;padding:20px 0;">
+      </div>
+
+      <div id="card-step-panel" class="transfer-details card-payment-panel" style="display:none;margin-top:6px;">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;">
+          <div style="display:flex;align-items:center;gap:12px;">
+            <div style="width:48px;height:48px;border-radius:10px;background:linear-gradient(135deg,rgba(251,191,36,.15),rgba(45,212,191,.08));display:flex;align-items:center;justify-content:center;flex-shrink:0;">
+              <img src="/static/img/atm-card.png" alt="Tarjeta" style="width:28px;height:28px;object-fit:contain;">
+            </div>
+            <div>
+              <p style="font-size:.82rem;color:var(--text-muted);margin:0;letter-spacing:.03em;text-transform:uppercase;">Resumen del pago</p>
+              <p style="font-size:1rem;font-weight:700;color:var(--text-primary);margin:2px 0 0;">Suscripción mensual</p>
+            </div>
+          </div>
+          <span class="badge badge-active" style="font-size:.68rem;">🔒 Pago seguro</span>
+        </div>
+        <div class="transfer-row">
+          <span class="transfer-label">Plan</span>
+          <span class="transfer-value" id="card-summary-plan">—</span>
+        </div>
+        <div class="transfer-row">
+          <span class="transfer-label">Monto</span>
+          <span class="transfer-value" id="card-summary-price">—</span>
+        </div>
+        <div class="transfer-row" style="margin-bottom:10px;">
+          <span class="transfer-label">Renovacion</span>
+          <span class="transfer-value" id="card-summary-renewal">Mensual · cancela cuando quieras</span>
+        </div>
+        <div style="display:flex;flex-wrap:wrap;gap:8px;margin:8px 0 14px;">
+          <span class="badge" style="font-size:.68rem;">PCI DSS</span>
+          <span class="badge" style="font-size:.68rem;">Tokenizacion</span>
+          <span class="badge" style="font-size:.68rem;">3DS</span>
+          <span class="badge" style="font-size:.68rem;">Cifrado TLS 1.3</span>
+        </div>
+        <div class="transfer-row" style="border-bottom:none;padding-bottom:0;">
+          <span class="transfer-label">Número de tarjeta</span>
+        </div>
+        <div id="card-element-number" class="card-element"><span class="card-element-placeholder">Se cargará con Stripe Elements</span></div>
+
+        <div style="display:flex;gap:12px;margin-top:12px;">
+          <div style="flex:1;">
+            <div class="transfer-row" style="border-bottom:none;padding-bottom:0;">
+              <span class="transfer-label">Expiración</span>
+            </div>
+            <div id="card-element-expiry" class="card-element"><span class="card-element-placeholder">MM/AA</span></div>
+          </div>
+          <div style="flex:1;">
+            <div class="transfer-row" style="border-bottom:none;padding-bottom:0;">
+              <span class="transfer-label">CVV</span>
+            </div>
+            <div id="card-element-cvc" class="card-element"><span class="card-element-placeholder">CVC</span></div>
+          </div>
+        </div>
+
+        <div id="card-element-error" style="font-size:.75rem;color:var(--accent-red);margin-top:8px;display:none;"></div>
+
+        <div style="display:flex;gap:10px;margin-top:16px;">
+          <button id="pago-btn-back-3" class="btn btn-outline" style="flex:1;" type="button">← Atrás</button>
+          <button id="pago-btn-card-pay" class="btn btn-primary" style="flex:2;" type="button" disabled>
+            Pagar ahora →
+          </button>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<!-- ── Payment history ────────────────────────────────────────── -->
+<div class="chart-container" style="padding:0;overflow:hidden;">
+  <div class="chart-header" style="padding:20px 24px 0;">
+    <div>
+      <p class="chart-title">Historial de pagos</p>
+      <p class="chart-subtitle">Últimas transacciones</p>
+    </div>
+  </div>
+  <div style="overflow-x:auto;">
+    <table class="data-table">
+      <thead>
+        <tr>
+          <th>Fecha</th>
+          <th>Monto</th>
+          <th>Estado</th>
+          <th>Plan</th>
+        </tr>
+      </thead>
+      <tbody id="payments-tbody">
+        <tr><td colspan="4"><div class="empty-state" style="padding:32px;"><div class="empty-state-icon"><img src="/static/img/shopping-cart.png" style="width:32px;height:32px"></div><p>Sin pagos registrados</p></div></td></tr>
+      </tbody>
+    </table>
+  </div>
+</div>
+
+{% endblock %}
+
+{% block scripts %}
+<style>
+/* ── Fix: .modal inside .modal-backdrop is a content container, not overlay ── */
+#modal-pago > .modal {
+  display: block !important;
+  position: relative !important;
+  inset: auto !important;
+  z-index: auto !important;
+  padding: 24px;
+  background: var(--bg-card);
+  border-radius: 16px;
+  border: 1px solid var(--border-glass);
+  border-top: 2px solid var(--accent-purple);
+  box-shadow: 0 24px 64px rgba(0,0,0,.6), 0 0 0 1px var(--border-glass);
+  width: 100%;
+}
+#modal-pago.hidden { display: none !important; }
+
+/* ── Payment modal styles ────────────────────────────────── */
+.step-dot {
+  width:28px;height:28px;border-radius:50%;
+  display:flex;align-items:center;justify-content:center;
+  font-size:.75rem;font-weight:700;
+  background:rgba(255,255,255,.06);color:var(--text-muted);
+  border:2px solid rgba(255,255,255,.08);
+  transition:all .25s ease;
+}
+.step-dot.active {
+  background:var(--accent-primary-glow);color:var(--accent-primary);
+  border-color:var(--accent-primary);
+}
+.step-dot.done {
+  background:rgba(16,185,129,.15);color:#34d399;
+  border-color:rgba(16,185,129,.3);
+}
+.step-line {
+  flex:1;height:2px;background:rgba(255,255,255,.06);
+  border-radius:2px;transition:background .25s;
+}
+.step-line.done { background:rgba(16,185,129,.3); }
+
+.payment-method-btn {
+  display:flex;padding:14px 16px;border-radius:12px;
+  border:1px solid rgba(255,255,255,.06);background:rgba(255,255,255,.02);
+  cursor:pointer;transition:all .15s ease;width:100%;
+}
+.payment-method-btn[disabled] {
+  opacity: .55;
+  cursor: not-allowed;
+  filter: grayscale(0.2);
+}
+.payment-method-btn:hover {
+  border-color:rgba(255,255,255,.12);background:rgba(255,255,255,.04);
+}
+.payment-method-btn.selected {
+  border-color:var(--accent-purple);background:var(--accent-purple-subtle);
+  box-shadow:0 0 0 1px var(--accent-purple);
+}
+
+.plan-card { position:relative;overflow:visible; }
+.plan-card:hover { border-color:var(--accent-purple) !important; }
+.plan-badge {
+  position:absolute;top:-13px;left:50%;transform:translateX(-50%);
+  background:linear-gradient(135deg,var(--accent-purple),#a78bfa);
+  color:#fff;font-size:.7rem;font-weight:700;letter-spacing:.04em;
+  padding:4px 16px;border-radius:20px;white-space:nowrap;
+  z-index:2;box-shadow:0 2px 8px rgba(45,212,191,.25);
+  transition:opacity .25s ease, transform .25s ease;
+}
+/* ── Neon glow on selected card ── */
+.plan-card.plan-selected {
+  border-color:var(--accent-purple) !important;
+  box-shadow:
+    0 0 12px rgba(45,212,191,.25),
+    0 0 30px rgba(45,212,191,.10),
+    inset 0 0 20px rgba(45,212,191,.03);
+  transform:translateY(-3px);
+  background:rgba(45,212,191,.04);
+}
+.plan-card.plan-selected .plan-badge {
+  display:block !important;
+  animation:badge-pop .3s ease;
+}
+@keyframes badge-pop {
+  0% { opacity:0;transform:translateX(-50%) scale(.7); }
+  60% { transform:translateX(-50%) scale(1.08); }
+  100% { opacity:1;transform:translateX(-50%) scale(1); }
+}
+.plan-card.current-plan {
+  background:rgba(45,212,191,.04);
+  border-color:var(--accent-primary) !important;
+}
+.plan-card.current-plan .btn-plan {
+  background:rgba(255,255,255,.06);color:var(--text-muted);
+  pointer-events:none;
+}
+
+/* Transfer details */
+.transfer-details {
+  background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.06);
+  border-radius:12px;padding:16px;margin:16px 0;text-align:left;
+}
+.transfer-row {
+  display:flex;justify-content:space-between;padding:6px 0;
+  border-bottom:1px solid rgba(255,255,255,.04);
+}
+.transfer-row:last-child { border-bottom:none; }
+.transfer-label { font-size:.78rem;color:var(--text-muted); }
+.transfer-value { font-size:.85rem;font-weight:600;color:var(--text-primary); }
+
+.card-element {
+  padding: 10px 12px;
+  border-radius: 10px;
+  border: 1px solid var(--border-glass);
+  background: rgba(255,255,255,.02);
+  color: var(--text-primary);
+  font-size: .9rem;
+}
+.card-element.StripeElement--focus {
+  border-color: var(--accent-primary);
+  box-shadow: 0 0 0 1px rgba(255,229,0,.18);
+}
+.card-element.StripeElement--invalid {
+  border-color: var(--accent-red);
+}
+.card-element-placeholder {
+  font-size: .82rem;
+  color: var(--text-muted);
+  opacity: .5;
+  pointer-events: none;
+  user-select: none;
+}
+
+/* ── Midnight glassmorphism comprobante button ── */
+.btn-comprobante {
+  display:inline-flex;align-items:center;justify-content:center;gap:10px;
+  padding:14px 28px;border-radius:14px;font-size:.92rem;font-weight:700;
+  color:#fff;text-decoration:none;
+  background:#25d366;border:none;
+  box-shadow:0 4px 14px rgba(37,211,102,.35);
+  transition:all .2s ease;cursor:pointer;
+  letter-spacing:.01em;
+}
+.btn-comprobante:hover {
+  background:#1ebe5d;
+  box-shadow:0 6px 20px rgba(37,211,102,.45);
+  transform:translateY(-1px);
+}
+.btn-comprobante:active { transform:translateY(0);background:#1aad54; }
+.btn-comprobante svg { width:22px;height:22px;flex-shrink:0;fill:#fff; }
+</style>
+
+<script nonce="{{ request.state.csp_nonce }}">
+/* ══════════════════════════════════════════════════════════════
+   suscripciones.js — Production-ready subscription management
+═════════════════════════════════════════════════════════════ */
+const _waNumber = '{{ branding.contacto.whatsapp | default("") }}';
+const _PLAN_META = {
+  standard:      { icon: '🚀', color: 'var(--accent-primary)',  label: 'Standard' },
+  gym_comercial: { icon: '⚡', color: 'var(--accent-purple)',   label: 'Gym Comercial' },
+  clinica:       { icon: '🏥', color: 'var(--accent-green)',    label: 'Clínica' },
+};
+const _PLAN_PRICES = { standard: 159, gym_comercial: 479, clinica: 979 };
+
+function _getPlanInfo(plan) {
+  const info = _billingConfig?.plans?.[plan] || {};
+  if (!info.precio_mxn && _PLAN_PRICES[plan]) info.precio_mxn = _PLAN_PRICES[plan];
+  return info;
+}
+
+let _billingConfig = null;
+let _currentSub = null;
+let _selectedPlan = null;
+let _selectedMethod = null;
+let _stripe = null;
+let _stripeElements = null;
+let _cardNumber = null;
+let _cardExpiry = null;
+let _cardCvc = null;
+let _cardState = { number: false, expiry: false, cvc: false };
+
+// ── Init: Load billing config + subscription state ──────────
+(async () => {
+  // Parallel load: config, subscription, payments
+  const [configRes, subRes, payRes] = await Promise.allSettled([
+    Api.billing.config(),
+    Api.billing.subscription(),
+    Api.billing.payments(),
+  ]);
+
+  _billingConfig = configRes.status === 'fulfilled' ? configRes.value : null;
+  if (_billingConfig?.stripe_publishable_key) {
+    await loadStripeJs();
+    initStripeElements(_billingConfig.stripe_publishable_key);
+  }
+  _currentSub = subRes.status === 'fulfilled' ? subRes.value : null;
+
+  renderSubscription(_currentSub || { plan: null, status: 'none', clientes_usados: 0, max_clientes: 0 });
+  renderPlanButtons();
+
+  const _stripeReady = _billingConfig?.stripe_configured && _billingConfig?.stripe_publishable_key;
+  const cardBtn = document.getElementById('pm-card');
+  if (cardBtn) {
+    cardBtn.disabled = !_stripeReady;
+    if (!_stripeReady) {
+      const hint = cardBtn.querySelector('.pm-card-hint');
+      if (!hint) {
+        const span = document.createElement('span');
+        span.className = 'pm-card-hint';
+        span.style.cssText = 'font-size:.68rem;color:var(--accent-red);display:block;margin-top:2px;';
+        span.textContent = 'No disponible — Stripe no configurado';
+        const textDiv = cardBtn.querySelector('div[style*="text-align:left"]');
+        if (textDiv) textDiv.appendChild(span);
+      }
+    }
+  }
+  const stripeHint = document.getElementById('stripe-config-hint');
+  if (stripeHint) {
+    stripeHint.style.display = _stripeReady ? 'none' : '';
+  }
+  if (!_billingConfig?.mercadopago_configured) {
+    const mpBtn = document.getElementById('pm-mercadopago');
+    mpBtn.disabled = true;
+  }
+
+  const payments = payRes.status === 'fulfilled' ? (payRes.value.payments || []) : [];
+  renderPayments(payments);
+})();
+
+// ── Render current subscription status ──────────────────────
+function renderSubscription(sub) {
+  const plan = sub.plan || null;
+  const planName = plan ? (plan.charAt(0).toUpperCase() + plan.slice(1)) : 'Sin plan';
+  const meta = _PLAN_META[plan] || { icon: '📦', color: 'var(--text-muted)', label: planName };
+
+  document.getElementById('sub-plan-name').textContent = meta.label;
+  document.getElementById('sub-plan-icon').textContent = meta.icon;
+  const _colorMap = {
+    'var(--accent-primary)':  'rgba(255,229,0,.12)',
+    'var(--accent-purple)':   'rgba(45,212,191,.12)',
+    'var(--accent-green)':    'rgba(0,255,136,.12)',
+    'var(--text-muted)':      'rgba(255,255,255,.06)',
+  };
+  document.getElementById('sub-plan-icon').style.background = _colorMap[meta.color] || 'rgba(255,255,255,.06)';
+
+  const badge = document.getElementById('sub-status-badge');
+  const statusMap = {
+    active: ['Activa', 'badge-active'],
+    trialing: ['Período de prueba', 'badge-active'],
+    past_due: ['Pago pendiente', 'badge-warning'],
+    canceled: ['Cancelada', 'badge-error'],
+    inactive: ['Inactiva', 'badge-error'],
+    none: ['Sin plan', 'badge-error'],
+  };
+  const [label, cls] = statusMap[sub.status] || ['—', ''];
+  badge.textContent = label;
+  badge.className = 'badge ' + cls;
+
+  const used = sub.clientes_usados ?? 0;
+  const max = sub.max_clientes || 0;
+  document.getElementById('sub-clientes-uso').textContent = used;
+  document.getElementById('sub-max-clientes').textContent = max ? max : '∞';
+  document.getElementById('sub-next-billing').textContent = sub.current_period_end
+    ? new Date(sub.current_period_end * 1000).toLocaleDateString('es-MX', { year: 'numeric', month: 'long', day: 'numeric' })
+    : '—';
+
+  const renewalLabel = sub.current_period_end
+    ? 'Se renueva el ' + new Date(sub.current_period_end * 1000).toLocaleDateString('es-MX')
+    : 'Renovacion mensual';
+  document.getElementById('sub-renewal').textContent = renewalLabel;
+  document.getElementById('sub-renewal-note').textContent =
+    (sub.cancel_at_period_end || sub.status === 'canceled') ? 'Se cancelara al finalizar el periodo' : 'Renovacion automatica activa';
+
+  const providerEl = document.getElementById('sub-provider');
+  if (providerEl) {
+    if (_billingConfig?.stripe_configured) providerEl.textContent = 'Stripe';
+    else if (_billingConfig?.mercadopago_configured) providerEl.textContent = 'Mercado Pago';
+    else providerEl.textContent = 'Manual';
+  }
+  const invoiceEl = document.getElementById('sub-invoice');
+  if (invoiceEl) {
+    invoiceEl.textContent = _billingConfig?.stripe_configured ? 'Portal de facturacion' : 'Contacta soporte';
+  }
+
+  const _pi = _getPlanInfo(plan);
+  const precio = plan && _pi.precio_mxn
+    ? '$' + _pi.precio_mxn + ' MXN'
+    : '—';
+  document.getElementById('sub-precio').textContent = precio;
+
+  // Highlight current plan card
+  document.querySelectorAll('.plan-card').forEach(c => c.classList.remove('current-plan'));
+  if (plan) {
+    const card = document.getElementById('plan-' + plan);
+    if (card) card.classList.add('current-plan');
+  }
+
+  // Show portal button if active subscription with Stripe
+  if ((sub.status === 'active' || sub.status === 'trialing' || sub.status === 'past_due') && _billingConfig?.stripe_configured) {
+    document.getElementById('btn-portal').style.display = '';
+  }
+
+  const cancelBtn = document.getElementById('btn-cancel-plan');
+  if (cancelBtn) {
+    if (sub.status === 'active' || sub.status === 'trialing' || sub.status === 'past_due') {
+      cancelBtn.style.display = '';
+      cancelBtn.disabled = false;
+    } else {
+      cancelBtn.style.display = 'none';
+    }
+  }
+}
+
+// ── Render plan button labels (current/upgrade/downgrade) ───
+function renderPlanButtons() {
+  const currentPlan = _currentSub?.plan;
+  const planOrder = ['standard', 'gym_comercial', 'clinica'];
+  const currentIdx = planOrder.indexOf(currentPlan);
+
+  document.querySelectorAll('.btn-plan').forEach(btn => {
+    const plan = btn.dataset.plan;
+    const planIdx = planOrder.indexOf(plan);
+
+    if (plan === currentPlan && (_currentSub?.status === 'active' || _currentSub?.status === 'trialing')) {
+      btn.textContent = '✓ Plan actual';
+      btn.classList.remove('btn-primary');
+      btn.classList.add('btn-outline');
+      btn.disabled = true;
+    } else if (currentIdx >= 0 && planIdx > currentIdx) {
+      btn.textContent = '↑ Upgrade';
+    } else if (currentIdx >= 0 && planIdx < currentIdx) {
+      btn.textContent = 'Cambiar plan';
+    }
+  });
+}
+
+// ── Payment history ─────────────────────────────────────────
+function renderPayments(payments) {
+  const tbody = document.getElementById('payments-tbody');
+  if (!payments.length) return;
+  tbody.innerHTML = '';
+  payments.forEach(p => {
+    const tr = document.createElement('tr');
+    tr.innerHTML =
+      '<td class="text-sm">' + new Date(p.created_at).toLocaleDateString('es-MX') + '</td>' +
+      '<td class="font-semibold">$' + (p.amount / 100).toFixed(2) + ' ' + (p.currency || 'USD').toUpperCase() + '</td>' +
+      '<td><span class="badge ' + (p.status === 'succeeded' ? 'badge-active' : 'badge-warning') + '">' + esc(p.status) + '</span></td>' +
+      '<td class="text-sm text-secondary-color">' + esc(p.plan || '—') + '</td>';
+    tbody.appendChild(tr);
+  });
+}
+
+// ── Plan card click → select & glow ─────────────────────────
+function selectPlanCard(plan) {
+  const cards = document.querySelectorAll('.plan-card');
+  cards.forEach(c => {
+    const badge = c.querySelector('.plan-badge');
+    if (c.dataset.plan === plan) {
+      c.classList.add('plan-selected');
+      c.classList.add('plan-featured');
+      if (badge) { badge.textContent = 'Tu selección'; badge.style.display = ''; }
+    } else {
+      c.classList.remove('plan-selected');
+      // Restore default badge state
+      if (c.dataset.plan === 'gym_comercial' && !c.classList.contains('plan-selected')) {
+        if (badge) { badge.textContent = 'Más popular'; badge.style.display = ''; }
+      } else {
+        c.classList.remove('plan-featured');
+        if (badge) { badge.style.display = 'none'; badge.textContent = ''; }
+      }
+    }
+  });
+}
+
+document.querySelectorAll('.plan-card').forEach(card => {
+  card.addEventListener('click', (e) => {
+    // Don't double-fire if clicking the button directly
+    if (e.target.closest('.btn-plan')) return;
+    const plan = card.dataset.plan;
+    if (card.classList.contains('current-plan')) return;
+    selectPlanCard(plan);
+  });
+});
+
+// ── Plan button click → select + open modal ─────────────────
+document.querySelectorAll('.btn-plan').forEach(btn => {
+  btn.addEventListener('click', () => {
+    if (btn.disabled) return;
+    _selectedPlan = btn.dataset.plan;
+    _selectedMethod = null;
+    selectPlanCard(_selectedPlan);
+    openPaymentModal(_selectedPlan);
+  });
+});
+
+// ── Payment Modal Control ───────────────────────────────────
+async function openPaymentModal(plan) {
+  // Ensure billing config is loaded (retry if initial load failed)
+  if (!_billingConfig) {
+    try {
+      _billingConfig = await Api.billing.config();
+      if (_billingConfig?.stripe_publishable_key && !_stripe) {
+        await loadStripeJs();
+        initStripeElements(_billingConfig.stripe_publishable_key);
+      }
+    } catch(_) {}
+  }
+
+  const meta = _PLAN_META[plan] || { icon: '📦', label: plan, color: 'var(--text-primary)' };
+  const info = _getPlanInfo(plan);
+
+  // Fill plan summary (Step 1)
+  const features = [];
+  if (info.max_clientes) features.push('Hasta ' + info.max_clientes + ' clientes');
+  else features.push('Clientes ilimitados');
+  if (info.max_sesiones) features.push(info.max_sesiones + ' sesiones simultáneas');
+  else features.push('Sesiones ilimitadas');
+  if (info.max_planes_diarios) features.push(info.max_planes_diarios + ' plan(es) por cliente al día');
+  else features.push('Generación diaria ilimitada');
+  features.push('Exportación PDF profesional');
+  if (info.preferencias_alimentos) features.push('Preferencias de alimentos');
+  if (info.gestion_suscripciones) features.push('Gestión de suscripciones');
+  if (info.progresion_clientes) features.push('Progresión de clientes');
+  if (info.multi_usuario) features.push('Multi-usuario + soporte prioritario');
+
+  document.getElementById('pago-plan-summary').innerHTML =
+    '<div style="display:flex;align-items:center;gap:12px;margin-bottom:14px;">' +
+      '<span style="font-size:1.6rem;">' + meta.icon + '</span>' +
+      '<div>' +
+        '<p style="font-weight:700;font-size:1.05rem;margin:0;color:var(--text-primary);">' + esc(meta.label) + '</p>' +
+        '<p style="font-size:.78rem;color:var(--text-muted);margin:2px 0 0;">' + esc(info.descripcion || '') + '</p>' +
+      '</div>' +
+      '<p style="margin-left:auto;font-size:1.4rem;font-weight:800;color:' + meta.color + ';">$' + (info.precio_mxn || '?') + '<span style="font-size:.75rem;font-weight:400;color:var(--text-muted)"> MXN/mes</span></p>' +
+    '</div>' +
+    '<ul style="list-style:none;padding:0;margin:0;display:flex;flex-direction:column;gap:6px;">' +
+      features.map(f => '<li style="font-size:.82rem;color:var(--text-secondary);">✓ ' + esc(f) + '</li>').join('') +
+    '</ul>';
+
+  // Reset steps
+  goToStep(1);
+  resetMethodSelection();
+  document.getElementById('modal-pago').classList.remove('hidden');
+}
+
+function closePaymentModal() {
+  document.getElementById('modal-pago').classList.add('hidden');
+  _selectedPlan = null;
+  _selectedMethod = null;
+  _cardState = { number: false, expiry: false, cvc: false };
+  if (_cardNumber) _cardNumber.clear();
+  if (_cardExpiry) _cardExpiry.clear();
+  if (_cardCvc) _cardCvc.clear();
+  const errorEl = document.getElementById('card-element-error');
+  if (errorEl) {
+    errorEl.textContent = '';
+    errorEl.style.display = 'none';
+  }
+  updateCardPayState();
+}
+
+function goToStep(step) {
+  [1, 2, 3].forEach(s => {
+    const el = document.getElementById('pago-step-' + s);
+    if (el) el.style.display = s === step ? '' : 'none';
+  });
+  document.querySelectorAll('.step-dot').forEach(dot => {
+    const s = parseInt(dot.dataset.step);
+    dot.classList.remove('active', 'done');
+    if (s < step) dot.classList.add('done');
+    else if (s === step) dot.classList.add('active');
+  });
+  document.querySelectorAll('.step-line').forEach((line, i) => {
+    line.classList.toggle('done', i + 1 < step);
+  });
+}
+
+function resetMethodSelection() {
+  _selectedMethod = null;
+  _cardState = { number: false, expiry: false, cvc: false };
+  document.querySelectorAll('.payment-method-btn').forEach(b => b.classList.remove('selected'));
+  updateConfirmButtonState();
+  renderMethodPanel(null);
+  const cardStep = document.getElementById('card-step-panel');
+  if (cardStep) cardStep.style.display = 'none';
+  const errorEl = document.getElementById('card-element-error');
+  if (errorEl) {
+    errorEl.textContent = '';
+    errorEl.style.display = 'none';
+  }
+  updateCardPayState();
+}
+
+function updateConfirmButtonState() {
+  const btn = document.getElementById('pago-btn-next-2');
+  if (!btn) return;
+  if (!_selectedMethod) {
+    btn.disabled = true;
+    return;
+  }
+  btn.disabled = false;
+  btn.textContent = _selectedMethod === 'card' ? 'Continuar →' : 'Confirmar pago →';
+}
+
+function renderMethodPanel(method) {
+  const panel = document.getElementById('payment-method-panel');
+  const cardStep = document.getElementById('card-step-panel');
+  if (!panel) return;
+
+  if (!method) {
+    panel.style.display = 'none';
+    panel.innerHTML = '';
+    if (cardStep) cardStep.style.display = 'none';
+    return;
+  }
+
+  if (method === 'mercadopago') {
+    panel.style.display = '';
+    panel.innerHTML =
+      '<div class="transfer-row"><span class="transfer-label">Proveedor</span><span class="transfer-value">Mercado Pago</span></div>' +
+      '<div class="transfer-row"><span class="transfer-label">Métodos</span><span class="transfer-value">Tarjetas, saldo MP, SPEI</span></div>' +
+      '<div class="transfer-row"><span class="transfer-label">Seguridad</span><span class="transfer-value">Tokenización + 3DS</span></div>' +
+      '<div class="transfer-row"><span class="transfer-label">Comprobante</span><span class="transfer-value">Recibo automático</span></div>';
+    return;
+  }
+
+  if (method === 'nu') {
+    panel.style.display = '';
+    panel.innerHTML =
+      '<div class="transfer-row"><span class="transfer-label">Proveedor</span><span class="transfer-value">Nu</span></div>' +
+      '<div class="transfer-row"><span class="transfer-label">Tipo</span><span class="transfer-value">Transferencia</span></div>' +
+      '<div class="transfer-row"><span class="transfer-label">Cuenta</span><span class="transfer-value" style="font-family:monospace;letter-spacing:.06em;">5101 2522 6555 6328</span></div>' +
+      '<div class="transfer-row"><span class="transfer-label">Titular</span><span class="transfer-value">Oscar Hernandez</span></div>';
+    return;
+  }
+
+  if (method === 'card') {
+    panel.style.display = 'none';
+    panel.innerHTML = '';
+    if (cardStep) cardStep.style.display = 'none';
+    return;
+  }
+
+  panel.style.display = 'none';
+  panel.innerHTML = '';
+  if (cardStep) cardStep.style.display = 'none';
+}
+
+async function loadStripeJs() {
+  if (window.Stripe) return;
+  await new Promise((resolve, reject) => {
+    const script = document.createElement('script');
+    script.src = 'https://js.stripe.com/v3/';
+    script.async = true;
+    script.onload = resolve;
+    script.onerror = () => reject(new Error('Stripe.js no disponible'));
+    document.head.appendChild(script);
+  });
+}
+
+function initStripeElements(publishableKey) {
+  if (!window.Stripe || _stripe) return;
+  _stripe = window.Stripe(publishableKey);
+  _stripeElements = _stripe.elements({
+    appearance: {
+      theme: 'night',
+      variables: {
+        colorPrimary: '#FBBF24',
+        colorText: '#F0F0F5',
+        colorDanger: '#F87171',
+        fontFamily: 'Inter, system-ui, -apple-system, sans-serif',
+      },
+    },
+  });
+
+  _cardNumber = _stripeElements.create('cardNumber');
+  _cardExpiry = _stripeElements.create('cardExpiry');
+  _cardCvc = _stripeElements.create('cardCvc');
+
+  // Clear placeholders before mounting Stripe iframes
+  document.querySelectorAll('.card-element-placeholder').forEach(el => el.remove());
+
+  _cardNumber.mount('#card-element-number');
+  _cardExpiry.mount('#card-element-expiry');
+  _cardCvc.mount('#card-element-cvc');
+
+  const errorEl = document.getElementById('card-element-error');
+  const handleChange = (event) => {
+    if (event.elementType === 'cardNumber') _cardState.number = event.complete;
+    if (event.elementType === 'cardExpiry') _cardState.expiry = event.complete;
+    if (event.elementType === 'cardCvc') _cardState.cvc = event.complete;
+    updateConfirmButtonState();
+    updateCardPayState();
+    if (!errorEl) return;
+    if (event.error) {
+      errorEl.textContent = event.error.message;
+      errorEl.style.display = '';
+    } else {
+      errorEl.textContent = '';
+      errorEl.style.display = 'none';
+    }
+  };
+  _cardNumber.on('change', handleChange);
+  _cardExpiry.on('change', handleChange);
+  _cardCvc.on('change', handleChange);
+}
+
+// ── Modal event listeners ───────────────────────────────────
+document.getElementById('pago-modal-close').addEventListener('click', closePaymentModal);
+document.getElementById('modal-pago').addEventListener('click', e => {
+  if (e.target === e.currentTarget) closePaymentModal();
+});
+document.getElementById('pago-btn-cancel').addEventListener('click', closePaymentModal);
+
+// Step 1 → Step 2
+document.getElementById('pago-btn-next-1').addEventListener('click', () => goToStep(2));
+
+// Step 2 ← Step 1
+document.getElementById('pago-btn-back-2').addEventListener('click', () => goToStep(1));
+document.getElementById('pago-btn-back-3').addEventListener('click', () => goToStep(2));
+
+// Payment method selection
+document.querySelectorAll('.payment-method-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    if (btn.disabled) return;
+    document.querySelectorAll('.payment-method-btn').forEach(b => b.classList.remove('selected'));
+    btn.classList.add('selected');
+    _selectedMethod = btn.dataset.method;
+    updateConfirmButtonState();
+    renderMethodPanel(_selectedMethod);
+  });
+});
+
+// Step 2 → Process payment
+document.getElementById('pago-btn-next-2').addEventListener('click', async () => {
+  if (!_selectedMethod || !_selectedPlan) return;
+  const btn = document.getElementById('pago-btn-next-2');
+
+  if (_selectedMethod === 'card') {
+    if (!_stripe) {
+      Toast.error('Stripe no está configurado. Usa otro método de pago.');
+      return;
+    }
+    goToStep(3);
+    const content = document.getElementById('pago-step-3-content');
+    if (content) {
+      content.innerHTML =
+        '<div style="font-size:2.4rem;margin-bottom:8px;">💳</div>' +
+        '<h3 style="font-size:1.05rem;font-weight:700;margin:0 0 6px;">Datos de la tarjeta</h3>' +
+        '<p style="font-size:.82rem;color:var(--text-secondary);margin:0 0 12px;">Tu pago se procesa con cifrado y 3DS</p>';
+    }
+    const meta = _PLAN_META[_selectedPlan] || {};
+    const info = _getPlanInfo(_selectedPlan);
+    const planEl = document.getElementById('card-summary-plan');
+    const priceEl = document.getElementById('card-summary-price');
+    const renewalEl = document.getElementById('card-summary-renewal');
+    if (planEl) planEl.textContent = meta.label || _selectedPlan;
+    if (priceEl) priceEl.textContent = '$' + (info.precio_mxn || '?') + ' MXN / mes';
+    if (renewalEl) renewalEl.textContent = 'Mensual · cancela cuando quieras';
+    const cardStep = document.getElementById('card-step-panel');
+    if (cardStep) cardStep.style.display = '';
+    updateCardPayState();
+    return;
+  }
+
+  btn.disabled = true;
+  btn.innerHTML = '<span class="spinner"></span> Procesando...';
+
+  if (_selectedMethod === 'mercadopago') {
+      // ── Mercado Pago Checkout ──
+      try {
+        const res = await Api.billing.mpPreference(_selectedPlan);
+        if (res.redirect_url) {
+          window.location.href = res.redirect_url;
+          return;
+        }
+        Toast.error('No se pudo crear la preferencia de pago.');
+      } catch(e) {
+        Toast.error('Error: ' + e.message);
+      }
+      btn.disabled = false;
+      btn.textContent = 'Confirmar pago →';
+
+    } else if (_selectedMethod === 'nu') {
+      // ── Nu transfer instructions ──
+      goToStep(3);
+      const meta = _PLAN_META[_selectedPlan] || {};
+      const info = _getPlanInfo(_selectedPlan);
+      document.getElementById('pago-step-3-content').innerHTML =
+        '<div style="font-size:2.5rem;margin-bottom:12px;">🏦</div>' +
+        '<h3 style="font-size:1.05rem;font-weight:700;margin:0 0 6px;">Pago con Nu</h3>' +
+        '<p style="font-size:.82rem;color:var(--text-secondary);margin:0 0 16px;">Realiza la transferencia y envía tu comprobante por WhatsApp</p>' +
+        '<div class="transfer-details">' +
+          '<div class="transfer-row"><span class="transfer-label">Plan</span><span class="transfer-value">' + esc(meta.label || _selectedPlan) + '</span></div>' +
+          '<div class="transfer-row"><span class="transfer-label">Monto mensual</span><span class="transfer-value" style="color:var(--accent-primary);">$' + (info.precio_mxn || '?') + ' MXN</span></div>' +
+          '<div class="transfer-row"><span class="transfer-label">Concepto</span><span class="transfer-value">MetodoBase-' + esc((_selectedPlan || '').toUpperCase()) + '</span></div>' +
+          '<div class="transfer-row"><span class="transfer-label">Referencia</span><span class="transfer-value" id="ref-code" style="font-family:monospace;letter-spacing:.05em;">' + generateRef() + '</span></div>' +
+        '</div>' +
+        '<div class="transfer-details" style="border-color:rgba(61,214,196,.18);background:rgba(61,214,196,.04);">' +
+          '<p style="font-size:.78rem;font-weight:700;color:var(--accent-primary);margin:0 0 10px;display:flex;align-items:center;gap:8px;"><img src="/static/img/atm-card.png" alt="tarjeta" style="width:28px;height:28px;"> Datos de la cuenta Nu</p>' +
+          '<div class="transfer-row"><span class="transfer-label">Número</span><span class="transfer-value" style="font-family:monospace;letter-spacing:.08em;">5101 2522 6555 6328</span></div>' +
+          '<div class="transfer-row"><span class="transfer-label">Titular</span><span class="transfer-value">Oscar Hernandez</span></div>' +
+          '<div class="transfer-row"><span class="transfer-label">Tipo</span><span class="transfer-value">Débito NU</span></div>' +
+        '</div>' +
+        '<p style="font-size:.75rem;color:var(--text-muted);margin:0 0 16px;">Incluye tu referencia en la descripción de la transferencia para agilizar la activación.</p>' +
+        '<div style="display:flex;gap:10px;align-items:stretch;">' +
+          '<button id="pago-step3-close" class="btn btn-outline" style="flex:1;" type="button">Cerrar</button>' +
+          '<a href="https://wa.me/' + esc(_waNumber || '7441614117') + '?text=' + encodeURIComponent('Hola, acabo de realizar una transferencia para activar mi plan ' + (_selectedPlan || '') + '. Mi referencia es: ') + '" target="_blank" rel="noopener" class="btn-comprobante" style="flex:2;">' +
+            '<svg width="16" height="16" viewBox="0 0 24 24"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347z"/><path d="M12 0C5.373 0 0 5.373 0 12c0 2.126.553 4.126 1.52 5.867L0 24l6.335-1.652A11.94 11.94 0 0012 24c6.627 0 12-5.373 12-12S18.627 0 12 0zm0 21.818c-1.872 0-3.632-.508-5.148-1.392l-.365-.218-3.762.98.999-3.648-.239-.38A9.78 9.78 0 012.182 12c0-5.408 4.41-9.818 9.818-9.818 5.408 0 9.818 4.41 9.818 9.818 0 5.408-4.41 9.818-9.818 9.818z"/></svg>' +
+            'Envíanos tu comprobante' +
+          '</a>' +
+        '</div>';
+      document.getElementById('pago-step3-close')?.addEventListener('click', closePaymentModal);
+    }
+});
+
+function updateCardPayState() {
+  const btn = document.getElementById('pago-btn-card-pay');
+  if (!btn) return;
+  if (!_billingConfig?.stripe_publishable_key) {
+    btn.disabled = true;
+    return;
+  }
+  btn.disabled = !(_cardState.number && _cardState.expiry && _cardState.cvc);
+}
+
+// ── Portal button ───────────────────────────────────────────
+document.getElementById('btn-portal').addEventListener('click', async () => {
+  try {
+    const res = await Api.billing.portal();
+    if (res.url) window.location.href = res.url;
+    else Toast.info('Portal no disponible');
+  } catch(e) {
+    Toast.error('Error: ' + e.message);
+  }
+});
+
+document.getElementById('btn-cancel-plan').addEventListener('click', async () => {
+  if (!_currentSub || !(_currentSub.status === 'active' || _currentSub.status === 'trialing' || _currentSub.status === 'past_due')) {
+    Toast.info('No hay una suscripcion activa para cancelar.');
+    return;
+  }
+  const ok = window.confirm('¿Deseas cancelar tu plan? Mantendras el acceso hasta el fin del periodo actual.');
+  if (!ok) return;
+  if (!_billingConfig?.stripe_configured) {
+    Toast.info('La cancelacion se gestiona con soporte.');
+    return;
+  }
+  try {
+    const res = await Api.billing.portal();
+    if (res.url) window.location.href = res.url;
+    else Toast.info('Portal no disponible');
+  } catch(e) {
+    Toast.error('Error: ' + e.message);
+  }
+});
+
+document.getElementById('pago-btn-card-pay').addEventListener('click', async () => {
+  if (!_selectedPlan) return;
+  const btn = document.getElementById('pago-btn-card-pay');
+  btn.disabled = true;
+  btn.innerHTML = '<span class="spinner"></span> Procesando...';
+
+  try {
+    if (!_stripe || !_cardNumber) {
+      Toast.error('Stripe no está configurado.');
+      btn.disabled = false;
+      btn.textContent = 'Pagar ahora →';
+      return;
+    }
+    const pmResult = await _stripe.createPaymentMethod({
+      type: 'card',
+      card: _cardNumber,
+    });
+    if (pmResult.error) {
+      Toast.error(pmResult.error.message);
+      btn.disabled = false;
+      btn.textContent = 'Pagar ahora →';
+      return;
+    }
+
+    if (!_billingConfig?.stripe_configured) {
+      Toast.error('Stripe no está configurado en el servidor.');
+      btn.disabled = false;
+      btn.textContent = 'Pagar ahora →';
+      return;
+    }
+    const res = await Api.billing.stripeSubscribe(_selectedPlan, pmResult.paymentMethod.id);
+    if (res.client_secret) {
+      const confirmRes = await _stripe.confirmCardPayment(res.client_secret, {
+        payment_method: pmResult.paymentMethod.id,
+        return_url: window.location.href,
+      });
+      if (confirmRes.error) {
+        Toast.error(confirmRes.error.message);
+        btn.disabled = false;
+        btn.textContent = 'Pagar ahora →';
+        return;
+      }
+      // Confirm subscription activation on backend (webhook fallback)
+      let activated = false;
+      for (let attempt = 0; attempt < 3 && !activated; attempt++) {
+        try {
+          const confirmResult = await Api.billing.confirmSubscription(res.subscription_id);
+          if (confirmResult.activated) {
+            activated = true;
+          } else {
+            // Subscription not yet active — wait and retry
+            await new Promise(r => setTimeout(r, 1500));
+          }
+        } catch(_) {
+          await new Promise(r => setTimeout(r, 1500));
+        }
+      }
+      if (!activated) {
+        console.warn('Subscription confirmation pending — webhook will complete activation');
+      }
+      launchConfetti();
+      await new Promise(r => setTimeout(r, 1800));
+      window.location.href = '/dashboard?subscription=success';
+      return;
+    }
+    Toast.error('No se pudo completar el pago.');
+  } catch(e) {
+    Toast.error('Error: ' + e.message);
+  }
+  btn.disabled = false;
+  btn.textContent = 'Pagar ahora →';
+});
+
+// ── Confetti ─────────────────────────────────────────────────
+function launchConfetti() {
+  const canvas = document.createElement('canvas');
+  canvas.style.cssText = 'position:fixed;top:0;left:0;width:100vw;height:100vh;pointer-events:none;z-index:99999';
+  document.body.appendChild(canvas);
+  const ctx = canvas.getContext('2d');
+  canvas.width = window.innerWidth;
+  canvas.height = window.innerHeight;
+  const colors = ['#FBBF24','#2DD4BF','#A78BFA','#F472B6','#34D399','#FB923C','#60A5FA'];
+  const pieces = Array.from({length: 120}, () => ({
+    x: canvas.width * Math.random(),
+    y: canvas.height * Math.random() * -1,
+    w: 6 + Math.random() * 6,
+    h: 4 + Math.random() * 4,
+    color: colors[Math.floor(Math.random() * colors.length)],
+    vx: (Math.random() - 0.5) * 6,
+    vy: 2 + Math.random() * 4,
+    rot: Math.random() * 360,
+    rv: (Math.random() - 0.5) * 12,
+    opacity: 1
+  }));
+  let frame = 0;
+  function draw() {
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    let alive = false;
+    pieces.forEach(p => {
+      p.x += p.vx; p.y += p.vy; p.vy += 0.08; p.rot += p.rv;
+      if (frame > 60) p.opacity = Math.max(0, p.opacity - 0.015);
+      if (p.opacity <= 0) return;
+      alive = true;
+      ctx.save();
+      ctx.translate(p.x, p.y);
+      ctx.rotate(p.rot * Math.PI / 180);
+      ctx.globalAlpha = p.opacity;
+      ctx.fillStyle = p.color;
+      ctx.fillRect(-p.w / 2, -p.h / 2, p.w, p.h);
+      ctx.restore();
+    });
+    frame++;
+    if (alive && frame < 180) requestAnimationFrame(draw);
+    else canvas.remove();
+  }
+  requestAnimationFrame(draw);
+}
+
+// ── Post-payment success redirect ────────────────────────────
+(function() {
+  const params = new URLSearchParams(window.location.search);
+  if (params.get('result') === 'success' || params.get('subscription') === 'success') {
+    launchConfetti();
+    Toast.success('¡Plan activado correctamente! Ya puedes generar planes sin límites.');
+    // Clean URL
+    history.replaceState({}, '', '/suscripciones');
+  } else if (params.get('subscription') === 'canceled') {
+    Toast.info('El pago fue cancelado. Puedes intentar de nuevo cuando quieras.');
+    history.replaceState({}, '', '/suscripciones');
+  }
+})();
+
+// ── Helpers ─────────────────────────────────────────────────
+function generateRef() {
+  return 'MB-' + Date.now().toString(36).toUpperCase().slice(-6) + '-' + Math.random().toString(36).slice(2, 6).toUpperCase();
+}
+</script>
+{% endblock %}

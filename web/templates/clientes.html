@@ -17,27 +17,68 @@
   </button>
 </div>
 
+<!-- ── Context bar ────────────────────────────────────────────── -->
+<div class="context-bar">
+  <span class="context-bar-item">👥 Gestión integral de tu cartera de clientes</span>
+  <span class="context-bar-item">🔍 Búsqueda avanzada por nombre, teléfono o objetivo</span>
+  <span class="context-bar-item">📋 Historial completo de suscripciones y planes</span>
+</div>
+
+<!-- ── Suscripciones Panel ───────────────────────────────────── -->
+<div class="chart-container mb-4" style="padding:28px;">
+  <div class="flex items-center gap-3 mb-4">
+    <div style="width:40px;height:40px;border-radius:10px;background:rgba(45,212,191,.08);display:flex;align-items:center;justify-content:center;">
+      <svg width="20" height="20" fill="none" viewBox="0 0 24 24" stroke="var(--accent-purple)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+    </div>
+    <div>
+      <h3 class="chart-title" style="margin:0;">Suscripciones de Clientes</h3>
+      <p style="font-size:.75rem;color:var(--text-muted);margin-top:2px;">Estado actual de las suscripciones activas e inactivas</p>
+    </div>
+  </div>
+  <div class="subscription-buttons" id="filter-suscripcion">
+    <button class="sub-btn is-active" data-filter="activos">
+      <span class="sub-btn-dot is-active"></span>
+      <span class="sub-btn-label">Activas</span>
+      <span class="sub-btn-count" id="count-activas-num">0</span>
+    </button>
+    <button class="sub-btn is-inactive" data-filter="inactivos">
+      <span class="sub-btn-dot is-inactive"></span>
+      <span class="sub-btn-label">Inactivas</span>
+      <span class="sub-btn-count" id="count-inactivas-num">0</span>
+    </button>
+  </div>
+  <button class="sub-btn-reset" data-filter="">Ver todos los clientes</button>
+  <span id="total-suscripciones" style="display:none">0</span>
+</div>
+
 <!-- ── Search bar ─────────────────────────────────────────────── -->
-<div class="glass search-bar mb-4">
+<div class="chart-container search-bar mb-4">
   <div class="input-wrap flex-1" style="max-width:480px;">
-    <span class="input-icon">🔍</span>
+    <span class="input-icon"><img src="/static/img/search.png" style="width:16px;height:16px"></span>
     <input
       id="search-input"
       type="search"
       class="input has-icon"
       placeholder="Buscar por nombre, teléfono o ID..."
       autocomplete="off"
+      aria-label="Buscar clientes"
     />
   </div>
   <button class="btn btn-primary" id="btn-buscar">Buscar</button>
-  <div class="flex items-center gap-2" style="margin-left:auto;">
+  <div class="flex items-center gap-3" style="margin-left:auto;">
+    <div class="time-tabs" id="filter-objetivo" style="margin-right:8px;">
+      <button class="time-tab active" data-obj="">Todos</button>
+      <button class="time-tab" data-obj="deficit">Déficit</button>
+      <button class="time-tab" data-obj="mantenimiento">Mant.</button>
+      <button class="time-tab" data-obj="superavit">Superávit</button>
+    </div>
     <span style="font-size:.78rem;color:var(--text-muted)">Total:</span>
     <span id="total-clientes" style="font-size:.85rem;font-weight:700;color:var(--accent-purple)">—</span>
   </div>
 </div>
 
 <!-- ── Tabla ──────────────────────────────────────────────────── -->
-<div class="glass overflow-hidden">
+<div class="chart-container overflow-hidden">
   <div style="overflow-x:auto;">
     <table class="data-table" id="tabla-clientes">
       <thead>
@@ -45,14 +86,15 @@
           <th>Cliente</th>
           <th>Edad / Peso</th>
           <th>Objetivo</th>
-          <th>Kcal objetivo</th>
+          <th>Suscripción</th>
+          <th>Planes</th>
           <th>Registrado</th>
           <th style="text-align:right">Acciones</th>
         </tr>
       </thead>
       <tbody id="clientes-tbody">
         <tr>
-          <td colspan="6">
+          <td colspan="7">
             <div class="empty-state">
               <div class="empty-state-icon">⏳</div>
               <p>Cargando clientes...</p>
@@ -67,18 +109,31 @@
 <!-- ══════════════════════════════════════════════════════════════
      Modal — Nuevo / Editar Cliente
 ══════════════════════════════════════════════════════════════ -->
-<div id="modal-cliente" class="loading-overlay hidden" style="align-items:center;justify-content:center;">
-  <div class="glass" style="width:min(600px,95vw);padding:32px;position:relative;max-height:90vh;overflow-y:auto;">
+<div id="modal-cliente" class="modal-backdrop hidden">
+  <div class="chart-container" style="width:min(620px,95vw);padding:32px;position:relative;max-height:90vh;overflow-y:auto;">
 
-    <!-- Cerrar -->
-    <button id="modal-close"
-      class="btn btn-icon btn-secondary"
-      style="position:absolute;top:16px;right:16px;">✕</button>
+    <button id="modal-close" class="btn btn-icon btn-secondary modal-close" type="button">✕</button>
 
-    <h2 class="chart-title" id="modal-title" style="margin-bottom:24px;">Nuevo Cliente</h2>
+    <!-- Header con icono -->
+    <div style="display:flex;align-items:center;gap:12px;margin-bottom:24px;">
+      <div style="width:42px;height:42px;border-radius:12px;background:var(--accent-primary-glow);display:flex;align-items:center;justify-content:center;flex-shrink:0">
+        <svg width="22" height="22" fill="none" viewBox="0 0 24 24" stroke="var(--accent-primary)" stroke-width="2">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/>
+        </svg>
+      </div>
+      <div>
+        <h2 class="chart-title" id="modal-title" style="margin:0;font-size:1.15rem;">Registrar Nuevo Cliente</h2>
+        <p style="margin:2px 0 0;font-size:0.8rem;color:var(--text-secondary);">Completa los datos para generar su plan nutricional</p>
+      </div>
+    </div>
 
     <form id="form-cliente" novalidate>
       <input type="hidden" id="field-id" />
+
+      <!-- ── Datos personales ── -->
+      <div style="font-size:0.75rem;font-weight:600;text-transform:uppercase;letter-spacing:0.05em;color:var(--accent-purple);margin-bottom:12px;padding-bottom:6px;border-bottom:1px solid rgba(255,255,255,0.06);">
+        Datos personales
+      </div>
 
       <div class="grid-2">
         <div class="input-group">
@@ -100,14 +155,19 @@
           </div>
         </div>
         <div class="input-group">
-          <label class="input-label">Sexo</label>
-          <select id="field-sexo" class="input">
-            <option value="">Sin especificar</option>
-            <option value="M">Masculino</option>
-            <option value="F">Femenino</option>
-            <option value="OTRO">Otro</option>
+          <label class="input-label required">Objetivo</label>
+          <select id="field-objetivo" class="input" required>
+            <option value="">Seleccionar...</option>
+            <option value="deficit">Déficit (bajar grasa)</option>
+            <option value="mantenimiento">Mantenimiento</option>
+            <option value="superavit">Superávit (ganar masa)</option>
           </select>
         </div>
+      </div>
+
+      <!-- ── Medidas corporales ── -->
+      <div style="font-size:0.75rem;font-weight:600;text-transform:uppercase;letter-spacing:0.05em;color:var(--accent-purple);margin-bottom:12px;padding-bottom:6px;border-bottom:1px solid rgba(255,255,255,0.06);">
+        Medidas corporales
       </div>
 
       <div class="grid-3">
@@ -126,16 +186,6 @@
           </div>
         </div>
         <div class="input-group">
-          <label class="input-label">% Grasa corporal</label>
-          <div class="input-wrap">
-            <span class="input-icon">💧</span>
-            <input id="field-grasa" class="input has-icon" type="number" step="0.1" min="5" max="60" placeholder="20.0" />
-          </div>
-        </div>
-      </div>
-
-      <div class="grid-2">
-        <div class="input-group">
           <label class="input-label required">Nivel actividad</label>
           <select id="field-nivel" class="input" required>
             <option value="">Seleccionar...</option>
@@ -145,55 +195,352 @@
             <option value="intensa">Actividad intensa</option>
           </select>
         </div>
+      </div>
+
+      <div class="grid-2">
         <div class="input-group">
-          <label class="input-label required">Objetivo</label>
-          <select id="field-objetivo" class="input" required>
-            <option value="">Seleccionar...</option>
-            <option value="deficit">Déficit (bajar grasa)</option>
-            <option value="mantenimiento">Mantenimiento</option>
-            <option value="superavit">Superávit (ganar masa)</option>
+          <label class="input-label">Sexo</label>
+          <select id="field-sexo" class="input">
+            <option value="">Sin especificar</option>
+            <option value="M">Masculino</option>
+            <option value="F">Femenino</option>
+            <option value="Otro">Otro</option>
           </select>
+        </div>
+        <div class="input-group">
+          <label class="input-label">% Grasa corporal</label>
+          <div class="input-wrap">
+            <span class="input-icon">💧</span>
+            <input id="field-grasa" class="input has-icon" type="number" step="0.1" min="5" max="60" placeholder="20.0" />
+          </div>
         </div>
       </div>
 
-      <div class="input-group">
-        <label class="input-label">Notas internas</label>
-        <textarea id="field-notas" class="input" rows="2" placeholder="Alergias, preferencias, etc..." style="resize:vertical"></textarea>
+      <!-- ── Suscripción ── -->
+      <div id="seccion-suscripcion-cliente">
+      <div style="font-size:0.75rem;font-weight:600;text-transform:uppercase;letter-spacing:0.05em;color:var(--accent-purple);margin-bottom:12px;padding-bottom:6px;border-bottom:1px solid rgba(255,255,255,0.06);display:flex;align-items:center;gap:6px;">
+        <img src="/static/img/icon-subscription.svg" alt="" style="width:18px;height:18px"> Suscripción
       </div>
 
-      <button type="submit" class="btn btn-primary btn-lg btn-full" id="btn-guardar-cliente">
-        Guardar Cliente
+      <div class="input-group">
+        <label class="input-label">Plan de suscripción</label>
+        <select id="field-plan-suscripcion" class="input">
+          <option value="">— Sin plan —</option>
+        </select>
+      </div>
+
+      <div class="grid-2">
+        <div class="input-group">
+          <label class="input-label">Fecha inicio</label>
+          <div class="input-wrap">
+            <span class="input-icon"><img src="/static/img/calendar.gif" alt="Fecha inicio" style="width:22px;height:22px;vertical-align:middle;background:rgba(255,255,255,0.08);border-radius:6px;padding:2px"></span>
+            <input id="field-fecha-suscripcion" class="input has-icon" type="date" />
+          </div>
+        </div>
+        <div class="input-group">
+          <label class="input-label">Fecha fin</label>
+          <div class="input-wrap">
+            <span class="input-icon"><img src="/static/img/schedule.gif" alt="Fecha fin" style="width:22px;height:22px;vertical-align:middle;background:rgba(255,255,255,0.08);border-radius:6px;padding:2px"></span>
+            <input id="field-fecha-fin-suscripcion" class="input has-icon" type="date" />
+          </div>
+        </div>
+      </div>
+      </div><!-- /seccion-suscripcion-cliente -->
+
+      <!-- ── Avanzados (colapsable) ── -->
+      <button type="button" class="collapsible-toggle" id="toggle-avanzados">
+        <svg width="14" height="14" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M12 6v12m-3-2.818l2.828 2.818L15 12.182"/></svg>
+        Datos avanzados ▾
       </button>
+      <div class="collapsible-content" id="campos-avanzados">
+        <div class="input-group">
+          <label class="input-label">Notas internas</label>
+          <textarea id="field-notas" class="input" rows="2" placeholder="Alergias, preferencias, etc..." style="resize:vertical"></textarea>
+        </div>
+
+        <!-- Exclusión de alimentos — Trigger button -->
+        <div class="input-group" id="seccion-preferencias-alimentos" style="margin-top:12px">
+          <button type="button" id="btn-abrir-exclusiones" class="btn-food-exclusion">
+            <img src="/static/img/no-cupcake.gif" alt="Excluir alimentos" class="food-excl-icon">
+            <div class="food-excl-text">
+              <span class="food-excl-title">Quitar alimentos</span>
+              <span class="food-excl-sub">Excluir ingredientes del plan</span>
+            </div>
+            <span id="food-excl-badge" class="food-excl-badge" style="display:none;">0</span>
+            <svg width="16" height="16" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" style="margin-left:auto;flex-shrink:0;opacity:.5;"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7"/></svg>
+          </button>
+          <div id="food-tags" style="display:flex;flex-wrap:wrap;gap:6px;margin-top:8px;min-height:0"></div>
+        </div>
+      </div>
+
+      <!-- ── Submit ── -->
+      <div style="margin-top:8px;">
+        <button type="submit" class="btn btn-primary btn-lg btn-full" id="btn-guardar-cliente"
+          style="gap:8px;font-weight:600;">
+          <svg width="18" height="18" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/>
+          </svg>
+          Guardar Cliente
+        </button>
+      </div>
     </form>
 
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════════════════════════
+     Panel — Exclusión de Alimentos
+══════════════════════════════════════════════════════════════ -->
+<div id="panel-exclusiones" class="modal-backdrop hidden">
+  <div class="modal" style="max-width:520px;">
+    <button id="panel-excl-close" class="btn btn-icon btn-secondary modal-close" type="button">✕</button>
+
+    <!-- Header con icono GIF -->
+    <div class="food-panel-header">
+      <img src="/static/img/no-cupcake.gif" alt="Excluir alimentos" class="food-panel-gif">
+      <div>
+        <h2 class="chart-title" style="margin:0;font-size:1.1rem;">Quitar alimentos</h2>
+        <p style="margin:2px 0 0;font-size:.78rem;color:var(--text-secondary);">Selecciona los alimentos que <strong>no</strong> deben incluirse en el plan</p>
+      </div>
+    </div>
+
+    <!-- Search -->
+    <div class="food-panel-search">
+      <svg width="16" height="16" fill="none" viewBox="0 0 24 24" stroke="var(--text-muted)" stroke-width="2" style="position:absolute;left:12px;top:50%;transform:translateY(-50%);"><circle cx="11" cy="11" r="8"/><path stroke-linecap="round" d="M21 21l-4.35-4.35"/></svg>
+      <input id="food-search" class="input" type="text" placeholder="Buscar alimento..." autocomplete="off" style="padding-left:36px;" />
+    </div>
+
+    <!-- Tags de excluidos -->
+    <div id="food-panel-tags" style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:12px;min-height:0"></div>
+
+    <!-- Catálogo por categorías -->
+    <div id="food-list" class="food-panel-list"></div>
+
+    <!-- Stats footer -->
+    <div class="food-panel-footer">
+      <span id="food-panel-count" style="font-size:.78rem;color:var(--text-muted);">0 alimentos excluidos</span>
+      <button type="button" id="btn-food-done" class="btn btn-primary btn-sm">Listo</button>
+    </div>
   </div>
 </div>
 
 {% endblock %}
 
 {% block scripts %}
-<script>
+<style>
+/* ── Fix: .modal inside .modal-backdrop is a content container, not overlay ── */
+#panel-exclusiones > .modal {
+  display: block !important;
+  position: relative !important;
+  inset: auto !important;
+  z-index: auto !important;
+  padding: 24px;
+  background: var(--bg-card);
+  border-radius: 16px;
+  border: 1px solid var(--border-glass);
+  border-top: 2px solid var(--accent-primary);
+  box-shadow: 0 24px 64px rgba(0,0,0,.6), 0 0 0 1px var(--border-glass);
+  width: 100%;
+}
+#panel-exclusiones.hidden { display: none !important; }
+
+/* ── Food exclusion button ────────────────────────────────── */
+.btn-food-exclusion {
+  display:flex;align-items:center;gap:12px;width:100%;
+  padding:12px 16px;border-radius:12px;
+  border:1px solid rgba(255,255,255,.06);background:rgba(255,255,255,.02);
+  cursor:pointer;transition:all .2s ease;color:var(--text-primary);
+}
+.btn-food-exclusion:hover {
+  border-color:rgba(239,68,68,.25);background:rgba(239,68,68,.04);
+  box-shadow:0 0 0 1px rgba(239,68,68,.1);
+}
+.food-excl-icon { width:38px;height:38px;border-radius:10px;flex-shrink:0; }
+.food-excl-text { display:flex;flex-direction:column;text-align:left; }
+.food-excl-title { font-weight:700;font-size:.88rem;color:var(--text-primary); }
+.food-excl-sub { font-size:.72rem;color:var(--text-muted);margin-top:1px; }
+.food-excl-badge {
+  min-width:22px;height:22px;border-radius:12px;padding:0 6px;
+  background:rgba(239,68,68,.18);color:#f87171;font-size:.72rem;
+  font-weight:700;display:flex;align-items:center;justify-content:center;
+}
+/* ── Food exclusion panel ────────────────────────────────── */
+.food-panel-header {
+  display:flex;align-items:center;gap:14px;margin-bottom:20px;
+}
+.food-panel-gif {
+  width:56px;height:56px;border-radius:14px;flex-shrink:0;
+  background:rgba(239,68,68,.06);padding:4px;
+}
+.food-panel-search {
+  position:relative;margin-bottom:12px;
+}
+.food-panel-list {
+  max-height:280px;overflow-y:auto;
+  border:1px solid rgba(255,255,255,.06);border-radius:10px;
+  background:rgba(255,255,255,.015);margin-bottom:16px;
+}
+.food-panel-list::-webkit-scrollbar { width:4px; }
+.food-panel-list::-webkit-scrollbar-thumb { background:rgba(255,255,255,.1);border-radius:4px; }
+.food-panel-footer {
+  display:flex;align-items:center;justify-content:space-between;
+  padding-top:12px;border-top:1px solid rgba(255,255,255,.06);
+}
+.food-cat-header {
+  padding:8px 14px;font-size:.7rem;font-weight:700;text-transform:uppercase;
+  letter-spacing:.04em;color:var(--accent-purple);position:sticky;top:0;
+  background:var(--bg-card);z-index:1;
+}
+.food-item-row {
+  display:flex;align-items:center;gap:10px;padding:8px 14px;
+  cursor:pointer;transition:background .12s;
+}
+.food-item-row:hover { background:rgba(255,255,255,.04); }
+.food-item-row.excluded { background:rgba(239,68,68,.06); }
+.food-item-row.excluded .food-item-name {
+  text-decoration:line-through;color:var(--text-muted);
+}
+.food-item-check {
+  width:18px;height:18px;border-radius:5px;border:1.5px solid rgba(255,255,255,.15);
+  display:flex;align-items:center;justify-content:center;flex-shrink:0;
+  transition:all .15s;
+}
+.food-item-row.excluded .food-item-check {
+  background:rgba(239,68,68,.2);border-color:#f87171;
+}
+.food-item-name { font-size:.84rem;color:var(--text-primary); }
+</style>
+
+<script nonce="{{ request.state.csp_nonce }}">
 /* ── Clientes Page ─────────────────────────────────────────── */
 
 let _clientes = [];
+let _filtroSuscripcion = localStorage.getItem('mb_last_subs_filter') || '';
+let _planesSuscripcion = [];
+let _planFeatures = {};
 
 // Cargar al inicio
 (async () => {
-  await cargarClientes('');
+  await cargarPlanFeatures();
+  aplicarRestriccionesPlan();
+  await cargarPlanesSuscripcion();
+  // Restore last filter state
+  if (_filtroSuscripcion) {
+    document.querySelectorAll('#filter-suscripcion .sub-btn').forEach(b => {
+      b.classList.toggle('active', b.dataset.filter === _filtroSuscripcion);
+    });
+  }
+  await actualizarContadores();
+  await cargarClientes('', _filtroSuscripcion);
 })();
 
-async function cargarClientes(q) {
+async function cargarPlanFeatures() {
+  try {
+    const me = await Api.auth.me();
+    _planFeatures = me.plan_features || {};
+  } catch(e) {
+    console.error('Error cargando plan features:', e);
+    _planFeatures = {};
+  }
+}
+
+function aplicarRestriccionesPlan() {
+  // Bloquear preferencias de alimentos si no está disponible
+  if (!_planFeatures.preferencias_alimentos) {
+    const secFood = document.getElementById('seccion-preferencias-alimentos');
+    if (secFood) {
+      secFood.innerHTML = `
+        <div style="padding:14px 16px;border-radius:12px;background:rgba(255,255,255,0.03);border:1px dashed rgba(255,255,255,0.1);display:flex;align-items:center;gap:12px;">
+          <span style="font-size:1.5rem;">\ud83d\udd12</span>
+          <div style="flex:1;">
+            <div style="font-size:.85rem;font-weight:600;color:var(--text-secondary);">Preferencias de alimentos</div>
+            <div style="font-size:.75rem;color:var(--text-muted);margin-top:2px;">Disponible en plan Gym Comercial y Clínica</div>
+          </div>
+          <a href="/suscripciones" class="btn btn-sm" style="font-size:.75rem;padding:6px 14px;background:var(--accent-purple);color:#fff;border-radius:8px;text-decoration:none;">Mejorar plan</a>
+        </div>`;
+    }
+  }
+  // Bloquear gestión de suscripciones si no está disponible
+  if (!_planFeatures.gestion_suscripciones) {
+    const secSub = document.getElementById('seccion-suscripcion-cliente');
+    if (secSub) {
+      secSub.innerHTML = `
+        <div style="padding:14px 16px;border-radius:12px;background:rgba(255,255,255,0.03);border:1px dashed rgba(255,255,255,0.1);display:flex;align-items:center;gap:12px;margin-bottom:16px;">
+          <span style="font-size:1.5rem;">\ud83d\udd12</span>
+          <div style="flex:1;">
+            <div style="font-size:.85rem;font-weight:600;color:var(--text-secondary);">Gestión de suscripciones</div>
+            <div style="font-size:.75rem;color:var(--text-muted);margin-top:2px;">Disponible en plan Gym Comercial y Clínica</div>
+          </div>
+          <a href="/suscripciones" class="btn btn-sm" style="font-size:.75rem;padding:6px 14px;background:var(--accent-purple);color:#fff;border-radius:8px;text-decoration:none;">Mejorar plan</a>
+        </div>`;
+    }
+    // Ocultar panel de filtro de suscripciones
+    const filterPanel = document.getElementById('filter-suscripcion');
+    if (filterPanel) filterPanel.closest('.chart-container').style.display = 'none';
+  }
+}
+
+async function cargarPlanesSuscripcion() {
+  try {
+    const sel = document.getElementById('field-plan-suscripcion');
+    if (!sel) return; // Plan no permite gestión de suscripciones
+    const res = await Api.gym.listarPlanes();
+    _planesSuscripcion = (res.planes || []).filter(p => p.activo);
+    sel.innerHTML = '<option value="">— Sin plan —</option>';
+    _planesSuscripcion.forEach(p => {
+      const opt = document.createElement('option');
+      opt.value = p.id;
+      opt.textContent = `${p.nombre} (${p.duracion_dias}d) — $${p.precio.toFixed(2)} ${p.moneda}`;
+      opt.dataset.dias = p.duracion_dias;
+      sel.appendChild(opt);
+    });
+  } catch(e) { console.error('Error cargando planes:', e); }
+}
+
+// Auto-calcular fechas al seleccionar un plan
+const _selPlanSub = document.getElementById('field-plan-suscripcion');
+if (_selPlanSub) {
+  _selPlanSub.addEventListener('change', function() {
+    const opt = this.options[this.selectedIndex];
+    if (!this.value) return;
+    const dias = parseInt(opt.dataset.dias);
+    const hoy = new Date();
+    const fin = new Date(hoy);
+    fin.setDate(fin.getDate() + dias);
+    document.getElementById('field-fecha-suscripcion').value = hoy.toISOString().slice(0,10);
+    document.getElementById('field-fecha-fin-suscripcion').value = fin.toISOString().slice(0,10);
+  });
+}
+
+async function actualizarContadores() {
+  try {
+    const resActivos = await Api.clientes.listar('', 1, 'activos');
+    const resInactivos = await Api.clientes.listar('', 1, 'inactivos');
+
+    const totalActivas = resActivos.total || 0;
+    const totalInactivas = resInactivos.total || 0;
+    const total = totalActivas + totalInactivas;
+
+    document.getElementById('count-activas-num').textContent = totalActivas;
+    document.getElementById('count-inactivas-num').textContent = totalInactivas;
+    document.getElementById('total-suscripciones').textContent = total;
+  } catch(e) {
+    console.error('Error actualizando contadores:', e);
+  }
+}
+
+async function cargarClientes(q, filtro) {
   const tbody = document.getElementById('clientes-tbody');
-  tbody.innerHTML = '<tr><td colspan="6"><div class="empty-state"><div class="empty-state-icon">⏳</div><p>Cargando...</p></div></td></tr>';
+  tbody.innerHTML = '<tr><td colspan="7"><div class="empty-state"><div class="empty-state-icon">⏳</div><p>Cargando...</p></div></td></tr>';
 
   try {
-    const res = await Api.clientes.listar(q || '', 200);
+    const res = await Api.clientes.listar(q || '', 300, filtro || '');
     _clientes = res.clientes || [];
     document.getElementById('total-clientes').textContent = res.total || 0;
     renderTabla(_clientes);
   } catch(e) {
     Toast.error('Error cargando clientes: ' + e.message);
-    tbody.innerHTML = '<tr><td colspan="6"><div class="empty-state"><div class="empty-state-icon">⚠️</div><p>No se pudieron cargar los datos</p></div></td></tr>';
+    tbody.innerHTML = '<tr><td colspan="7"><div class="empty-state"><div class="empty-state-icon">⚠️</div><p>No se pudieron cargar los datos</p></div></td></tr>';
   }
 }
 
@@ -202,12 +549,31 @@ function renderTabla(clientes) {
   tbody.innerHTML = '';
 
   if (!clientes.length) {
-    tbody.innerHTML = '<tr><td colspan="6"><div class="empty-state"><div class="empty-state-icon">👻</div><p>No se encontraron clientes</p></div></td></tr>';
+    tbody.innerHTML = '<tr><td colspan="7"><div class="empty-state"><div class="empty-state-icon">👻</div><p>No se encontraron clientes</p></div></td></tr>';
     return;
   }
 
   clientes.forEach(c => {
     const tr = document.createElement('tr');
+    // Subscription badge
+    let subBadge = '';
+    let subAlert = '';
+    if (c.dias_restantes !== null && c.dias_restantes !== undefined) {
+      if (c.dias_restantes > 7) {
+        subBadge = `<span class="subscription-badge is-active">✅ Activa · ${c.dias_restantes}d</span>`;
+      } else if (c.dias_restantes > 0) {
+        subBadge = `<span class="subscription-badge is-warning">⚠️ Por vencer · ${c.dias_restantes}d</span>`;
+        subAlert = `<div class="subscription-alert">Vence pronto</div>`;
+      } else {
+        subBadge = `<span class="subscription-badge is-expired">⛔ Expirada</span>`;
+        subAlert = `<div class="subscription-alert">Renovar suscripcion</div>`;
+      }
+    } else {
+      subBadge = `<span class="subscription-badge">Sin datos</span>`;
+    }
+    const subFecha = c.fecha_suscripcion ? formatDate(c.fecha_suscripcion) : '—';
+    const subFin = c.fecha_fin_suscripcion ? formatDate(c.fecha_fin_suscripcion) : '—';
+
     tr.innerHTML = `
       <td>
         <div class="flex items-center gap-3">
@@ -222,12 +588,19 @@ function renderTabla(clientes) {
         ${c.edad ?? '—'} años · ${c.peso_kg ?? '—'} kg
       </td>
       <td>${buildBadge(c.objetivo).outerHTML}</td>
-      <td class="text-secondary-color text-sm">${formatKcal(c.kcal_objetivo)}</td>
+      <td class="text-sm">
+        <div>${subBadge}</div>
+        ${subAlert}
+        <div class="text-xs text-muted" style="margin-top:4px;">Desde: ${subFecha}</div>
+        <div class="text-xs text-muted">Hasta: ${subFin}</div>
+      </td>
+      <td class="text-secondary-color text-sm">${c.total_planes_generados ?? 0}</td>
       <td class="text-secondary-color text-sm">${formatDate(c.fecha_registro || c.ultima_actualizacion)}</td>
       <td>
         <div class="flex items-center gap-2" style="justify-content:flex-end;">
           <button class="btn btn-icon btn-secondary btn-editar" data-id="${esc(c.id_cliente)}" title="Editar">✏️</button>
           <a href="/generar-plan?id=${esc(c.id_cliente)}" class="btn btn-icon btn-primary" title="Generar plan">📄</a>
+          <button class="btn btn-icon btn-danger btn-eliminar" data-id="${esc(c.id_cliente)}" data-nombre="${esc(c.nombre)}" title="Eliminar">🗑️</button>
         </div>
       </td>
     `;
@@ -239,17 +612,50 @@ function renderTabla(clientes) {
     // Editar
     tr.querySelector('.btn-editar')?.addEventListener('click', () => abrirModalEditar(c));
 
+    // Eliminar
+    tr.querySelector('.btn-eliminar')?.addEventListener('click', async (e) => {
+      const nombre = e.currentTarget.dataset.nombre;
+      const id = e.currentTarget.dataset.id;
+      if (!confirm(`¿Eliminar al cliente "${nombre}"? Esta acción lo desactivará del sistema.`)) return;
+      try {
+        await Api.clientes.eliminar(id);
+        Toast.success(`Cliente "${nombre}" eliminado`);
+        await actualizarContadores();
+        await cargarClientes('', _filtroSuscripcion);
+      } catch(err) {
+        Toast.error('Error eliminando: ' + err.message);
+      }
+    });
+
     tbody.appendChild(tr);
   });
 }
 
 // ── Búsqueda ────────────────────────────────────────────────
 document.getElementById('btn-buscar').addEventListener('click', () => {
-  cargarClientes(document.getElementById('search-input').value.trim());
+  cargarClientes(document.getElementById('search-input').value.trim(), _filtroSuscripcion);
 });
 
 document.getElementById('search-input').addEventListener('keydown', (e) => {
-  if (e.key === 'Enter') cargarClientes(e.target.value.trim());
+  if (e.key === 'Enter') cargarClientes(e.target.value.trim(), _filtroSuscripcion);
+});
+
+// ── Filtro por suscripción ─────────────────────────────────
+document.querySelectorAll('#filter-suscripcion .sub-btn').forEach(btn => {
+  btn.addEventListener('click', async () => {
+    document.querySelectorAll('#filter-suscripcion .sub-btn').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    document.querySelector('#filter-suscripcion .sub-btn-reset')?.classList.remove('active');
+    _filtroSuscripcion = btn.dataset.filter || '';
+    localStorage.setItem('mb_last_subs_filter', _filtroSuscripcion);
+    await cargarClientes(document.getElementById('search-input').value.trim(), _filtroSuscripcion);
+  });
+});
+document.querySelector('#filter-suscripcion .sub-btn-reset')?.addEventListener('click', async () => {
+  document.querySelectorAll('#filter-suscripcion .sub-btn').forEach(b => b.classList.remove('active'));
+  _filtroSuscripcion = '';
+  localStorage.setItem('mb_last_subs_filter', '');
+  await cargarClientes(document.getElementById('search-input').value.trim(), '');
 });
 
 // ── Modal nuevo cliente ──────────────────────────────────────
@@ -264,6 +670,14 @@ function abrirModalNuevo() {
   document.getElementById('modal-title').textContent = 'Nuevo Cliente';
   document.getElementById('form-cliente').reset();
   document.getElementById('field-id').value = '';
+  const _ps = document.getElementById('field-plan-suscripcion');
+  if (_ps) _ps.value = '';
+  const _fs = document.getElementById('field-fecha-suscripcion');
+  if (_fs) _fs.value = '';
+  const _ffs = document.getElementById('field-fecha-fin-suscripcion');
+  if (_ffs) _ffs.value = '';
+  _alimentosExcluidos.clear();
+  syncExclBadgeAndTags();
   document.getElementById('modal-cliente').classList.remove('hidden');
 }
 
@@ -280,6 +694,12 @@ function abrirModalEditar(c) {
   document.getElementById('field-nivel').value     = c.nivel_actividad ?? '';
   document.getElementById('field-objetivo').value  = c.objetivo ?? '';
   document.getElementById('field-notas').value     = c.notas ?? '';
+  const _ps2 = document.getElementById('field-plan-suscripcion');
+  if (_ps2) _ps2.value = '';
+  const _fs2 = document.getElementById('field-fecha-suscripcion');
+  if (_fs2) _fs2.value = c.fecha_suscripcion ? c.fecha_suscripcion.slice(0,10) : '';
+  const _ffs2 = document.getElementById('field-fecha-fin-suscripcion');
+  if (_ffs2) _ffs2.value = c.fecha_fin_suscripcion ? c.fecha_fin_suscripcion.slice(0,10) : '';
   document.getElementById('modal-cliente').classList.remove('hidden');
 }
 
@@ -304,6 +724,9 @@ document.getElementById('form-cliente').addEventListener('submit', async (e) => 
     nivel_actividad:   document.getElementById('field-nivel').value,
     objetivo:          document.getElementById('field-objetivo').value,
     notas:             document.getElementById('field-notas').value.trim() || null,
+    alimentos_excluidos: _planFeatures.preferencias_alimentos && _alimentosExcluidos.size > 0 ? [..._alimentosExcluidos] : null,
+    fecha_suscripcion: document.getElementById('field-fecha-suscripcion')?.value ? document.getElementById('field-fecha-suscripcion').value + 'T00:00:00' : null,
+    fecha_fin_suscripcion: document.getElementById('field-fecha-fin-suscripcion')?.value ? document.getElementById('field-fecha-fin-suscripcion').value + 'T23:59:59' : null,
   };
 
   btn.disabled = true;
@@ -318,7 +741,8 @@ document.getElementById('form-cliente').addEventListener('submit', async (e) => 
       Toast.success(`¡Cliente "${payload.nombre}" creado! Kcal: ${res.macros?.kcal_objetivo ?? '—'}`);
     }
     cerrarModal();
-    await cargarClientes('');
+    await actualizarContadores();
+    await cargarClientes('', _filtroSuscripcion);
   } catch (err) {
     Toast.error('Error: ' + err.message);
   } finally {
@@ -327,8 +751,178 @@ document.getElementById('form-cliente').addEventListener('submit', async (e) => 
   }
 });
 
-function esc(v) {
-  return String(v ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+// ── Filtro por objetivo ────────────────────────────────────
+let _filtroObjetivo = '';
+document.querySelectorAll('#filter-objetivo .time-tab').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('#filter-objetivo .time-tab').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    _filtroObjetivo = btn.dataset.obj || '';
+    const filtered = _filtroObjetivo
+      ? _clientes.filter(c => c.objetivo === _filtroObjetivo)
+      : _clientes;
+    renderTabla(filtered);
+  });
+});
+
+// ── Deep link: /clientes#nuevo ───────────────────────────────
+if (window.location.hash === '#nuevo') {
+  setTimeout(abrirModalNuevo, 300);
 }
+
+// ── Collapsible advanced fields ──────────────────────────────
+document.getElementById('toggle-avanzados').addEventListener('click', function() {
+  const content = document.getElementById('campos-avanzados');
+  content.classList.toggle('open');
+  this.textContent = content.classList.contains('open') ? 'Datos avanzados ▴' : 'Datos avanzados ▾';
+});
+
+// ── Food Exclusion Panel ──────────────────────────────────
+let _catalogoAlimentos = {};
+let _alimentosExcluidos = new Set();
+const _CAT_LABELS = {proteina:'Proteínas',carbs:'Carbohidratos',grasa:'Grasas',verdura:'Verduras',fruta:'Frutas'};
+const _CAT_ICONS = {proteina:'🥩',carbs:'🍚',grasa:'🥑',verdura:'🥦',fruta:'🍎'};
+
+async function cargarCatalogoAlimentos() {
+  try {
+    const res = await fetch('/api/alimentos/catalogo', {
+      headers: {'Authorization': 'Bearer ' + (localStorage.getItem('mb_token') || '')}
+    });
+    if (res.ok) {
+      const data = await res.json();
+      _catalogoAlimentos = data.categorias || {};
+    }
+  } catch(e) { console.warn('Catálogo no disponible:', e.message); }
+}
+
+function humanize(name) {
+  return name.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
+}
+
+// ── Open / Close panel ──
+const _btnAbrirExcl = document.getElementById('btn-abrir-exclusiones');
+if (_btnAbrirExcl) {
+  _btnAbrirExcl.addEventListener('click', () => {
+    document.getElementById('panel-exclusiones').classList.remove('hidden');
+    renderFullCatalog();
+    document.getElementById('food-search').value = '';
+    document.getElementById('food-search').focus();
+  });
+  document.getElementById('panel-excl-close').addEventListener('click', closeExclPanel);
+  document.getElementById('panel-exclusiones').addEventListener('click', e => {
+    if (e.target === e.currentTarget) closeExclPanel();
+  });
+  document.getElementById('btn-food-done').addEventListener('click', closeExclPanel);
+
+  function closeExclPanel() {
+    document.getElementById('panel-exclusiones').classList.add('hidden');
+    syncExclBadgeAndTags();
+  }
+
+// ── Render full catalog with toggle checkboxes ──
+function renderFullCatalog(query) {
+  const list = document.getElementById('food-list');
+  const q = (query || '').toLowerCase().trim();
+  let html = '';
+  let totalVisible = 0;
+
+  for (const [cat, foods] of Object.entries(_catalogoAlimentos)) {
+    const filtered = foods.filter(f => !q || humanize(f).toLowerCase().includes(q));
+    if (!filtered.length) continue;
+    html += `<div class="food-cat-header">${_CAT_ICONS[cat] || '📦'} ${_CAT_LABELS[cat] || cat} <span style="opacity:.5;font-weight:400">· ${filtered.length}</span></div>`;
+    filtered.forEach(f => {
+      const isExcl = _alimentosExcluidos.has(f);
+      html += `<div class="food-item-row${isExcl ? ' excluded' : ''}" data-food="${f}">`
+        + `<div class="food-item-check">${isExcl ? '<svg width="12" height="12" fill="none" viewBox="0 0 24 24" stroke="#f87171" stroke-width="3"><path stroke-linecap="round" stroke-linejoin="round" d="M18 6L6 18M6 6l12 12"/></svg>' : ''}</div>`
+        + `<span class="food-item-name">${humanize(f)}</span>`
+        + `</div>`;
+      totalVisible++;
+    });
+  }
+
+  if (!totalVisible && q) {
+    html = '<div style="padding:24px;color:var(--text-secondary);font-size:.84rem;text-align:center;">'
+      + '<img src="/static/img/no-cupcake.gif" alt="" style="width:48px;height:48px;opacity:.4;margin-bottom:8px;"><br>'
+      + 'No se encontraron alimentos'
+      + '</div>';
+  }
+  list.innerHTML = html;
+
+  // Attach click handlers
+  list.querySelectorAll('.food-item-row').forEach(el => {
+    el.addEventListener('click', () => {
+      const food = el.dataset.food;
+      if (_alimentosExcluidos.has(food)) _alimentosExcluidos.delete(food);
+      else _alimentosExcluidos.add(food);
+      renderFullCatalog(document.getElementById('food-search').value);
+      syncPanelTags();
+      updateFoodCount();
+    });
+  });
+  updateFoodCount();
+}
+
+// ── Panel tags (inside panel) ──
+function syncPanelTags() {
+  const container = document.getElementById('food-panel-tags');
+  container.innerHTML = '';
+  _alimentosExcluidos.forEach(food => {
+    const tag = document.createElement('span');
+    tag.style.cssText = 'display:inline-flex;align-items:center;gap:4px;padding:3px 10px;border-radius:20px;font-size:0.73rem;background:rgba(239,68,68,0.14);color:#f87171;cursor:pointer;transition:all 0.15s;border:1px solid rgba(239,68,68,.12)';
+    tag.textContent = humanize(food) + ' ✕';
+    tag.title = 'Click para restaurar';
+    tag.addEventListener('click', () => {
+      _alimentosExcluidos.delete(food);
+      renderFullCatalog(document.getElementById('food-search').value);
+      syncPanelTags();
+      updateFoodCount();
+    });
+    container.appendChild(tag);
+  });
+}
+
+// ── Sync badge + tags in main form ──
+function syncExclBadgeAndTags() {
+  const badge = document.getElementById('food-excl-badge');
+  if (!badge) return; // Plan no permite preferencias de alimentos
+  const count = _alimentosExcluidos.size;
+  badge.textContent = count;
+  badge.style.display = count > 0 ? 'flex' : 'none';
+
+  // Tags in main form
+  const container = document.getElementById('food-tags');
+  if (!container) return;
+  container.innerHTML = '';
+  _alimentosExcluidos.forEach(food => {
+    const tag = document.createElement('span');
+    tag.style.cssText = 'display:inline-flex;align-items:center;gap:4px;padding:3px 10px;border-radius:20px;font-size:0.73rem;background:rgba(239,68,68,0.14);color:#f87171;cursor:pointer;transition:all 0.15s';
+    tag.textContent = humanize(food) + ' ✕';
+    tag.title = 'Click para restaurar';
+    tag.addEventListener('click', () => {
+      _alimentosExcluidos.delete(food);
+      syncExclBadgeAndTags();
+    });
+    container.appendChild(tag);
+  });
+}
+
+function updateFoodCount() {
+  const el = document.getElementById('food-panel-count');
+  const n = _alimentosExcluidos.size;
+  el.textContent = n === 0 ? 'Ningún alimento excluido' : n + ' alimento' + (n > 1 ? 's' : '') + ' excluido' + (n > 1 ? 's' : '');
+}
+
+const _foodSearchEl = document.getElementById('food-search');
+if (_foodSearchEl) {
+  _foodSearchEl.addEventListener('input', function() {
+    renderFullCatalog(this.value);
+  });
+}
+
+// Load food catalog on page init
+if (_btnAbrirExcl) cargarCatalogoAlimentos();
+} // end if (_btnAbrirExcl)
+
+// esc() is provided by components.js
 </script>
 {% endblock %}

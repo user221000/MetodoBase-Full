@@ -29,14 +29,13 @@ from __future__ import annotations
 import re
 from typing import Optional
 
-from PySide6.QtCore import Qt, QTimer
+from PySide6.QtCore import Qt
 from PySide6.QtWidgets import (
     QDialog,
     QFrame,
     QHBoxLayout,
     QLabel,
     QLineEdit,
-    QMessageBox,
     QPushButton,
     QScrollArea,
     QSizePolicy,
@@ -415,8 +414,6 @@ class VentanaAccesoGym(QDialog):
         # Determinar modo
         try:
             from src.gestor_usuarios import GestorUsuarios
-            from pathlib import Path
-            from config.constantes import CARPETA_REGISTROS
             _gu = GestorUsuarios(crypto_service=self._auth_service._gu._crypto)
             existe = _gu.existe_cuenta_gym()
         except Exception:
@@ -443,19 +440,19 @@ class VentanaAccesoGym(QDialog):
         banner = QWidget()
         banner.setStyleSheet(
             "background: qlineargradient(x1:0,y1:0,x2:1,y2:0,"
-            "stop:0 #0a1409,stop:1 #152515);"
-            "border-bottom: 2px solid #2a4a2a;"
+            "stop:0 #0A0A0A,stop:1 #141414);"
+            "border-bottom: 2px solid #1F1F1F;"
         )
         banner_lay = QHBoxLayout(banner)
         banner_lay.setContentsMargins(28, 18, 28, 18)
 
         dot = QLabel("●")
-        dot.setStyleSheet("color: #39ff14; font-size: 16px; background: transparent;")
+        dot.setStyleSheet("color: #FFEB3B; font-size: 16px; background: transparent;")
         banner_lay.addWidget(dot)
 
         brand = QLabel("  Método Base — Módulo GYM")
         brand.setStyleSheet(
-            "color: #e8f5e9; font-size: 17px; font-weight: 700; background: transparent;"
+            "color: #FFFFFF; font-size: 17px; font-weight: 700; background: transparent;"
         )
         banner_lay.addWidget(brand)
         banner_lay.addStretch()
@@ -464,8 +461,8 @@ class VentanaAccesoGym(QDialog):
         badge = QLabel(f" {badge_text} ")
         badge.setStyleSheet(
             "background: qlineargradient(x1:0,y1:0,x2:1,y2:0,"
-            "stop:0 #ffd700,stop:1 #d4af37);"
-            "color: #0a1409; font-size: 11px; font-weight: 700;"
+            "stop:0 #FFEB3B,stop:1 #FDD835);"
+            "color: #0A0A0A; font-size: 11px; font-weight: 700;"
             "padding: 3px 10px; border-radius: 10px;"
         )
         banner_lay.addWidget(badge)

@@ -6,12 +6,8 @@ Ejecutar con:
     python -m pytest tests/test_validacion.py -v
 """
 
-import pytest
 
-# ValidadorCamposTiempoReal está en gui/app_gui.py pero no tiene dependencias
-# de Tkinter (es una clase estática pura), por lo que se puede importar
-# directamente sin inicializar la UI.
-from gui.validadores import ValidadorCamposTiempoReal as V
+from utils.validadores import ValidadorCamposTiempoReal as V
 
 
 # ---------------------------------------------------------------------------
@@ -29,13 +25,13 @@ class TestValidarPeso:
         assert ok is True
 
     def test_peso_limite_superior(self):
-        ok, _ = V.validar_peso("155")
+        ok, _ = V.validar_peso("300")
         assert ok is True
 
     def test_peso_muy_alto_rechazado(self):
-        ok, msg = V.validar_peso("300")
+        ok, msg = V.validar_peso("301")
         assert ok is False
-        assert "155" in msg       # el mensaje menciona el límite máximo
+        assert "300" in msg       # el mensaje menciona el límite máximo
 
     def test_peso_muy_bajo_rechazado(self):
         ok, msg = V.validar_peso("10")
@@ -151,12 +147,12 @@ class TestValidarEstatura:
         assert ok is False
 
     def test_estatura_muy_alta(self):
-        ok, _ = V.validar_estatura("250")
+        ok, _ = V.validar_estatura("251")
         assert ok is False
 
     def test_estatura_limits(self):
         ok_min, _ = V.validar_estatura("100")
-        ok_max, _ = V.validar_estatura("230")
+        ok_max, _ = V.validar_estatura("250")
         assert ok_min is True
         assert ok_max is True
 
@@ -171,13 +167,13 @@ class TestValidarGrasa:
         assert ok is True
 
     def test_grasa_minima(self):
-        ok, _ = V.validar_grasa("5")
+        ok, _ = V.validar_grasa("3")
         assert ok is True
 
     def test_grasa_debajo_minimo(self):
-        ok, msg = V.validar_grasa("3")
+        ok, msg = V.validar_grasa("2")
         assert ok is False
-        assert "5" in msg
+        assert "3" in msg
 
     def test_grasa_encima_maximo(self):
         ok, _ = V.validar_grasa("65")

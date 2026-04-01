@@ -17,7 +17,7 @@ from config.constantes import FACTORES_ACTIVIDAD, CARPETA_SALIDA, CARPETA_PLANES
 from core.modelos import ClienteEvaluacion
 from core.motor_nutricional import MotorNutricional
 from core.generador_planes import ConstructorPlanNuevo
-from core.exportador_salida import GeneradorPDFProfesional
+from api.pdf_generator import PDFGenerator
 from core.licencia import GestorLicencias
 from utils.logger import logger
 
@@ -42,7 +42,7 @@ def cargar_fuentes_personalizadas() -> None:
 
         fonts_dir = Path(__file__).parent / "fonts" / "Inter"
         if not fonts_dir.exists():
-            print("⚠️  Directorio fonts/Inter no encontrado — usando fuente del sistema")
+            logger.warning("Directorio fonts/Inter no encontrado — usando fuente del sistema")
             return
 
         loaded: list[str] = []
@@ -55,37 +55,37 @@ def cargar_fuentes_personalizadas() -> None:
                 loaded.append(ttf.name)
 
         if loaded:
-            print(f"✅ Fuentes Inter cargadas ({len(loaded)}): {', '.join(loaded)}")
+            logger.info("Fuentes Inter cargadas (%d): %s", len(loaded), ', '.join(loaded))
         if failed:
-            print(f"❌ Fuentes no cargadas: {', '.join(failed)}")
+            logger.warning("Fuentes no cargadas: %s", ', '.join(failed))
 
     except Exception as exc:
-        print(f"⚠️  Error al cargar fuentes Inter: {exc}")
+        logger.warning("Error al cargar fuentes Inter: %s", exc)
 
 
 def _crear_pixmap_splash() -> "QPixmap":
-    """Crea un QPixmap 400×200 para el splash screen con tema verde premium."""
+    """Crea un QPixmap 400×200 para el splash screen con tema yellow neon."""
     pix = QPixmap(400, 200)
-    pix.fill(QColor("#0a1409"))
+    pix.fill(QColor("#0A0A0A"))
     painter = QPainter(pix)
     painter.setRenderHint(QPainter.Antialiasing)
-    # Punto acento verde neón
-    painter.setBrush(QBrush(QColor("#39ff14")))
+    # Punto acento amarillo neón
+    painter.setBrush(QBrush(QColor("#FFEB3B")))
     painter.setPen(Qt.NoPen)
     painter.drawEllipse(192, 20, 16, 16)
     # Título
     f_titulo = QFont("Inter", 20)
     f_titulo.setBold(True)
     painter.setFont(f_titulo)
-    painter.setPen(QColor("#e8f5e9"))
+    painter.setPen(QColor("#FFFFFF"))
     painter.drawText(0, 60, 400, 50, Qt.AlignHCenter | Qt.AlignVCenter, "Método Base")
     # Subtítulo
     painter.setFont(QFont("Inter", 11))
-    painter.setPen(QColor("#66bb6a"))
+    painter.setPen(QColor("#FFEB3B"))
     painter.drawText(0, 110, 400, 30, Qt.AlignHCenter | Qt.AlignVCenter,
                      "Sistema de Planes Nutricionales")
     # Barra de progreso base
-    painter.setBrush(QBrush(QColor("#152515")))
+    painter.setBrush(QBrush(QColor("#1A1A1A")))
     painter.setPen(Qt.NoPen)
     painter.drawRoundedRect(100, 160, 200, 6, 3, 3)
     painter.end()
@@ -102,24 +102,10 @@ if __name__ == "__main__":
         # Registrar fuentes Inter antes de construir cualquier widget
         cargar_fuentes_personalizadas()
 
-        # Cargar stylesheet verde premium para toda la aplicación (todos los diálogos)
-        try:
-            from ui_desktop.pyside.theme_manager import ThemeManager
-            _theme_mgr = ThemeManager.instance()
-            # Forzar verde_premium desde el inicio, antes de cualquier diálogo
-            if _theme_mgr.current_theme == "verde_premium":
-                _theme_mgr.reload()
-            else:
-                _theme_mgr.set_theme("verde_premium", animated=False)
-        except Exception as _te:
-            # Fallback: cargar dark_theme.qss directamente
-            logger.warning("[THEME] ThemeManager no disponible: %s — usando dark_theme.qss", _te)
-            _qss_path = os.path.join(
-                os.path.dirname(__file__), "ui_desktop", "pyside", "styles", "dark_theme.qss"
-            )
-            if os.path.exists(_qss_path):
-                with open(_qss_path, encoding="utf-8") as f:
-                    app.setStyleSheet(f.read())
+        # Aplicar tema visual via ThemeManager (respeta preferencia guardada)
+        from ui_desktop.pyside.theme_manager import ThemeManager
+        ThemeManager.instance().reload()
+        logger.info("[THEME] %s cargado via ThemeManager", ThemeManager.instance().current_theme)
 
         # Splash screen
         _pix = _crear_pixmap_splash()
@@ -136,7 +122,7 @@ if __name__ == "__main__":
             p = _crear_pixmap_splash()
             painter = QPainter(p)
             painter.setRenderHint(QPainter.Antialiasing)
-            painter.setBrush(QBrush(QColor("#39ff14")))
+            painter.setBrush(QBrush(QColor("#FFEB3B")))
             painter.setPen(Qt.NoPen)
             ancho = int(200 * min(_prog[0], 100) / 100)
             painter.drawRoundedRect(100, 160, ancho, 6, 3, 3)
@@ -154,13 +140,14 @@ if __name__ == "__main__":
             from core.branding import branding as _branding
 
             # ── Flujo unificado: InicioPanel → GYM | Usuario Regular ─────
+            _flow = None
             try:
                 from ui_desktop.pyside.flow_controller import FlowController
                 _flow = FlowController()
                 _resultado = _flow.exec()
             except Exception as _fe:
                 logger.error("[FLOW] Error cargando FlowController: %s", _fe)
-                _resultado = FlowController.RESULTADO_MODO_GYM if 'FlowController' in dir() else 2
+                _resultado = 2  # Default: modo GYM
 
             if _resultado == 0:  # RESULTADO_CANCELADO
                 logger.info("[FLOW] Flujo cancelado por el usuario.")
@@ -174,7 +161,7 @@ if __name__ == "__main__":
                 # Si VentanaLoginUnificada ya autenticó → saltar VentanaAccesoGym.
                 # Si sesion_gym es None el usuario pidió "Registrar mi gym" →
                 # abrir VentanaAccesoGym en modo registro.
-                _sesion_gym = getattr(_flow, "sesion_gym", None)
+                _sesion_gym = getattr(_flow, "sesion_gym", None) if _flow else None
                 if _sesion_gym is None:
                     try:
                         from ui_desktop.pyside.ventana_acceso_gym import VentanaAccesoGym
@@ -194,10 +181,9 @@ if __name__ == "__main__":
 
                 _branding.recargar()
 
-                # 2) Wizard de colores / logo (solo si aún no está configurado)
-                _colores_ok = bool(_branding.get("colores.primario", "").strip()
-                                   and _branding.get("colores.primario") != "#FF6F0F")
-                if not _colores_ok:
+                # 2) Wizard de configuración inicial (solo si aún no hay nombre de gym)
+                _gym_configurado = bool(_branding.get("nombre_gym", "").strip())
+                if not _gym_configurado:
                     try:
                         from ui_desktop.pyside.wizard_onboarding import WizardOnboarding
                         wizard = WizardOnboarding()
@@ -208,6 +194,14 @@ if __name__ == "__main__":
 
                 try:
                     _gestor_lic = GestorLicencias()
+
+                    # Verificar revocación remota al arranque
+                    try:
+                        if _gestor_lic.verificar_revocacion_remota():
+                            logger.warning("[LICENCIA] Licencia revocada remotamente.")
+                    except Exception:
+                        pass
+
                     _valida, _msg, _ = _gestor_lic.validar_licencia()
                     if not _valida:
                         logger.warning("[LICENCIA] Licencia no válida: %s", _msg)
@@ -243,7 +237,7 @@ if __name__ == "__main__":
         # Fallback a modo consola
         print("\n" + "=" * 60)
         print("    SISTEMA MVP GYMS - GENERADOR DE PLANES NUTRICIONALES")
-        print("    (Modo Consola - instala customtkinter para GUI)")
+        print("    (Modo Consola - instala PySide6 para GUI)")
         print("=" * 60)
 
         os.makedirs(CARPETA_PLANES, exist_ok=True)
@@ -338,7 +332,6 @@ if __name__ == "__main__":
         print("\n" + "-" * 40)
         print("Procesando...")
 
-        from core.modelos import ClienteEvaluacion
         cliente = ClienteEvaluacion(
             nombre=nombre, telefono=telefono if telefono else None, edad=edad, peso_kg=peso,
             estatura_cm=altura, grasa_corporal_pct=grasa, nivel_actividad=nivel, objetivo=objetivo
@@ -346,9 +339,7 @@ if __name__ == "__main__":
         if id_cliente:
             cliente.id_cliente = id_cliente
         cliente.factor_actividad = FACTORES_ACTIVIDAD.get(nivel, 1.2)
-        from core.motor_nutricional import MotorNutricional
         cliente = MotorNutricional.calcular_motor(cliente)
-        from core.generador_planes import ConstructorPlanNuevo
         plan = ConstructorPlanNuevo.construir(cliente, plan_numero=1, directorio_planes=CARPETA_PLANES)
 
         if not os.path.exists(CARPETA_SALIDA):
@@ -356,9 +347,9 @@ if __name__ == "__main__":
 
         nombre_pdf = f"plan_{cliente.nombre.replace(' ', '_')}_{datetime.now().strftime('%Y%m%d_%H%M%S')}.pdf"
         ruta_pdf_completa = os.path.join(CARPETA_SALIDA, nombre_pdf)
-        from core.exportador_salida import GeneradorPDFProfesional
-        generador = GeneradorPDFProfesional(ruta_pdf_completa)
-        ruta_pdf = generador.generar(cliente, plan)
+        pdf_gen = PDFGenerator()
+        datos_pdf = PDFGenerator.datos_from_cliente(cliente, plan)
+        ruta_pdf = pdf_gen.generar_plan(datos_pdf, Path(ruta_pdf_completa))
 
         # Registrar cliente y plan en BD
         gestor_bd.registrar_cliente(cliente)

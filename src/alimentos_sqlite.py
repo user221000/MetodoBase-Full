@@ -24,7 +24,12 @@ def _db_path() -> Path:
     return Path(CARPETA_CONFIG) / DB_FILENAME
 
 
+_TABLAS_VALIDAS_ALIMENTOS = frozenset({"alimentos", "categorias", "limites", "equivalencias"})
+
+
 def _table_empty(cursor: sqlite3.Cursor, table: str) -> bool:
+    if table not in _TABLAS_VALIDAS_ALIMENTOS:
+        raise ValueError(f"Tabla no permitida: {table}")
     cursor.execute(f"SELECT COUNT(*) FROM {table}")
     return cursor.fetchone()[0] == 0
 

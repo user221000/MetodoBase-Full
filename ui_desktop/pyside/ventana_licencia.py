@@ -6,13 +6,15 @@ Reemplaza gui/ventana_licencia.py.
 
 from PySide6.QtWidgets import (
     QDialog, QVBoxLayout, QHBoxLayout, QLabel, QLineEdit,
-    QComboBox, QPushButton, QFrame, QMessageBox, QApplication, QWidget,
+    QComboBox, QPushButton, QFrame, QApplication, QWidget,
 )
 from PySide6.QtCore import Qt
 
 from core.licencia import GestorLicencias
+from config.constantes import PLANES_LICENCIA
+from design_system.tokens import Colors
+from ui_desktop.pyside.widgets.toast import mostrar_toast
 from utils.telemetria import registrar_evento
-from utils.logger import logger
 
 
 PLANES_COMERCIALES = {
@@ -58,7 +60,7 @@ class VentanaActivacionLicencia(QDialog):
         # Título
         lbl_titulo = QLabel("Activación de licencia")
         lbl_titulo.setAlignment(Qt.AlignCenter)
-        lbl_titulo.setStyleSheet("color: #9B4FB0; font-size: 22px; font-weight: bold;")
+        lbl_titulo.setStyleSheet(f"color: {Colors.PRIMARY}; font-size: 22px; font-weight: bold;")
         card_layout.addWidget(lbl_titulo)
 
         # Subtítulo
@@ -68,8 +70,16 @@ class VentanaActivacionLicencia(QDialog):
         )
         lbl_sub.setAlignment(Qt.AlignCenter)
         lbl_sub.setWordWrap(True)
-        lbl_sub.setStyleSheet("color: #B8B8B8; font-size: 12px;")
+        lbl_sub.setStyleSheet(f"color: {Colors.TEXT_SECONDARY}; font-size: 12px;")
         card_layout.addWidget(lbl_sub)
+
+        # Tabla de planes disponibles
+        planes_lbl = QLabel(self._planes_html())
+        planes_lbl.setAlignment(Qt.AlignCenter)
+        planes_lbl.setWordWrap(True)
+        planes_lbl.setTextFormat(Qt.RichText)
+        planes_lbl.setStyleSheet(f"color: {Colors.TEXT_PRIMARY}; font-size: 11px; margin: 6px 0;")
+        card_layout.addWidget(planes_lbl)
 
         # ID de instalación
         card_layout.addWidget(self._lbl_campo("ID instalación"))
@@ -101,7 +111,7 @@ class VentanaActivacionLicencia(QDialog):
         # Etiqueta de estado
         self.lbl_estado = QLabel("Ayuda: selecciona periodo y escribe la key completa.")
         self.lbl_estado.setWordWrap(True)
-        self.lbl_estado.setStyleSheet("color: #B8B8B8; font-size: 10px;")
+        self.lbl_estado.setStyleSheet(f"color: {Colors.TEXT_SECONDARY}; font-size: 10px;")
         card_layout.addWidget(self.lbl_estado)
 
         # Botones
@@ -110,16 +120,17 @@ class VentanaActivacionLicencia(QDialog):
         btns.setSpacing(10)
         btns.setContentsMargins(0, 8, 0, 0)
 
-        btn_copiar = QPushButton("Copiar ID")
+        btn_copiar = QPushButton("📋  Copiar ID")
         btn_copiar.setObjectName("btn_secondary")
         btn_copiar.clicked.connect(self._copiar_id)
         btns.addWidget(btn_copiar)
 
-        btn_activar = QPushButton("Activar")
+        btn_activar = QPushButton("✅  Activar")
+        btn_activar.setObjectName("primaryButton")
         btn_activar.clicked.connect(self._activar)
         btns.addWidget(btn_activar)
 
-        btn_salir = QPushButton("Salir")
+        btn_salir = QPushButton("←  Salir")
         btn_salir.setObjectName("btn_secondary")
         btn_salir.clicked.connect(self._cerrar_sin_activar)
         btns.addWidget(btn_salir)
@@ -129,12 +140,31 @@ class VentanaActivacionLicencia(QDialog):
     @staticmethod
     def _lbl_campo(texto: str) -> QLabel:
         lbl = QLabel(texto)
-        lbl.setStyleSheet("color: #F5F5F5; font-size: 12px; font-weight: bold;")
+        lbl.setStyleSheet(f"color: {Colors.TEXT_PRIMARY}; font-size: 12px; font-weight: bold;")
         return lbl
 
     # ------------------------------------------------------------------
     # Helpers
     # ------------------------------------------------------------------
+
+    @staticmethod
+    def _planes_html() -> str:
+        """Genera tabla HTML con los planes de PLANES_LICENCIA."""
+        rows = ""
+        for nombre, info in PLANES_LICENCIA.items():
+            clientes = "Ilimitado" if info["max_clientes"] == 0 else str(info["max_clientes"])
+            rows += (
+                f"<tr><td style='padding:2px 8px;'><b>{nombre.capitalize()}</b></td>"
+                f"<td style='padding:2px 8px;'>${info['precio_mxn']} MXN/mes</td>"
+                f"<td style='padding:2px 8px;'>{clientes} clientes</td></tr>"
+            )
+        return (
+            "<table style='margin:auto; border-collapse:collapse;'>"
+            "<tr style='color:#FFEB3B;'><th style='padding:2px 8px;'>Plan</th>"
+            "<th style='padding:2px 8px;'>Precio</th>"
+            "<th style='padding:2px 8px;'>Límite</th></tr>"
+            f"{rows}</table>"
+        )
 
     def _obtener_plan_seleccionado(self) -> str:
         label_actual = self.combo_periodo.currentText()
@@ -154,18 +184,18 @@ class VentanaActivacionLicencia(QDialog):
                 f"Ayuda: activación para {dias} días ({meses} meses). "
                 f"La key debe corresponder al plan seleccionado ({prefijo}...)."
             )
-            self.lbl_estado.setStyleSheet("color: #B8B8B8; font-size: 10px;")
+            self.lbl_estado.setStyleSheet(f"color: {Colors.TEXT_SECONDARY}; font-size: 10px;")
             return
         if len(key) < 10:
             self.lbl_estado.setText("Error: key incompleta. Revisa bloques y guiones.")
-            self.lbl_estado.setStyleSheet("color: #F44336; font-size: 10px;")
+            self.lbl_estado.setStyleSheet(f"color: {Colors.ERROR}; font-size: 10px;")
             return
         self.lbl_estado.setText("OK: formato capturado. Puedes activar.")
-        self.lbl_estado.setStyleSheet("color: #4CAF50; font-size: 10px;")
+        self.lbl_estado.setStyleSheet(f"color: {Colors.SUCCESS}; font-size: 10px;")
 
     def _copiar_id(self) -> None:
         QApplication.clipboard().setText(self._id_instalacion)
-        QMessageBox.information(self, "ID copiado", "ID de instalación copiado al portapapeles.")
+        mostrar_toast(self, "✅ ID de instalación copiado al portapapeles.", "success")
 
     def _activar(self) -> None:
         key = self.entry_key.text().strip()
@@ -182,16 +212,16 @@ class VentanaActivacionLicencia(QDialog):
         )
         if not ok:
             self.lbl_estado.setText(f"Error: {msg}")
-            self.lbl_estado.setStyleSheet("color: #F44336; font-size: 10px;")
-            QMessageBox.critical(self, "Activación fallida", msg)
+            self.lbl_estado.setStyleSheet(f"color: {Colors.ERROR}; font-size: 10px;")
+            mostrar_toast(self, f"❌ Activación fallida: {msg}", "error")
             registrar_evento("licencia", "activacion_fallida", {"plan": plan})
             return
 
         self.activada = True
         self.lbl_estado.setText(f"OK: {msg}")
-        self.lbl_estado.setStyleSheet("color: #4CAF50; font-size: 10px;")
+        self.lbl_estado.setStyleSheet(f"color: {Colors.SUCCESS}; font-size: 10px;")
         registrar_evento("licencia", "activacion_exitosa", {"plan": plan, "periodo": periodo})
-        QMessageBox.information(self, "Activación correcta", msg)
+        mostrar_toast(self, f"✅ {msg}", "success")
         self.accept()
 
     def _cerrar_sin_activar(self) -> None:

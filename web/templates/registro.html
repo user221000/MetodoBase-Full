@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="es" class="dark">
+<html lang="es">
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
@@ -7,89 +7,109 @@
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
-  <script src="https://cdn.tailwindcss.com"></script>
-  <link rel="stylesheet" href="/static/css/styles.css" />
+  <link rel="stylesheet" href="/static/css/styles-auth.css" />
   <style>
-    body { background: #0a0a0f; font-family: 'Inter', sans-serif; min-height: 100vh; }
-    .neon-card {
-      border: 2px solid rgba(254,202,87,0.3);
-      box-shadow: 0 0 30px rgba(254,202,87,0.08);
+    /* Registration-specific overrides */
+    body { overflow: auto; }
+    .registro-wrapper {
+      min-height: 100vh; display: flex; align-items: center; justify-content: center;
+      padding: 40px 24px; position: relative;
     }
-    .input-field {
-      width: 100%; background: rgba(26,26,36,0.9); border: 1px solid rgba(255,255,255,0.1);
-      border-radius: 10px; padding: 12px 16px; color: #fff; font-size: .93rem;
-      outline: none; transition: border-color .25s, box-shadow .25s;
+    .bg-depth {
+      position: fixed; inset: 0; z-index: 0; pointer-events: none;
+      background:
+        radial-gradient(circle at 25% 35%, rgba(45, 212, 191, 0.05) 0%, transparent 40%),
+        radial-gradient(circle at 75% 65%, rgba(251, 191, 36, 0.03) 0%, transparent 45%);
     }
-    .input-field:focus { border-color: #feca57; box-shadow: 0 0 0 3px rgba(254,202,87,0.12); }
-    .input-field::placeholder { color: #6b6b7d; }
-    select.input-field { color: #fff; }
-    select.input-field option { background: #1a1a24; color: #fff; }
-    .btn-primary {
-      width: 100%; padding: 14px; border-radius: 10px; font-weight: 700;
-      font-size: 1rem; cursor: pointer; transition: all .3s; border: none;
-      background: linear-gradient(135deg,#feca57,#ff9f43); color: #0a0a0f;
+    .registro-card {
+      position: relative; z-index: 1;
+      width: 100%; max-width: 520px;
+      background: rgba(22, 22, 31, 0.85);
+      border: 1px solid var(--border-glass);
+      border-radius: 20px;
+      backdrop-filter: blur(16px);
+      padding: 40px 36px;
     }
-    .btn-primary:hover { box-shadow: 0 0 30px rgba(254,202,87,0.5); transform: translateY(-1px); }
-    .btn-primary:active { transform: translateY(0); }
-    .btn-primary:disabled { opacity: .6; cursor: not-allowed; transform: none; }
-    .error-msg {
-      background: rgba(255,71,87,.12); border: 1px solid rgba(255,71,87,.35);
-      border-radius: 8px; padding: 10px 14px; color: #ff4757; font-size: .85rem;
-      display: none;
+    .registro-header { text-align: center; margin-bottom: 28px; }
+    .registro-title {
+      font-size: 1.9rem; font-weight: 800; color: var(--text-primary);
+      margin-bottom: 4px;
     }
-    .success-msg {
-      background: rgba(46,213,115,.1); border: 1px solid rgba(46,213,115,.35);
-      border-radius: 8px; padding: 10px 14px; color: #2ed573; font-size: .85rem;
-      display: none;
-    }
+    .registro-subtitle { color: var(--text-secondary); font-size: .9rem; }
+
+    .tipo-row { display: flex; gap: 10px; margin-bottom: 24px; }
     .tipo-btn {
-      flex: 1; padding: 10px; border-radius: 8px; font-size: .88rem; font-weight: 600;
-      cursor: pointer; transition: all .25s; border: 2px solid rgba(255,255,255,0.1);
-      background: rgba(26,26,36,0.8); color: #a0a0b5;
+      flex: 1; padding: 10px; border-radius: 8px; font-size: .85rem; font-weight: 600;
+      cursor: pointer; transition: all .25s;
+      border: 2px solid rgba(255,255,255,0.08);
+      background: rgba(255,255,255,0.03); color: var(--text-muted);
+      font-family: inherit;
     }
-    .tipo-btn.active-gym    { border-color: #667eea; color: #667eea; background: rgba(102,126,234,.1); }
-    .tipo-btn.active-usuario { border-color: #48dbfb; color: #48dbfb; background: rgba(72,219,251,.1); }
+    .tipo-btn.active-gym {
+      border-color: rgba(251, 191, 36, 0.35); color: var(--auth-accent);
+      background: rgba(251, 191, 36, 0.06);
+    }
+    .tipo-btn.active-usuario {
+      border-color: rgba(45, 212, 191, 0.4); color: var(--accent-purple);
+      background: rgba(45, 212, 191, 0.06);
+    }
+    .tipo-btn:focus-visible {
+      outline: 2px solid var(--auth-accent); outline-offset: 2px;
+    }
+
+    .name-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+    .success-msg {
+      background: rgba(16,185,129,.08); border: 1px solid rgba(16,185,129,.25);
+      border-radius: 8px; padding: 10px 14px; color: var(--accent-green); font-size: .85rem;
+      display: none; margin-bottom: 16px;
+    }
+    .security-note {
+      background: rgba(251,191,36,.03); border: 1px solid rgba(251,191,36,.08);
+      border-radius: 8px; padding: 12px; margin-bottom: 24px;
+      font-size: .8rem; color: var(--text-secondary);
+    }
+    .footer-link { text-align: center; margin-top: 20px; padding-top: 16px; border-top: 1px solid var(--border-subtle); }
+    .footer-link p { color: var(--text-muted); font-size: .83rem; }
+    .footer-link a {
+      color: var(--auth-accent); font-weight: 600; text-decoration: none; transition: color .2s;
+    }
+    .footer-link a:hover { color: var(--accent-purple); }
+
     @keyframes fadeInUp {
-      from { opacity:0; transform:translateY(20px); }
-      to   { opacity:1; transform:translateY(0); }
+      from { opacity: 0; transform: translateY(16px); }
+      to   { opacity: 1; transform: translateY(0); }
     }
-    .fade-in { animation: fadeInUp .5s ease both; }
+    .fade-in { animation: fadeInUp .45s ease both; }
+
+    @media (max-width: 540px) {
+      .name-grid { grid-template-columns: 1fr; }
+      .registro-card { padding: 28px 20px; }
+    }
   </style>
 </head>
-<body class="flex items-center justify-center p-6">
+<body>
+  <div class="bg-depth"></div>
 
-  <div class="w-full max-w-lg fade-in">
-    <!-- Back -->
-    <a href="/" style="display:inline-flex;align-items:center;gap:8px;color:#a0a0b5;font-size:.88rem;
-                       margin-bottom:28px;text-decoration:none;transition:color .2s;"
-       onmouseover="this.style.color='#feca57'" onmouseout="this.style.color='#a0a0b5'">
-      ← Volver al inicio
-    </a>
+  <div class="registro-wrapper">
+    <div class="registro-card fade-in">
+      <a href="/" class="back-link" style="margin-bottom:24px;">← Volver al inicio</a>
 
-    <div class="neon-card rounded-2xl p-8" style="background:rgba(26,26,36,0.75);backdrop-filter:blur(16px);">
-
-      <!-- Header -->
-      <div class="text-center mb-7">
-        <h1 style="font-size:1.9rem;font-weight:800;color:#fff;margin-bottom:.3rem;">Crear Cuenta</h1>
-        <p style="color:#a0a0b5;font-size:.9rem;">Únete al sistema nutricional</p>
+      <div class="registro-header">
+        <h1 class="registro-title">Crear Cuenta</h1>
+        <p class="registro-subtitle">Únete al sistema nutricional</p>
       </div>
 
-      <!-- Mensajes -->
-      <div class="error-msg mb-4"   id="errorMsg"></div>
-      <div class="success-msg mb-4" id="successMsg"></div>
+      <div class="error-msg" id="errorMsg"></div>
+      <div class="success-msg" id="successMsg"></div>
 
-      <!-- Selector de tipo -->
-      <div style="margin-bottom:24px;">
-        <label style="display:block;color:#a0a0b5;font-size:.83rem;font-weight:600;margin-bottom:8px;letter-spacing:.04em;">
-          TIPO DE CUENTA
-        </label>
-        <div style="display:flex;gap:10px;">
-          <button type="button" class="tipo-btn" id="btnGym"
-                  onclick="setTipo('gym')">
+      <!-- Account type selector -->
+      <div>
+        <label class="input-label">TIPO DE CUENTA</label>
+        <div class="tipo-row">
+          <button type="button" class="tipo-btn" id="btnGym">
             🏢 Socio Comercial (Gym)
           </button>
-          <button type="button" class="tipo-btn active-usuario" id="btnUsuario"
-                  onclick="setTipo('usuario')">
+          <button type="button" class="tipo-btn active-usuario" id="btnUsuario">
             👤 Usuario Individual
           </button>
         </div>
@@ -98,96 +118,80 @@
       <form id="registroForm" novalidate>
         <input type="hidden" name="tipo" id="campoTipo" value="usuario" />
 
-        <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:16px;">
-          <div>
-            <label style="display:block;color:#a0a0b5;font-size:.83rem;font-weight:600;margin-bottom:6px;letter-spacing:.04em;">
-              NOMBRE *
-            </label>
-            <input type="text" name="nombre" class="input-field" placeholder="Juan" required />
+        <div class="name-grid" style="margin-bottom:16px;">
+          <div class="input-group" style="margin-bottom:0;">
+            <label class="input-label">NOMBRE *</label>
+            <input type="text" name="nombre" class="input-field" placeholder="Juan" required autocomplete="given-name" />
           </div>
-          <div>
-            <label style="display:block;color:#a0a0b5;font-size:.83rem;font-weight:600;margin-bottom:6px;letter-spacing:.04em;">
-              APELLIDO
-            </label>
-            <input type="text" name="apellido" class="input-field" placeholder="Pérez" />
+          <div class="input-group" style="margin-bottom:0;">
+            <label class="input-label">APELLIDO</label>
+            <input type="text" name="apellido" class="input-field" placeholder="Pérez" autocomplete="family-name" />
           </div>
         </div>
 
-        <div style="margin-bottom:16px;">
-          <label style="display:block;color:#a0a0b5;font-size:.83rem;font-weight:600;margin-bottom:6px;letter-spacing:.04em;">
-            CORREO ELECTRÓNICO *
-          </label>
-          <input type="email" name="email" class="input-field"
-                 placeholder="tu@email.com" required autocomplete="email" />
+        <div class="input-group">
+          <label class="input-label">CORREO ELECTRÓNICO *</label>
+          <input type="email" name="email" class="input-field" placeholder="tu@email.com" required autocomplete="email" />
         </div>
 
-        <div style="margin-bottom:16px;">
-          <label style="display:block;color:#a0a0b5;font-size:.83rem;font-weight:600;margin-bottom:6px;letter-spacing:.04em;">
-            CONTRASEÑA * (mín. 6 caracteres)
-          </label>
-          <input type="password" name="password" id="pwdField" class="input-field"
-                 placeholder="••••••••" required autocomplete="new-password" />
+        <div class="input-group">
+          <label class="input-label">CONTRASEÑA * (mín. 6 caracteres)</label>
+          <input type="password" name="password" id="pwdField" class="input-field" placeholder="••••••••" required autocomplete="new-password" />
         </div>
 
-        <div style="margin-bottom:28px;">
-          <label style="display:block;color:#a0a0b5;font-size:.83rem;font-weight:600;margin-bottom:6px;letter-spacing:.04em;">
-            CONFIRMAR CONTRASEÑA *
-          </label>
-          <input type="password" name="confirm_password" class="input-field"
-                 placeholder="••••••••" required autocomplete="new-password" />
+        <div class="input-group">
+          <label class="input-label">CONFIRMAR CONTRASEÑA *</label>
+          <input type="password" name="confirm_password" class="input-field" placeholder="••••••••" required autocomplete="new-password" />
         </div>
 
-        <!-- Aviso de privacidad -->
-        <div style="background:rgba(254,202,87,.06);border:1px solid rgba(254,202,87,.15);
-                    border-radius:8px;padding:12px;margin-bottom:24px;font-size:.8rem;color:#a0a0b5;">
-          🔒 Tus datos se almacenan localmente. Las contraseñas se guardan con bcrypt.
+        <div class="security-note">
+          🔒 Tus datos se almacenan de forma segura. Las contraseñas se guardan con bcrypt.
         </div>
 
-        <button type="submit" class="btn-primary" id="submitBtn">
+        <button type="submit" class="btn-login" id="submitBtn">
           Crear Cuenta →
         </button>
       </form>
 
-      <!-- Link a login -->
-      <div style="margin-top:20px;text-align:center;border-top:1px solid rgba(255,255,255,0.07);padding-top:16px;">
-        <p style="color:#6b6b7d;font-size:.83rem;">
+      <div class="footer-link">
+        <p>
           ¿Ya tienes cuenta?
-          <a href="/login-gym" id="linkLogin" style="color:#feca57;font-weight:600;text-decoration:none;"
-             onmouseover="this.style.textDecoration='underline'"
-             onmouseout="this.style.textDecoration='none'">Iniciar sesión</a>
+          <a href="/login-gym" id="linkLogin">Iniciar sesión</a>
         </p>
       </div>
     </div>
   </div>
 
-  <script>
-    // Leer tipo inicial de URL param
-    const params = new URLSearchParams(window.location.search);
+  <script nonce="{{ request.state.csp_nonce }}">
+    var params = new URLSearchParams(window.location.search);
     if (params.get('tipo') === 'gym') setTipo('gym');
+
+    document.getElementById('btnGym').addEventListener('click', function() { setTipo('gym'); });
+    document.getElementById('btnUsuario').addEventListener('click', function() { setTipo('usuario'); });
 
     function setTipo(tipo) {
       document.getElementById('campoTipo').value = tipo;
-      const btnGym = document.getElementById('btnGym');
-      const btnUser = document.getElementById('btnUsuario');
-      const linkLogin = document.getElementById('linkLogin');
-
+      var btnGym = document.getElementById('btnGym');
+      var btnUser = document.getElementById('btnUsuario');
+      var linkLogin = document.getElementById('linkLogin');
       btnGym.className  = 'tipo-btn' + (tipo === 'gym'     ? ' active-gym'     : '');
       btnUser.className = 'tipo-btn' + (tipo === 'usuario' ? ' active-usuario' : '');
       linkLogin.href = tipo === 'gym' ? '/login-gym' : '/login-usuario';
     }
 
-    document.getElementById('registroForm').addEventListener('submit', async (e) => {
+    document.getElementById('registroForm').addEventListener('submit', async function(e) {
       e.preventDefault();
-      const form = e.target;
-      const errorMsg   = document.getElementById('errorMsg');
-      const successMsg = document.getElementById('successMsg');
-      const btn = document.getElementById('submitBtn');
+      var form = e.target;
+      var errorMsg   = document.getElementById('errorMsg');
+      var successMsg = document.getElementById('successMsg');
+      var btn = document.getElementById('submitBtn');
 
       errorMsg.style.display   = 'none';
       successMsg.style.display = 'none';
 
-      const pw1 = form.password.value;
-      const pw2 = form.confirm_password.value;
+      var pw1 = form.password.value;
+      var pw2 = form.confirm_password.value;
+
       if (pw1 !== pw2) {
         errorMsg.textContent = 'Las contraseñas no coinciden.';
         errorMsg.style.display = 'block';
@@ -203,28 +207,28 @@
       btn.textContent = 'Creando cuenta...';
 
       try {
-        const res = await fetch('/api/auth/registro', {
+        var res = await fetch('/api/auth/registro', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
-            email:    form.email.value.trim(),
+            email: form.email.value.trim(),
             password: pw1,
-            nombre:   form.nombre.value.trim(),
+            nombre: form.nombre.value.trim(),
             apellido: form.apellido.value.trim(),
-            tipo:     form.tipo.value,
+            tipo: form.tipo.value,
           }),
         });
-
-        const data = await res.json();
-
+        var data = await res.json();
         if (res.ok) {
-          localStorage.setItem('mb_token',  data.token);
-          localStorage.setItem('mb_tipo',   data.tipo);
+          localStorage.setItem('mb_token', data.token);
+          if (data.refresh_token) localStorage.setItem('mb_refresh_token', data.refresh_token);
+          localStorage.setItem('mb_tipo', data.tipo);
           localStorage.setItem('mb_nombre', data.nombre);
-          localStorage.setItem('mb_email',  data.email);
+          localStorage.setItem('mb_email', data.email);
           successMsg.textContent = '¡Cuenta creada! Redirigiendo...';
           successMsg.style.display = 'block';
-          setTimeout(() => window.location.href = '/dashboard', 1200);
+          var dest = data.tipo === 'gym' ? '/configuracion' : '/mi-plan';
+          setTimeout(function() { window.location.href = dest; }, 1200);
         } else {
           errorMsg.textContent = data.detail || 'Error al crear la cuenta.';
           errorMsg.style.display = 'block';

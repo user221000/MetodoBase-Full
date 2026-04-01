@@ -1,0 +1,873 @@
+{% extends "base_usuario.html" %}
+{% block title %}Mi Suscripción{% endblock %}
+
+{% block content %}
+
+<!-- ── Hero ────────────────────────────────────────────────── -->
+<div class="u-hero">
+  <h1 class="u-hero-title">Mi Suscripción</h1>
+  <p class="u-hero-subtitle">Elige el plan ideal para alcanzar tus objetivos nutricionales</p>
+</div>
+
+<!-- ── Trust Bar ──────────────────────────────────────────── -->
+<div class="u-sub-trust">
+  <span>🔒 Pagos seguros con cifrado TLS</span>
+  <span>✓ Cancela en cualquier momento</span>
+  <span>⚡ Cambio de plan instantáneo</span>
+</div>
+
+<!-- ── Current Plan Status ─────────────────────────────────── -->
+<div class="u-sub-current" id="sub-current-panel">
+  <div class="u-sub-current-icon">
+    <svg viewBox="0 0 24 24" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M12 2L2 7l10 5 10-5-10-5z"/>
+      <path d="M2 17l10 5 10-5"/>
+      <path d="M2 12l10 5 10-5"/>
+    </svg>
+  </div>
+  <div>
+    <p class="u-sub-label">Plan actual</p>
+    <p class="u-sub-plan-name" id="sub-plan-name">Starter</p>
+  </div>
+  <span class="u-badge u-badge-green" id="sub-status-badge">Activo</span>
+  <div class="u-sub-stats">
+    <div>
+      <p class="u-sub-stat-label">Planes este mes</p>
+      <p class="u-sub-stat-value" id="sub-planes-uso">0 / 1</p>
+    </div>
+    <div>
+      <p class="u-sub-stat-label">Renovación</p>
+      <p class="u-sub-stat-value" id="sub-renewal">—</p>
+    </div>
+  </div>
+</div>
+
+<!-- ── Plans Grid ──────────────────────────────────────────── -->
+<div class="u-sub-plans" id="plans-grid">
+
+  <!-- ── Starter (Free) ──────────────────────────────────── -->
+  <div class="u-plan-card u-plan-active" id="card-starter">
+    <div class="u-plan-icon u-plan-icon-free">🌱</div>
+    <h3 class="u-plan-name">Starter</h3>
+    <p class="u-plan-price">Gratis</p>
+    <p class="u-plan-price-sub">Para siempre</p>
+    <ul class="u-plan-features">
+      <li>
+        <span class="u-check u-check-yes">✓</span>
+        1 plan nutricional al mes
+      </li>
+      <li>
+        <span class="u-check u-check-yes">✓</span>
+        Cálculo de macros personalizado
+      </li>
+      <li>
+        <span class="u-check u-check-yes">✓</span>
+        Historial de planes
+      </li>
+      <li>
+        <span class="u-check u-check-no">—</span>
+        Descarga en PDF
+      </li>
+      <li>
+        <span class="u-check u-check-no">—</span>
+        Soporte prioritario
+      </li>
+    </ul>
+    <div class="u-plan-cta">
+      <button class="u-btn u-btn-outline" id="btn-starter" disabled>Plan actual</button>
+    </div>
+  </div>
+
+  <!-- ── Pro ──────────────────────────────────────────────── -->
+  <div class="u-plan-card u-plan-recommended" id="card-pro">
+    <span class="u-plan-badge">Recomendado</span>
+    <div class="u-plan-icon u-plan-icon-pro">🚀</div>
+    <h3 class="u-plan-name">Pro</h3>
+    <p class="u-plan-price">$79 <span style="font-size:0.5em;font-weight:500;color:var(--u-text-muted);">MXN/mes</span></p>
+    <p class="u-plan-price-sub">Más popular entre nuestros usuarios</p>
+    <ul class="u-plan-features">
+      <li>
+        <span class="u-check u-check-yes">✓</span>
+        <strong>5 planes nutricionales al mes</strong>
+      </li>
+      <li>
+        <span class="u-check u-check-yes">✓</span>
+        Cálculo de macros personalizado
+      </li>
+      <li>
+        <span class="u-check u-check-yes">✓</span>
+        Historial completo de planes
+      </li>
+      <li>
+        <span class="u-check u-check-yes">✓</span>
+        Descarga en PDF ilimitada
+      </li>
+      <li>
+        <span class="u-check u-check-yes">✓</span>
+        Soporte prioritario
+      </li>
+    </ul>
+    <div class="u-plan-cta">
+      <button class="u-btn u-btn-primary" id="btn-pro">Cambiar a Pro →</button>
+    </div>
+  </div>
+
+</div>
+
+<!-- ── FAQ / Info ──────────────────────────────────────────── -->
+<div class="u-card u-mt-lg" style="max-width:800px;">
+  <h3 class="u-card-title">Preguntas frecuentes</h3>
+
+  <details class="u-faq-item">
+    <summary class="u-faq-q">¿Qué incluye el plan Starter?</summary>
+    <p class="u-faq-a">El plan Starter te permite generar 1 plan nutricional al mes de forma gratuita, con cálculo de macros personalizado y acceso a tu historial.</p>
+  </details>
+
+  <details class="u-faq-item">
+    <summary class="u-faq-q">¿Puedo cambiar de plan en cualquier momento?</summary>
+    <p class="u-faq-a">Sí, puedes subir o bajar de plan cuando quieras. Si cambias a Pro, se aplica inmediatamente. Si vuelves a Starter, tu plan Pro se mantiene hasta fin del ciclo.</p>
+  </details>
+
+  <details class="u-faq-item">
+    <summary class="u-faq-q">¿Cómo funcionan los planes mensuales?</summary>
+    <p class="u-faq-a">Tu contador de planes se reinicia el primer día de cada mes. Por ejemplo, con Pro puedes generar hasta 5 planes diferentes durante cada mes calendario.</p>
+  </details>
+
+  <details class="u-faq-item">
+    <summary class="u-faq-q">¿Puedo cancelar en cualquier momento?</summary>
+    <p class="u-faq-a">Sí. Al cancelar Pro vuelves automáticamente al plan Starter gratuito al final del ciclo de facturación. Sin compromisos.</p>
+  </details>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════
+     Modal — Panel de Pago (aparece al seleccionar Pro)
+═══════════════════════════════════════════════════════════ -->
+<div id="modal-pago" class="u-modal-backdrop hidden">
+  <div class="u-modal">
+    <button id="pago-modal-close" class="u-modal-close" type="button">✕</button>
+
+    <!-- ── Step indicator ── -->
+    <div id="pago-steps" class="u-steps">
+      <div class="u-step-dot active" data-step="1">1</div>
+      <div class="u-step-line"></div>
+      <div class="u-step-dot" data-step="2">2</div>
+      <div class="u-step-line"></div>
+      <div class="u-step-dot" data-step="3">3</div>
+    </div>
+
+    <!-- ═══ Step 1: Resumen del plan ═══ -->
+    <div id="pago-step-1" class="u-pago-step">
+      <div class="u-pago-step-header">
+        <div class="u-pago-step-icon" style="background:rgba(234,88,12,.08);">
+          <svg viewBox="0 0 24 24" stroke="var(--u-accent)" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>
+          </svg>
+        </div>
+        <div>
+          <h2 class="u-pago-step-title">Confirmar plan</h2>
+          <p class="u-pago-step-desc">Revisa los detalles antes de continuar</p>
+        </div>
+      </div>
+
+      <div id="pago-plan-summary" class="u-pago-summary">
+        <!-- Filled by JS -->
+      </div>
+
+      <div class="u-pago-actions">
+        <button id="pago-btn-cancel" class="u-btn u-btn-outline" type="button">Cancelar</button>
+        <button id="pago-btn-next-1" class="u-btn u-btn-primary" type="button">Continuar al pago →</button>
+      </div>
+    </div>
+
+    <!-- ═══ Step 2: Método de pago ═══ -->
+    <div id="pago-step-2" class="u-pago-step" style="display:none;">
+      <div class="u-pago-step-header">
+        <div class="u-pago-step-icon" style="background:rgba(234,88,12,.08);">
+          <svg viewBox="0 0 24 24" stroke="var(--u-accent)" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z"/>
+          </svg>
+        </div>
+        <div>
+          <h2 class="u-pago-step-title">Método de pago</h2>
+          <p class="u-pago-step-desc">Elige cómo deseas pagar</p>
+        </div>
+      </div>
+
+      <div id="payment-methods" class="u-pm-list">
+        <button id="pm-card" class="u-pm-btn" data-method="card" type="button" disabled>
+          <div class="u-pm-btn-inner">
+            <div class="u-pm-icon" style="background:rgba(234,88,12,.08);">
+              <svg viewBox="0 0 24 24" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z"/>
+              </svg>
+            </div>
+            <div class="u-pm-text">
+              <p class="u-pm-name">Tarjeta de crédito / débito</p>
+              <p class="u-pm-desc">Visa, Mastercard, Amex · Checkout seguro</p>
+            </div>
+            <span class="u-badge-rec">Recomendado</span>
+          </div>
+        </button>
+
+        <button id="pm-mercadopago" class="u-pm-btn" data-method="mercadopago" type="button">
+          <div class="u-pm-btn-inner">
+            <div class="u-pm-icon" style="background:rgba(234,88,12,.05);">
+              <svg viewBox="0 0 24 24" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M12 8c-3.314 0-6 2.239-6 5 0 1.657.924 3.123 2.35 4.041L7 21l4.05-2.025A7.45 7.45 0 0012 19c3.314 0 6-2.239 6-5s-2.686-5-6-5z"/>
+              </svg>
+            </div>
+            <div class="u-pm-text">
+              <p class="u-pm-name">Mercado Pago</p>
+              <p class="u-pm-desc">Tarjetas, saldo y SPEI desde MP</p>
+            </div>
+          </div>
+        </button>
+
+        <button id="pm-nu" class="u-pm-btn" data-method="nu" type="button">
+          <div class="u-pm-btn-inner">
+            <div class="u-pm-icon" style="background:rgba(234,88,12,.05);">
+              <svg viewBox="0 0 24 24" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M7 7h10a3 3 0 013 3v4a3 3 0 01-3 3H7l-3 3V10a3 3 0 013-3z"/>
+              </svg>
+            </div>
+            <div class="u-pm-text">
+              <p class="u-pm-name">Nu</p>
+              <p class="u-pm-desc">Pago con Nu (tarjeta o transferencia)</p>
+            </div>
+          </div>
+        </button>
+      </div>
+
+      <div id="payment-method-panel" class="u-transfer-box" style="display:none;"></div>
+
+      <div id="stripe-config-hint" class="u-pago-hint" style="display:none;">
+        Configura STRIPE_PUBLISHABLE_KEY y STRIPE_SECRET_KEY para activar el cobro con tarjeta.
+      </div>
+
+      <p class="u-pago-security">
+        Seguridad: checkout certificado, tokenización y 3DS. Nunca almacenamos datos de tu tarjeta.
+      </p>
+
+      <div class="u-pago-actions">
+        <button id="pago-btn-back-2" class="u-btn u-btn-outline" type="button">← Atrás</button>
+        <button id="pago-btn-next-2" class="u-btn u-btn-primary" type="button" disabled>Confirmar pago →</button>
+      </div>
+    </div>
+
+    <!-- ═══ Step 3: Confirmación / Procesando ═══ -->
+    <div id="pago-step-3" class="u-pago-step" style="display:none;">
+      <div id="pago-step-3-content" style="text-align:center;padding:20px 0;"></div>
+
+      <div id="card-step-panel" class="u-card-payment" style="display:none;">
+        <div class="u-card-payment-header">
+          <div class="u-card-payment-header-left">
+            <div class="u-card-payment-icon">💳</div>
+            <div>
+              <p class="u-pago-step-desc" style="text-transform:uppercase;letter-spacing:.03em;">Resumen del pago</p>
+              <p style="font-size:1rem;font-weight:700;color:var(--u-text);margin:2px 0 0;">Suscripción mensual</p>
+            </div>
+          </div>
+          <span class="u-badge-rec">🔒 Pago seguro</span>
+        </div>
+        <div class="u-transfer-row">
+          <span class="u-transfer-label">Plan</span>
+          <span class="u-transfer-value" id="card-summary-plan">—</span>
+        </div>
+        <div class="u-transfer-row">
+          <span class="u-transfer-label">Monto</span>
+          <span class="u-transfer-value" id="card-summary-price">—</span>
+        </div>
+        <div class="u-transfer-row">
+          <span class="u-transfer-label">Renovación</span>
+          <span class="u-transfer-value" id="card-summary-renewal">Mensual · cancela cuando quieras</span>
+        </div>
+        <div class="u-badges">
+          <span class="u-badge-sm">PCI DSS</span>
+          <span class="u-badge-sm">Tokenización</span>
+          <span class="u-badge-sm">3DS</span>
+          <span class="u-badge-sm">Cifrado TLS 1.3</span>
+        </div>
+        <div class="u-transfer-row" style="border-bottom:none;padding-bottom:0;">
+          <span class="u-transfer-label">Número de tarjeta</span>
+        </div>
+        <div id="card-element-number" class="u-card-el"><span class="u-card-el-placeholder">Se cargará con Stripe Elements</span></div>
+
+        <div class="u-card-el-row">
+          <div>
+            <div class="u-transfer-row" style="border-bottom:none;padding-bottom:0;">
+              <span class="u-transfer-label">Expiración</span>
+            </div>
+            <div id="card-element-expiry" class="u-card-el"><span class="u-card-el-placeholder">MM/AA</span></div>
+          </div>
+          <div>
+            <div class="u-transfer-row" style="border-bottom:none;padding-bottom:0;">
+              <span class="u-transfer-label">CVV</span>
+            </div>
+            <div id="card-element-cvc" class="u-card-el"><span class="u-card-el-placeholder">CVC</span></div>
+          </div>
+        </div>
+
+        <div id="card-element-error" class="u-card-el-error"></div>
+
+        <div class="u-pago-actions">
+          <button id="pago-btn-back-3" class="u-btn u-btn-outline" type="button">← Atrás</button>
+          <button id="pago-btn-card-pay" class="u-btn u-btn-primary" type="button" disabled>Pagar ahora →</button>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<!-- ── Script ──────────────────────────────────────────────── -->
+<script nonce="{{ request.state.csp_nonce }}">
+(function() {
+  'use strict';
+  var currentPlan = 'starter';
+  var _billingConfig = null;
+  var _stripe = null;
+  var _stripeElements = null;
+  var _cardNumber = null;
+  var _cardExpiry = null;
+  var _cardCvc = null;
+  var _cardState = { number: false, expiry: false, cvc: false };
+  var _selectedMethod = null;
+  var _waNumber = '7441614117';
+
+  function esc(s) {
+    var d = document.createElement('div');
+    d.appendChild(document.createTextNode(s || ''));
+    return d.innerHTML;
+  }
+
+  function showToast(msg, type) {
+    var c = document.getElementById('toast-container');
+    if (!c) return;
+    var t = document.createElement('div');
+    t.className = 'u-toast' + (type === 'error' ? ' u-toast-error' : '');
+    t.textContent = msg;
+    c.appendChild(t);
+    setTimeout(function() { t.remove(); }, 4000);
+  }
+
+  function updateUI(plan, planesUsados, maxPlanes, renewalDate) {
+    currentPlan = plan || 'starter';
+    var nameEl = document.getElementById('sub-plan-name');
+    var usoEl = document.getElementById('sub-planes-uso');
+    var renewEl = document.getElementById('sub-renewal');
+    var btnStarter = document.getElementById('btn-starter');
+    var btnPro = document.getElementById('btn-pro');
+    var cardStarter = document.getElementById('card-starter');
+    var cardPro = document.getElementById('card-pro');
+    var badge = document.getElementById('sub-status-badge');
+
+    var used = planesUsados || 0;
+    var max = currentPlan === 'pro' ? (maxPlanes || 5) : (maxPlanes || 1);
+
+    if (nameEl) nameEl.textContent = currentPlan === 'pro' ? 'Pro' : 'Starter';
+    if (usoEl) usoEl.textContent = used + ' / ' + max;
+    if (renewEl) renewEl.textContent = renewalDate || '—';
+
+    if (badge) {
+      badge.textContent = 'Activo';
+      badge.className = 'u-badge u-badge-green';
+    }
+
+    if (cardStarter) cardStarter.classList.toggle('u-plan-active', currentPlan === 'starter');
+    if (cardPro) cardPro.classList.toggle('u-plan-active', currentPlan === 'pro');
+
+    if (currentPlan === 'pro') {
+      if (btnPro) { btnPro.textContent = 'Plan actual'; btnPro.disabled = true; btnPro.className = 'u-btn u-btn-outline'; }
+      if (btnStarter) { btnStarter.textContent = 'Cambiar a Starter'; btnStarter.disabled = false; btnStarter.className = 'u-btn u-btn-outline'; }
+    } else {
+      if (btnStarter) { btnStarter.textContent = 'Plan actual'; btnStarter.disabled = true; btnStarter.className = 'u-btn u-btn-outline'; }
+      if (btnPro) { btnPro.textContent = 'Cambiar a Pro →'; btnPro.disabled = false; btnPro.className = 'u-btn u-btn-primary'; }
+    }
+  }
+
+  // ── Load billing config ─────────────────────────────────
+  async function loadBillingConfig() {
+    try {
+      _billingConfig = await Api.usuario.billingConfig();
+      if (_billingConfig && _billingConfig.stripe_publishable_key) {
+        await loadStripeJs();
+        initStripeElements(_billingConfig.stripe_publishable_key);
+      }
+    } catch (e) {
+      _billingConfig = null;
+    }
+    // Enable/disable payment method buttons
+    var stripeReady = _billingConfig && _billingConfig.stripe_configured && _billingConfig.stripe_publishable_key;
+    var cardBtn = document.getElementById('pm-card');
+    if (cardBtn) {
+      cardBtn.disabled = !stripeReady;
+      if (!stripeReady) {
+        var hint = cardBtn.querySelector('.u-pm-card-hint');
+        if (!hint) {
+          var span = document.createElement('span');
+          span.className = 'u-pm-card-hint';
+          span.style.cssText = 'font-size:.68rem;color:var(--u-red-dark);display:block;margin-top:2px;';
+          span.textContent = 'No disponible — Stripe no configurado';
+          var textDiv = cardBtn.querySelector('.u-pm-text');
+          if (textDiv) textDiv.appendChild(span);
+        }
+      }
+    }
+    var stripeHint = document.getElementById('stripe-config-hint');
+    if (stripeHint) stripeHint.style.display = stripeReady ? 'none' : '';
+    if (_billingConfig && !_billingConfig.mercadopago_configured) {
+      var mpBtn = document.getElementById('pm-mercadopago');
+      if (mpBtn) mpBtn.disabled = true;
+    }
+  }
+
+  // ── Stripe Elements ─────────────────────────────────────
+  async function loadStripeJs() {
+    if (window.Stripe) return;
+    await new Promise(function(resolve, reject) {
+      var script = document.createElement('script');
+      script.src = 'https://js.stripe.com/v3/';
+      script.async = true;
+      script.onload = resolve;
+      script.onerror = function() { reject(new Error('Stripe.js no disponible')); };
+      document.head.appendChild(script);
+    });
+  }
+
+  function initStripeElements(publishableKey) {
+    if (!window.Stripe || _stripe) return;
+    _stripe = window.Stripe(publishableKey);
+    _stripeElements = _stripe.elements({
+      appearance: {
+        theme: 'flat',
+        variables: {
+          colorPrimary: '#EA580C',
+          colorText: '#1E293B',
+          colorDanger: '#DC2626',
+          fontFamily: 'Inter, system-ui, -apple-system, sans-serif',
+          colorBackground: '#FFFFFF',
+        },
+      },
+    });
+
+    _cardNumber = _stripeElements.create('cardNumber');
+    _cardExpiry = _stripeElements.create('cardExpiry');
+    _cardCvc = _stripeElements.create('cardCvc');
+
+    document.querySelectorAll('.u-card-el-placeholder').forEach(function(el) { el.remove(); });
+
+    _cardNumber.mount('#card-element-number');
+    _cardExpiry.mount('#card-element-expiry');
+    _cardCvc.mount('#card-element-cvc');
+
+    var errorEl = document.getElementById('card-element-error');
+    function handleChange(event) {
+      if (event.elementType === 'cardNumber') _cardState.number = event.complete;
+      if (event.elementType === 'cardExpiry') _cardState.expiry = event.complete;
+      if (event.elementType === 'cardCvc') _cardState.cvc = event.complete;
+      updateCardPayState();
+      if (!errorEl) return;
+      if (event.error) {
+        errorEl.textContent = event.error.message;
+        errorEl.style.display = '';
+      } else {
+        errorEl.textContent = '';
+        errorEl.style.display = 'none';
+      }
+    }
+    _cardNumber.on('change', handleChange);
+    _cardExpiry.on('change', handleChange);
+    _cardCvc.on('change', handleChange);
+  }
+
+  function updateCardPayState() {
+    var btn = document.getElementById('pago-btn-card-pay');
+    if (!btn) return;
+    btn.disabled = !(_cardState.number && _cardState.expiry && _cardState.cvc);
+  }
+
+  // ── Modal navigation ────────────────────────────────────
+  function goToStep(step) {
+    [1, 2, 3].forEach(function(s) {
+      var el = document.getElementById('pago-step-' + s);
+      if (el) el.style.display = s === step ? '' : 'none';
+    });
+    document.querySelectorAll('.u-step-dot').forEach(function(dot) {
+      var s = parseInt(dot.dataset.step);
+      dot.classList.remove('active', 'done');
+      if (s < step) dot.classList.add('done');
+      else if (s === step) dot.classList.add('active');
+    });
+    document.querySelectorAll('.u-step-line').forEach(function(line, i) {
+      line.classList.toggle('done', i + 1 < step);
+    });
+  }
+
+  function openPaymentModal() {
+    document.getElementById('pago-plan-summary').innerHTML =
+      '<div class="u-pago-summary-top">' +
+        '<span class="u-pago-summary-icon">🚀</span>' +
+        '<div>' +
+          '<p class="u-pago-summary-name">Pro</p>' +
+          '<p class="u-pago-summary-sub">Más popular entre nuestros usuarios</p>' +
+        '</div>' +
+        '<p class="u-pago-summary-price">$79 <span>MXN/mes</span></p>' +
+      '</div>' +
+      '<ul>' +
+        '<li>✓ 5 planes nutricionales al mes</li>' +
+        '<li>✓ Cálculo de macros personalizado</li>' +
+        '<li>✓ Historial completo de planes</li>' +
+        '<li>✓ Descarga en PDF ilimitada</li>' +
+        '<li>✓ Soporte prioritario</li>' +
+      '</ul>';
+
+    goToStep(1);
+    resetMethodSelection();
+    document.getElementById('modal-pago').classList.remove('hidden');
+  }
+
+  function closePaymentModal() {
+    document.getElementById('modal-pago').classList.add('hidden');
+    _selectedMethod = null;
+    _cardState = { number: false, expiry: false, cvc: false };
+    if (_cardNumber) _cardNumber.clear();
+    if (_cardExpiry) _cardExpiry.clear();
+    if (_cardCvc) _cardCvc.clear();
+    var errorEl = document.getElementById('card-element-error');
+    if (errorEl) { errorEl.textContent = ''; errorEl.style.display = 'none'; }
+    updateCardPayState();
+  }
+
+  function resetMethodSelection() {
+    _selectedMethod = null;
+    _cardState = { number: false, expiry: false, cvc: false };
+    document.querySelectorAll('.u-pm-btn').forEach(function(b) { b.classList.remove('selected'); });
+    updateConfirmButtonState();
+    renderMethodPanel(null);
+    var cardStep = document.getElementById('card-step-panel');
+    if (cardStep) cardStep.style.display = 'none';
+    var errorEl = document.getElementById('card-element-error');
+    if (errorEl) { errorEl.textContent = ''; errorEl.style.display = 'none'; }
+    updateCardPayState();
+  }
+
+  function updateConfirmButtonState() {
+    var btn = document.getElementById('pago-btn-next-2');
+    if (!btn) return;
+    if (!_selectedMethod) { btn.disabled = true; return; }
+    btn.disabled = false;
+    btn.textContent = _selectedMethod === 'card' ? 'Continuar →' : 'Confirmar pago →';
+  }
+
+  function renderMethodPanel(method) {
+    var panel = document.getElementById('payment-method-panel');
+    var cardStep = document.getElementById('card-step-panel');
+    if (!panel) return;
+
+    if (!method) {
+      panel.style.display = 'none';
+      panel.innerHTML = '';
+      if (cardStep) cardStep.style.display = 'none';
+      return;
+    }
+
+    if (method === 'mercadopago') {
+      panel.style.display = '';
+      panel.innerHTML =
+        '<div class="u-transfer-row"><span class="u-transfer-label">Proveedor</span><span class="u-transfer-value">Mercado Pago</span></div>' +
+        '<div class="u-transfer-row"><span class="u-transfer-label">Métodos</span><span class="u-transfer-value">Tarjetas, saldo MP, SPEI</span></div>' +
+        '<div class="u-transfer-row"><span class="u-transfer-label">Seguridad</span><span class="u-transfer-value">Tokenización + 3DS</span></div>' +
+        '<div class="u-transfer-row"><span class="u-transfer-label">Comprobante</span><span class="u-transfer-value">Recibo automático</span></div>';
+      return;
+    }
+    if (method === 'nu') {
+      panel.style.display = '';
+      panel.innerHTML =
+        '<div class="u-transfer-row"><span class="u-transfer-label">Proveedor</span><span class="u-transfer-value">Nu</span></div>' +
+        '<div class="u-transfer-row"><span class="u-transfer-label">Tipo</span><span class="u-transfer-value">Transferencia</span></div>' +
+        '<div class="u-transfer-row"><span class="u-transfer-label">Cuenta</span><span class="u-transfer-value" style="font-family:monospace;letter-spacing:.06em;">5101 2522 6555 6328</span></div>' +
+        '<div class="u-transfer-row"><span class="u-transfer-label">Titular</span><span class="u-transfer-value">Oscar Hernandez</span></div>';
+      return;
+    }
+    if (method === 'card') {
+      panel.style.display = 'none';
+      panel.innerHTML = '';
+      if (cardStep) cardStep.style.display = 'none';
+      return;
+    }
+    panel.style.display = 'none';
+    panel.innerHTML = '';
+    if (cardStep) cardStep.style.display = 'none';
+  }
+
+  function generateRef() {
+    return 'MB-' + Date.now().toString(36).toUpperCase().slice(-6) + '-' + Math.random().toString(36).slice(2, 6).toUpperCase();
+  }
+
+  // ── Confetti 🎉 ─────────────────────────────────────────
+  function launchConfetti() {
+    var canvas = document.createElement('canvas');
+    canvas.style.cssText = 'position:fixed;top:0;left:0;width:100vw;height:100vh;pointer-events:none;z-index:99999';
+    document.body.appendChild(canvas);
+    var ctx = canvas.getContext('2d');
+    canvas.width = window.innerWidth;
+    canvas.height = window.innerHeight;
+    var colors = ['#EA580C','#F97316','#FB923C','#34D399','#60A5FA','#A78BFA','#F472B6'];
+    var pieces = Array.from({length: 120}, function() {
+      return {
+        x: canvas.width * Math.random(),
+        y: canvas.height * Math.random() * -1,
+        w: 6 + Math.random() * 6,
+        h: 4 + Math.random() * 4,
+        color: colors[Math.floor(Math.random() * colors.length)],
+        vx: (Math.random() - 0.5) * 6,
+        vy: 2 + Math.random() * 4,
+        rot: Math.random() * 360,
+        rv: (Math.random() - 0.5) * 12,
+        opacity: 1
+      };
+    });
+    var frame = 0;
+    function draw() {
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      var alive = false;
+      pieces.forEach(function(p) {
+        p.x += p.vx; p.y += p.vy; p.vy += 0.08; p.rot += p.rv;
+        if (frame > 60) p.opacity = Math.max(0, p.opacity - 0.015);
+        if (p.opacity <= 0) return;
+        alive = true;
+        ctx.save();
+        ctx.translate(p.x, p.y);
+        ctx.rotate(p.rot * Math.PI / 180);
+        ctx.globalAlpha = p.opacity;
+        ctx.fillStyle = p.color;
+        ctx.fillRect(-p.w / 2, -p.h / 2, p.w, p.h);
+        ctx.restore();
+      });
+      frame++;
+      if (alive && frame < 180) requestAnimationFrame(draw);
+      else canvas.remove();
+    }
+    requestAnimationFrame(draw);
+  }
+
+  // ── Modal event listeners ───────────────────────────────
+  document.getElementById('pago-modal-close').addEventListener('click', closePaymentModal);
+  document.getElementById('modal-pago').addEventListener('click', function(e) {
+    if (e.target === e.currentTarget) closePaymentModal();
+  });
+  document.getElementById('pago-btn-cancel').addEventListener('click', closePaymentModal);
+  document.getElementById('pago-btn-next-1').addEventListener('click', function() { goToStep(2); });
+  document.getElementById('pago-btn-back-2').addEventListener('click', function() { goToStep(1); });
+  document.getElementById('pago-btn-back-3').addEventListener('click', function() { goToStep(2); });
+
+  // Payment method selection
+  document.querySelectorAll('.u-pm-btn').forEach(function(btn) {
+    btn.addEventListener('click', function() {
+      if (btn.disabled) return;
+      document.querySelectorAll('.u-pm-btn').forEach(function(b) { b.classList.remove('selected'); });
+      btn.classList.add('selected');
+      _selectedMethod = btn.dataset.method;
+      updateConfirmButtonState();
+      renderMethodPanel(_selectedMethod);
+    });
+  });
+
+  // Step 2 → Process payment
+  document.getElementById('pago-btn-next-2').addEventListener('click', async function() {
+    if (!_selectedMethod) return;
+    var btn = document.getElementById('pago-btn-next-2');
+
+    if (_selectedMethod === 'card') {
+      if (!_stripe) {
+        showToast('Stripe no está configurado. Usa otro método de pago.', 'error');
+        return;
+      }
+      goToStep(3);
+      var content = document.getElementById('pago-step-3-content');
+      if (content) {
+        content.innerHTML =
+          '<div style="font-size:2.4rem;margin-bottom:8px;">💳</div>' +
+          '<h3 class="u-pago-step-title">Datos de la tarjeta</h3>' +
+          '<p class="u-pago-step-desc" style="margin-bottom:12px;">Tu pago se procesa con cifrado y 3DS</p>';
+      }
+      document.getElementById('card-summary-plan').textContent = 'Pro';
+      document.getElementById('card-summary-price').textContent = '$79 MXN / mes';
+      document.getElementById('card-summary-renewal').textContent = 'Mensual · cancela cuando quieras';
+      var cardStep = document.getElementById('card-step-panel');
+      if (cardStep) cardStep.style.display = '';
+      updateCardPayState();
+      return;
+    }
+
+    btn.disabled = true;
+    btn.innerHTML = '<span class="u-spinner"></span> Procesando...';
+
+    if (_selectedMethod === 'mercadopago') {
+      try {
+        var res = await Api.usuario.mpPreference('pro');
+        if (res.redirect_url) {
+          window.location.href = res.redirect_url;
+          return;
+        }
+        showToast('No se pudo crear la preferencia de pago.', 'error');
+      } catch(e) {
+        showToast('Error: ' + e.message, 'error');
+      }
+      btn.disabled = false;
+      btn.textContent = 'Confirmar pago →';
+    } else if (_selectedMethod === 'nu') {
+      goToStep(3);
+      document.getElementById('pago-step-3-content').innerHTML =
+        '<div style="font-size:2.5rem;margin-bottom:12px;">🏦</div>' +
+        '<h3 class="u-pago-step-title">Pago con Nu</h3>' +
+        '<p class="u-pago-step-desc" style="margin-bottom:16px;">Realiza la transferencia y envía tu comprobante por WhatsApp</p>' +
+        '<div class="u-transfer-box">' +
+          '<div class="u-transfer-row"><span class="u-transfer-label">Plan</span><span class="u-transfer-value">Pro</span></div>' +
+          '<div class="u-transfer-row"><span class="u-transfer-label">Monto mensual</span><span class="u-transfer-value" style="color:var(--u-accent);">$79 MXN</span></div>' +
+          '<div class="u-transfer-row"><span class="u-transfer-label">Concepto</span><span class="u-transfer-value">MetodoBase-PRO</span></div>' +
+          '<div class="u-transfer-row"><span class="u-transfer-label">Referencia</span><span class="u-transfer-value" style="font-family:monospace;letter-spacing:.05em;">' + generateRef() + '</span></div>' +
+        '</div>' +
+        '<div class="u-transfer-box" style="border-color:rgba(234,88,12,.15);background:rgba(234,88,12,.02);margin-top:12px;">' +
+          '<p style="font-size:.78rem;font-weight:700;color:var(--u-accent);margin:0 0 10px;display:flex;align-items:center;gap:8px;">💳 Datos de la cuenta Nu</p>' +
+          '<div class="u-transfer-row"><span class="u-transfer-label">Número</span><span class="u-transfer-value" style="font-family:monospace;letter-spacing:.08em;">5101 2522 6555 6328</span></div>' +
+          '<div class="u-transfer-row"><span class="u-transfer-label">Titular</span><span class="u-transfer-value">Oscar Hernandez</span></div>' +
+          '<div class="u-transfer-row"><span class="u-transfer-label">Tipo</span><span class="u-transfer-value">Débito NU</span></div>' +
+        '</div>' +
+        '<p style="font-size:.75rem;color:var(--u-text-muted);margin:12px 0 16px;">Incluye tu referencia en la descripción de la transferencia para agilizar la activación.</p>' +
+        '<div class="u-pago-actions">' +
+          '<button id="pago-step3-close" class="u-btn u-btn-outline" type="button">Cerrar</button>' +
+          '<a href="https://wa.me/' + esc(_waNumber) + '?text=' + encodeURIComponent('Hola, acabo de realizar una transferencia para activar mi plan Pro. Mi referencia es: ') + '" target="_blank" rel="noopener" class="u-btn-wa">'+
+            '<svg viewBox="0 0 24 24"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347z"/><path d="M12 0C5.373 0 0 5.373 0 12c0 2.126.553 4.126 1.52 5.867L0 24l6.335-1.652A11.94 11.94 0 0012 24c6.627 0 12-5.373 12-12S18.627 0 12 0zm0 21.818c-1.872 0-3.632-.508-5.148-1.392l-.365-.218-3.762.98.999-3.648-.239-.38A9.78 9.78 0 012.182 12c0-5.408 4.41-9.818 9.818-9.818 5.408 0 9.818 4.41 9.818 9.818 0 5.408-4.41 9.818-9.818 9.818z"/></svg>'+
+            'Envíanos tu comprobante' +
+          '</a>' +
+        '</div>';
+      var closeBtn3 = document.getElementById('pago-step3-close');
+      if (closeBtn3) closeBtn3.addEventListener('click', closePaymentModal);
+      btn.disabled = false;
+      btn.textContent = 'Confirmar pago →';
+    }
+  });
+
+  // Card payment
+  document.getElementById('pago-btn-card-pay').addEventListener('click', async function() {
+    var btn = document.getElementById('pago-btn-card-pay');
+    btn.disabled = true;
+    btn.innerHTML = '<span class="u-spinner"></span> Procesando...';
+
+    try {
+      if (!_stripe || !_cardNumber) {
+        showToast('Stripe no está configurado.', 'error');
+        btn.disabled = false;
+        btn.textContent = 'Pagar ahora →';
+        return;
+      }
+      var pmResult = await _stripe.createPaymentMethod({ type: 'card', card: _cardNumber });
+      if (pmResult.error) {
+        showToast(pmResult.error.message, 'error');
+        btn.disabled = false;
+        btn.textContent = 'Pagar ahora →';
+        return;
+      }
+
+      var res = await Api.usuario.stripeSubscribe('pro', pmResult.paymentMethod.id);
+      if (res.client_secret) {
+        var confirmRes = await _stripe.confirmCardPayment(res.client_secret, {
+          payment_method: pmResult.paymentMethod.id,
+          return_url: window.location.href,
+        });
+        if (confirmRes.error) {
+          showToast(confirmRes.error.message, 'error');
+          btn.disabled = false;
+          btn.textContent = 'Pagar ahora →';
+          return;
+        }
+        // Confirm subscription activation on backend
+        var activated = false;
+        for (var attempt = 0; attempt < 3 && !activated; attempt++) {
+          try {
+            var confirmResult = await Api.usuario.confirmSubscription(res.subscription_id);
+            if (confirmResult.activated) activated = true;
+            else await new Promise(function(r) { setTimeout(r, 1500); });
+          } catch(_) {
+            await new Promise(function(r) { setTimeout(r, 1500); });
+          }
+        }
+        closePaymentModal();
+        launchConfetti();
+        showToast('🚀 ¡Bienvenido a Pro! Ya puedes generar hasta 5 planes al mes.');
+        updateUI('pro', 0, 5, '—');
+        return;
+      }
+
+      if (res.ok) {
+        // Direct activation (no client_secret needed)
+        closePaymentModal();
+        launchConfetti();
+        showToast('🚀 ¡Bienvenido a Pro! Ya puedes generar hasta 5 planes al mes.');
+        updateUI('pro', 0, 5, '—');
+        return;
+      }
+
+      showToast('No se pudo completar el pago.', 'error');
+    } catch(e) {
+      showToast('Error: ' + e.message, 'error');
+    }
+    btn.disabled = false;
+    btn.textContent = 'Pagar ahora →';
+  });
+
+  // ── Load subscription + billing config ──────────────────
+  async function loadSubscription() {
+    try {
+      var data = await Api.usuario.suscripcion();
+      updateUI(data.plan, data.planes_usados, data.max_planes, data.renovacion);
+    } catch(e) {
+      updateUI('starter', 0, 1, '—');
+    }
+  }
+
+  // Button handlers
+  var grid = document.getElementById('plans-grid');
+  if (grid) {
+    grid.addEventListener('click', async function(e) {
+      var btn = e.target.closest('button');
+      if (!btn || btn.disabled) return;
+
+      if (btn.id === 'btn-pro') {
+        openPaymentModal();
+      }
+
+      if (btn.id === 'btn-starter') {
+        btn.disabled = true;
+        btn.textContent = 'Procesando...';
+        try {
+          await Api.usuario.cambiarPlan('starter');
+          showToast('✅ Plan cambiado a Starter.');
+          updateUI('starter', 0, 1, '—');
+        } catch(e) {
+          showToast('❌ ' + (e.message || 'Error al cambiar de plan'), 'error');
+          btn.disabled = false;
+          btn.textContent = 'Cambiar a Starter';
+        }
+      }
+    });
+  }
+
+  loadSubscription();
+  loadBillingConfig();
+
+  // Post-payment success redirect
+  var params = new URLSearchParams(window.location.search);
+  if (params.get('result') === 'success' || params.get('subscription') === 'success') {
+    launchConfetti();
+    showToast('🚀 ¡Plan Pro activado correctamente!');
+    history.replaceState({}, '', '/mi-suscripcion');
+  } else if (params.get('subscription') === 'canceled') {
+    showToast('El pago fue cancelado. Puedes intentar de nuevo cuando quieras.');
+    history.replaceState({}, '', '/mi-suscripcion');
+  }
+})();
+</script>
+
+{% endblock %}

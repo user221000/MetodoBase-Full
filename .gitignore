@@ -2,8 +2,23 @@
 __pycache__/
 .venv/
 
+# Secrets — NUNCA commitear
+.env
+.env.*
+!.env.example
+
+# Database files
+*.db
+*.db-wal
+*.db-shm
+*.db.bak*
+
+# Backup files
+*.bak
+
 # Build artifacts
 dist/
 build/
 *.spec
 .coverage
+*.mp4

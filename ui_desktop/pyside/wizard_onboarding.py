@@ -10,13 +10,16 @@ import shutil
 
 from PySide6.QtWidgets import (
     QWizard, QWizardPage, QVBoxLayout, QHBoxLayout, QLabel,
-    QLineEdit, QPushButton, QColorDialog, QFileDialog, QMessageBox,
+    QLineEdit, QPushButton, QFileDialog,
     QScrollArea, QWidget,
 )
 from PySide6.QtCore import Qt
-from PySide6.QtGui import QColor, QPixmap
+from PySide6.QtGui import QPixmap
 
 from core.branding import branding
+from design_system.tokens import Colors
+from ui_desktop.pyside.widgets.confirm_dialog import confirmar
+from ui_desktop.pyside.widgets.toast import mostrar_toast
 from utils.logger import logger
 
 
@@ -58,14 +61,14 @@ def _validar_instagram(valor: str) -> tuple[bool, str]:
 
 def _lbl_seccion(texto: str) -> QLabel:
     lbl = QLabel(texto)
-    lbl.setStyleSheet("color: #8E8E93; font-size: 12px; background: transparent;")
+    lbl.setStyleSheet(f"color: {Colors.TEXT_SECONDARY}; font-size: 12px; background: transparent;")
     return lbl
 
 
 def _lbl_estado() -> QLabel:
     lbl = QLabel("")
     lbl.setWordWrap(True)
-    lbl.setStyleSheet("color: #8E8E93; font-size: 10px; background: transparent;")
+    lbl.setStyleSheet(f"color: {Colors.TEXT_SECONDARY}; font-size: 10px; background: transparent;")
     return lbl
 
 
@@ -112,11 +115,11 @@ class PaginaDatosGym(QWizardPage):
         ok, msg = _validar_nombre_gym(self.entry_nombre.text())
         if ok:
             self.lbl_nombre.setText("")
-            self.entry_nombre.setStyleSheet("border: 1px solid #4CAF50; border-radius: 8px;")
+            self.entry_nombre.setStyleSheet(f"border: 1px solid {Colors.SUCCESS}; border-radius: 8px;")
         else:
             self.lbl_nombre.setText(f"Error: {msg}")
-            self.lbl_nombre.setStyleSheet("color: #F44336; font-size: 10px;")
-            self.entry_nombre.setStyleSheet("border: 1px solid #F44336; border-radius: 8px;")
+            self.lbl_nombre.setStyleSheet(f"color: {Colors.ERROR}; font-size: 10px;")
+            self.entry_nombre.setStyleSheet(f"border: 1px solid {Colors.ERROR}; border-radius: 8px;")
         self.completeChanged.emit()
 
     def isComplete(self) -> bool:
@@ -125,7 +128,7 @@ class PaginaDatosGym(QWizardPage):
     def validatePage(self) -> bool:
         ok, msg = _validar_nombre_gym(self.entry_nombre.text())
         if not ok:
-            QMessageBox.warning(self, "Revisa los campos", f"Nombre del gym: {msg}")
+            mostrar_toast(self, f"⚠️ Nombre del gym: {msg}", "warning")
         else:
             self._datos["nombre_gym"] = self.entry_nombre.text().strip()
             self._datos["tagline"] = self.entry_tagline.text().strip()
@@ -179,69 +182,6 @@ class PaginaContacto(QWizardPage):
         return True
 
 
-class PaginaColores(QWizardPage):
-    """Paso 3: Colores corporativos."""
-
-    def __init__(self, datos: dict):
-        super().__init__()
-        self._datos = datos
-        self.setTitle("3 · Colores del gimnasio")
-
-        layout = QVBoxLayout(self)
-        layout.setSpacing(12)
-
-        lbl = QLabel("Selecciona los colores principales de tu marca")
-        lbl.setStyleSheet("color: #B8B8B8; font-size: 12px;")
-        layout.addWidget(lbl)
-
-        # Color primario
-        row1 = QWidget()
-        h1 = QHBoxLayout(row1)
-        h1.setContentsMargins(0, 0, 0, 0)
-        h1.addWidget(QLabel("Primario:"))
-        self.preview_primario = QLabel("   ")
-        self.preview_primario.setFixedSize(40, 30)
-        self._set_preview_color(self.preview_primario, datos["colores.primario"])
-        h1.addWidget(self.preview_primario)
-        btn1 = QPushButton("Elegir color")
-        btn1.clicked.connect(lambda: self._elegir_color("primario", self.preview_primario))
-        h1.addWidget(btn1)
-        h1.addStretch()
-        layout.addWidget(row1)
-
-        # Color secundario
-        row2 = QWidget()
-        h2 = QHBoxLayout(row2)
-        h2.setContentsMargins(0, 0, 0, 0)
-        h2.addWidget(QLabel("Secundario:"))
-        self.preview_secundario = QLabel("   ")
-        self.preview_secundario.setFixedSize(40, 30)
-        self._set_preview_color(self.preview_secundario, datos["colores.secundario"])
-        h2.addWidget(self.preview_secundario)
-        btn2 = QPushButton("Elegir color")
-        btn2.clicked.connect(lambda: self._elegir_color("secundario", self.preview_secundario))
-        h2.addWidget(btn2)
-        h2.addStretch()
-        layout.addWidget(row2)
-
-        layout.addStretch()
-
-    @staticmethod
-    def _set_preview_color(lbl: QLabel, hex_color: str) -> None:
-        lbl.setStyleSheet(
-            f"background-color: {hex_color}; border-radius: 6px; border: 1px solid #444444;"
-        )
-
-    def _elegir_color(self, tipo: str, preview: QLabel) -> None:
-        actual = QColor(self._datos[f"colores.{tipo}"])
-        color = QColorDialog.getColor(actual, self, f"Color {tipo}")
-        if color.isValid():
-            hex_color = color.name().upper()
-            self._datos[f"colores.{tipo}"] = hex_color
-            self._set_preview_color(preview, hex_color)
-
-    def validatePage(self) -> bool:
-        return True
 
 
 # ── Página Logo ─────────────────────────────────────────────────────────────
@@ -257,7 +197,7 @@ class PaginaLogo(QWizardPage):
     def __init__(self, datos: dict):
         super().__init__()
         self._datos = datos
-        self.setTitle("4 · Logo del gimnasio")
+        self.setTitle("3 · Logo del gimnasio")
         self._build()
 
     def _build(self) -> None:
@@ -277,8 +217,8 @@ class PaginaLogo(QWizardPage):
         self._preview.setFixedSize(260, 100)
         self._preview.setAlignment(Qt.AlignCenter)
         self._preview.setStyleSheet(
-            "background-color: #1C1C1E; border: 1px solid #2C2C2C;"
-            "border-radius: 10px; color: #48484A; font-size: 11px;"
+            "background-color: #1A1A1A; border: 1px solid #2A2A2A;"
+            "border-radius: 10px; color: #71717A; font-size: 11px;"
         )
         self._preview.setText("Sin logo seleccionado")
         lay.addWidget(self._preview)
@@ -286,7 +226,7 @@ class PaginaLogo(QWizardPage):
         # Ruta actual
         self._lbl_ruta = QLabel("")
         self._lbl_ruta.setStyleSheet(
-            "color: #8E8E93; font-size: 10px; background: transparent;"
+            "color: #71717A; font-size: 10px; background: transparent;"
         )
         self._lbl_ruta.setWordWrap(True)
         lay.addWidget(self._lbl_ruta)
@@ -294,6 +234,7 @@ class PaginaLogo(QWizardPage):
         # Botones
         fila = QHBoxLayout()
         btn_elegir = QPushButton("📂  Elegir logo...")
+        btn_elegir.setObjectName("ghostButton")
         btn_elegir.clicked.connect(self._elegir_logo)
         fila.addWidget(btn_elegir)
 
@@ -382,8 +323,6 @@ class WizardOnboarding(QWizard):
             "contacto.telefono":       branding.get("contacto.telefono", ""),
             "contacto.whatsapp":       branding.get("contacto.whatsapp", ""),
             "contacto.email":          branding.get("contacto.email", ""),
-            "colores.primario":        branding.get("colores.primario", "#FF6F0F"),
-            "colores.secundario":      branding.get("colores.secundario", "#1C1C1E"),
             "contacto.direccion_linea1": branding.get("contacto.direccion_linea1", ""),
             "contacto.direccion_linea2": branding.get("contacto.direccion_linea2", ""),
             "contacto.direccion_linea3": branding.get("contacto.direccion_linea3", ""),
@@ -396,7 +335,6 @@ class WizardOnboarding(QWizard):
 
         self.addPage(PaginaDatosGym(self._datos))
         self.addPage(PaginaContacto(self._datos))
-        self.addPage(PaginaColores(self._datos))
         self.addPage(PaginaLogo(self._datos))
 
         self.button(QWizard.FinishButton).setText("Finalizar ✓")
@@ -421,11 +359,11 @@ class WizardOnboarding(QWizard):
 
     def reject(self) -> None:
         """El usuario pulsó Omitir/X."""
-        resp = QMessageBox.question(
+        if confirmar(
             self,
             "Sin configurar",
             "Si no configuras el gym, los PDFs saldrán sin nombre. ¿Continuar sin configurar?",
-            QMessageBox.Yes | QMessageBox.No,
-        )
-        if resp == QMessageBox.Yes:
+            texto_si="Sí, continuar",
+            texto_no="Volver",
+        ):
             super().reject()

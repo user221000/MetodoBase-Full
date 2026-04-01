@@ -149,7 +149,19 @@ class GestorUsuarios:
         Raises:
             ValueError: si el email ya existe.
             RuntimeError: si CryptoService no está configurado.
+            LicenciaExcedidaError: si se supera el límite de clientes.
         """
+        # Verificar límite de clientes según licencia
+        from core.licencia import GestorLicencias, LicenciaExcedidaError
+        try:
+            gestor_lic = GestorLicencias()
+            activos = self.contar_activos()
+            gestor_lic.verificar_limite_clientes(activos)
+        except LicenciaExcedidaError:
+            raise
+        except Exception:
+            pass  # Si no hay licencia, no bloquear
+
         email_idx = self._email_idx(registro.email)
 
         with self._conn() as conn:
@@ -180,6 +192,12 @@ class GestorUsuarios:
             )
             conn.commit()
         logger.info("[USUARIOS] Usuario creado id=***")
+
+    def contar_activos(self) -> int:
+        """Cuenta los usuarios activos en la base de datos."""
+        with self._conn() as conn:
+            row = conn.execute("SELECT COUNT(*) FROM usuarios WHERE activo = 1").fetchone()
+            return row[0] if row else 0
 
     def obtener_por_email(self, email: str) -> Optional[dict]:
         """

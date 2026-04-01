@@ -1,0 +1,188 @@
+# ══════════════════════════════════════════════════════════════════════════════
+# MetodoBase — CI Pipeline
+# ══════════════════════════════════════════════════════════════════════════════
+# Ejecuta tests automáticamente en cada push y PR.
+# 
+# Características:
+# - Tests en Python 3.11 y 3.12
+# - Cache de dependencias para velocidad
+# - Reporte de cobertura
+# - Validación de sintaxis
+# ══════════════════════════════════════════════════════════════════════════════
+
+name: CI
+
+on:
+  push:
+    branches: [main, develop]
+  pull_request:
+    branches: [main, develop]
+
+env:
+  PYTHON_VERSION_PRIMARY: "3.12"
+
+jobs:
+  # ── Lint y Validación de Sintaxis ──────────────────────────────────────────
+  lint:
+    name: Lint & Syntax Check
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout código
+        uses: actions/checkout@v4
+      
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION_PRIMARY }}
+      
+      - name: Cache pip
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/pip
+          key: ${{ runner.os }}-pip-lint-${{ hashFiles('requirements*.txt') }}
+          restore-keys: |
+            ${{ runner.os }}-pip-lint-
+      
+      - name: Instalar herramientas de lint
+        run: |
+          python -m pip install --upgrade pip
+          pip install ruff pyright
+      
+      - name: Verificar sintaxis Python
+        run: |
+          python -m py_compile main.py
+          find . -name "*.py" -path "./src/*" -exec python -m py_compile {} \;
+          find . -name "*.py" -path "./api/*" -exec python -m py_compile {} \;
+          find . -name "*.py" -path "./core/*" -exec python -m py_compile {} \;
+          find . -name "*.py" -path "./web/*" -exec python -m py_compile {} \;
+      
+      - name: Ruff (linter rápido)
+        run: ruff check --output-format=github .
+        continue-on-error: true  # No bloquear por ahora
+
+  # ── Tests ──────────────────────────────────────────────────────────────────
+  test:
+    name: Tests (Python ${{ matrix.python-version }})
+    runs-on: ubuntu-latest
+    needs: lint
+    
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ["3.11", "3.12"]
+    
+    steps:
+      - name: Checkout código
+        uses: actions/checkout@v4
+      
+      - name: Setup Python ${{ matrix.python-version }}
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+      
+      - name: Cache pip
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/pip
+          key: ${{ runner.os }}-pip-${{ matrix.python-version }}-${{ hashFiles('requirements*.txt') }}
+          restore-keys: |
+            ${{ runner.os }}-pip-${{ matrix.python-version }}-
+      
+      - name: Instalar dependencias
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+          pip install pytest pytest-cov pytest-xdist
+      
+      - name: Configurar entorno
+        run: |
+          echo "METODOBASE_ENV=testing" >> $GITHUB_ENV
+          echo "WEB_SECRET_KEY=test-secret-key-for-ci-only" >> $GITHUB_ENV
+          echo "RATE_LIMIT_ENABLED=false" >> $GITHUB_ENV
+      
+      - name: Ejecutar tests
+        run: |
+          python -m pytest tests/ \
+            -v \
+            --tb=short \
+            -W ignore::DeprecationWarning \
+            --cov=. \
+            --cov-report=xml \
+            --cov-report=term-missing \
+            -n auto
+      
+      - name: Upload cobertura a Codecov
+        if: matrix.python-version == '3.12'
+        uses: codecov/codecov-action@v4
+        with:
+          files: ./coverage.xml
+          fail_ci_if_error: false
+          verbose: true
+        continue-on-error: true
+
+  # ── Build Check ────────────────────────────────────────────────────────────
+  build:
+    name: Build Check
+    runs-on: ubuntu-latest
+    needs: test
+    
+    steps:
+      - name: Checkout código
+        uses: actions/checkout@v4
+      
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION_PRIMARY }}
+      
+      - name: Instalar dependencias
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+      
+      - name: Verificar imports principales
+        run: |
+          python -c "from api.app import create_app; app = create_app(); print('✓ API app OK')"
+          python -c "from config.feature_flags import get_migration_flags; print(f'✓ Feature flags: {get_migration_flags().current_phase()}')"
+          python -c "from web.database.engine import init_db; init_db(); print('✓ Database init OK')"
+
+  # ── Security Scan ──────────────────────────────────────────────────────────
+  security:
+    name: Security Scan
+    runs-on: ubuntu-latest
+    needs: lint
+    
+    steps:
+      - name: Checkout código
+        uses: actions/checkout@v4
+      
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION_PRIMARY }}
+      
+      - name: Instalar bandit
+        run: pip install bandit[toml]
+      
+      - name: Escanear vulnerabilidades
+        run: bandit -r api/ core/ web/ src/ -ll --skip B101
+        continue-on-error: true  # No bloquear por ahora, solo reportar
+
+  # ── Resumen ────────────────────────────────────────────────────────────────
+  ci-success:
+    name: CI Success
+    runs-on: ubuntu-latest
+    needs: [lint, test, build]
+    if: always()
+    
+    steps:
+      - name: Verificar resultados
+        run: |
+          if [[ "${{ needs.lint.result }}" == "failure" ]] || \
+             [[ "${{ needs.test.result }}" == "failure" ]] || \
+             [[ "${{ needs.build.result }}" == "failure" ]]; then
+            echo "❌ CI falló"
+            exit 1
+          fi
+          echo "✅ CI completado exitosamente"

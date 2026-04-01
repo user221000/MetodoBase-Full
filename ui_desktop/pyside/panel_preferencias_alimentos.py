@@ -14,7 +14,6 @@ el usuario toglea un chip (señal excluidos_actualizados(list[str])).
 """
 from __future__ import annotations
 
-from typing import Any
 
 from PySide6.QtCore import Qt, Signal
 from PySide6.QtWidgets import (
@@ -74,11 +73,7 @@ class PanelPreferenciasAlimentos(QDialog):
 
         # ── Encabezado fijo ───────────────────────────────────────────────
         header = QFrame()
-        header.setObjectName("card")
-        header.setStyleSheet(
-            "QFrame#card { border-radius: 0; border-bottom: 1px solid #232323;"
-            "border-left: none; border-right: none; border-top: none; }"
-        )
+        header.setObjectName("topbarFrame")
         h_lay = QVBoxLayout(header)
         h_lay.setContentsMargins(32, 24, 32, 20)
         h_lay.setSpacing(4)
@@ -133,11 +128,7 @@ class PanelPreferenciasAlimentos(QDialog):
 
         # ── Footer fijo ───────────────────────────────────────────────────
         footer = QFrame()
-        footer.setObjectName("card")
-        footer.setStyleSheet(
-            "QFrame#card { border-radius: 0; border-top: 1px solid #232323;"
-            "border-left: none; border-right: none; border-bottom: none; }"
-        )
+        footer.setObjectName("topbarFrame")
         f_lay = QHBoxLayout(footer)
         f_lay.setContentsMargins(32, 16, 32, 16)
 
@@ -155,6 +146,7 @@ class PanelPreferenciasAlimentos(QDialog):
         f_lay.addSpacerItem(QSpacerItem(8, 0, QSizePolicy.Fixed))
 
         btn_listo = QPushButton("Listo ✓")
+        btn_listo.setObjectName("primaryButton")
         btn_listo.setFixedHeight(36)
         btn_listo.clicked.connect(self._finalizar)
         f_lay.addWidget(btn_listo)

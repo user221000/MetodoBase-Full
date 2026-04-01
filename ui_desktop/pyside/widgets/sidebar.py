@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 """
-Sidebar personalizado con logo, navegación jerárquica y footer de usuario.
-Secciones: PRINCIPAL, GIMNASIO, FINANZAS, SISTEMA.
+Sidebar personalizado — diseño moderno oscuro con navegación simple.
+Inspirado en dashboard de gestión de gimnasio con sidebar dark.
 """
 from PySide6.QtWidgets import (
     QFrame, QVBoxLayout, QHBoxLayout, QLabel,
@@ -9,21 +9,24 @@ from PySide6.QtWidgets import (
 )
 from PySide6.QtCore import Qt, Signal
 
+from core.branding import branding
+from design_system.tokens import Colors, Spacing
+
 try:
     from config.constantes import ENABLE_BILLING
 except ImportError:
-    ENABLE_BILLING = True   # fallback: mostrar si no se puede importar
+    ENABLE_BILLING = True
 
 
 class CustomSidebar(QFrame):
-    """Sidebar de navegación con diseño verde premium."""
+    """Sidebar de navegación con diseño oscuro moderno."""
 
     navigation_changed = Signal(str)
 
     def __init__(self, parent=None):
         super().__init__(parent)
         self.setObjectName("sidebar")
-        self.setFixedWidth(260)
+        self.setFixedWidth(240)
         self._nav_buttons: dict[str, QPushButton] = {}
         self._setup_ui()
 
@@ -37,75 +40,79 @@ class CustomSidebar(QFrame):
         # ── Logo ──────────────────────────────────────────────────────────────
         logo_container = QWidget()
         logo_container.setStyleSheet("background: transparent;")
-        logo_layout = QVBoxLayout(logo_container)
-        logo_layout.setContentsMargins(20, 24, 20, 0)
-        logo_layout.setSpacing(3)
+        logo_layout = QHBoxLayout(logo_container)
+        logo_layout.setContentsMargins(20, 24, 20, 8)
+        logo_layout.setSpacing(10)
 
-        logo_label = QLabel("Método Base")
-        logo_label.setObjectName("logoLabel")
+        logo_icon = QLabel("⚡")
+        logo_icon.setObjectName("sidebarLogoIcon")
+        logo_layout.addWidget(logo_icon)
+
+        logo_label = QLabel(branding.get("nombre_corto", "MetodoBase"))
+        logo_label.setObjectName("sidebarLogo")
         logo_layout.addWidget(logo_label)
-
-        version_label = QLabel("Sistema Nutricional v2.0")
-        version_label.setObjectName("versionLabel")
-        logo_layout.addWidget(version_label)
+        logo_layout.addStretch()
 
         layout.addWidget(logo_container)
-        layout.addSpacing(28)
+        layout.addSpacing(12)
 
-        # ── Sección PRINCIPAL ─────────────────────────────────────────────────
-        layout.addWidget(self._create_section_label("PRINCIPAL"))
-
-        self._add_nav("dashboard", "📊   Dashboard", layout)
-        self._add_nav("clientes", "👥   Clientes", layout)
-        self._add_nav("generar_plan", "📋   Generar Plan", layout)
-
-        layout.addSpacing(20)
-
-        # ── Sección GIMNASIO ──────────────────────────────────────────────────
-        layout.addWidget(self._create_section_label("GIMNASIO"))
-
-        self._add_nav("suscripciones", "💳   Suscripciones", layout)
-        self._add_nav("clases", "🗓️   Clases", layout)
-        self._add_nav("instructores", "🏋️   Instructores", layout)
-
-        layout.addSpacing(20)
-
-        # ── Sección FINANZAS ──────────────────────────────────────────────────
-        layout.addWidget(self._create_section_label("FINANZAS"))
-
+        # ── Sección Principal ─────────────────────────────────────────────────
+        self._add_section_label("Principal", layout)
+        self._add_nav("dashboard",    "📊  Dashboard",       layout)
+        self._add_nav("clientes",     "👥  Miembros",        layout)
+        self._add_nav("generar_plan", "📋  Generar planes",  layout)
+        
+        layout.addSpacing(16)
+        
+        # ── Sección Gestión ───────────────────────────────────────────────────
+        self._add_section_label("Gestión", layout)
+        self._add_nav("suscripciones","💳  Suscripciones",   layout)
+        self._add_nav("clases",       "🏋  Clases",          layout)
+        self._add_nav("instructores", "👨‍🏫  Instructores",    layout)
         if ENABLE_BILLING:
-            self._add_nav("facturacion", "💰   Facturación", layout)
-        self._add_nav("reportes", "📈   Reportes", layout)
-
-        layout.addSpacing(20)
-
-        # ── Sección SISTEMA ───────────────────────────────────────────────────
-        layout.addWidget(self._create_section_label("SISTEMA"))
-
-        self._add_nav("configuracion", "⚙️   Configuración", layout)
-        self._add_nav("api_docs", "📖   API Docs", layout)
+            self._add_nav("facturacion",  "🧾  Facturación",     layout)
+        self._add_nav("reportes",     "📈  Reportes",        layout)
+        
+        layout.addSpacing(16)
+        
+        # ── Sección Sistema ───────────────────────────────────────────────────
+        self._add_section_label("Sistema", layout)
+        self._add_nav("configuracion","⚙️  Opciones",        layout)
 
         # ── Spacer ────────────────────────────────────────────────────────────
         layout.addItem(
             QSpacerItem(20, 40, QSizePolicy.Policy.Minimum, QSizePolicy.Policy.Expanding)
         )
 
+        # ── Footer: Cerrar sesión ─────────────────────────────────────────────
+        self._add_nav_bottom("switch_gym", "🚪  Cerrar sesión", layout)
+
+        layout.addSpacing(8)
+
         # ── Usuario Footer ────────────────────────────────────────────────────
         layout.addWidget(self._create_user_footer())
-
-    def _create_section_label(self, text: str) -> QLabel:
-        label = QLabel(text)
-        label.setObjectName("sectionLabel")
-        return label
 
     def _add_nav(self, page_id: str, text: str, layout: QVBoxLayout) -> None:
         btn = self._create_nav_button(text, page_id)
         self._nav_buttons[page_id] = btn
         layout.addWidget(btn)
 
+    def _add_section_label(self, text: str, layout: QVBoxLayout) -> None:
+        """Agrega una etiqueta de sección al sidebar."""
+        label = QLabel(text.upper())
+        label.setObjectName("sidebarSectionLabel")
+        layout.addWidget(label)
+
+    def _add_nav_bottom(self, page_id: str, text: str, layout: QVBoxLayout) -> None:
+        """Agrega botón de navegación en la sección inferior (sin estado activo)."""
+        btn = self._create_nav_button(text, page_id)
+        # Para Settings/Switch no marcamos activo
+        self._nav_buttons[page_id] = btn
+        layout.addWidget(btn)
+
     def _create_nav_button(self, text: str, page_id: str) -> QPushButton:
         btn = QPushButton(text)
-        btn.setObjectName("navButton")
+        btn.setObjectName("navItem")  # Uses sidebar nav styles from amarillo_neon.qss
         btn.setCheckable(True)
         btn.setCursor(Qt.CursorShape.PointingHandCursor)
         btn.clicked.connect(lambda: self._on_nav_clicked(page_id))
@@ -113,32 +120,34 @@ class CustomSidebar(QFrame):
 
     def _create_user_footer(self) -> QFrame:
         footer = QFrame()
-        footer.setObjectName("userFooter")
+        footer.setObjectName("sidebarFooter")
 
         layout = QHBoxLayout(footer)
-        layout.setContentsMargins(12, 12, 12, 12)
+        layout.setContentsMargins(14, 12, 14, 14)
         layout.setSpacing(10)
 
         # Avatar circular
-        avatar = QLabel("GM")
-        avatar.setObjectName("userAvatar")
+        nombre_gym = branding.get("nombre_gym", "Mi Gimnasio")
+        initials = "".join(w[0].upper() for w in nombre_gym.split()[:2]) or "GY"
+        avatar = QLabel(initials)
+        avatar.setObjectName("sidebarAvatar")
         avatar.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        avatar.setFixedSize(40, 40)
+        avatar.setFixedSize(36, 36)
         layout.addWidget(avatar)
 
-        # Información de usuario
+        # Información
         info_widget = QWidget()
         info_widget.setStyleSheet("background: transparent;")
         info_layout = QVBoxLayout(info_widget)
         info_layout.setContentsMargins(0, 0, 0, 0)
         info_layout.setSpacing(2)
 
-        name_label = QLabel("Mi Gimnasio")
-        name_label.setObjectName("userName")
+        name_label = QLabel(nombre_gym)
+        name_label.setObjectName("sidebarUserName")
         info_layout.addWidget(name_label)
 
-        plan_label = QLabel("v2.0 Premium")
-        plan_label.setObjectName("userPlan")
+        plan_label = QLabel("Premium")
+        plan_label.setObjectName("sidebarUserRole")
         info_layout.addWidget(plan_label)
 
         layout.addWidget(info_widget)
@@ -148,7 +157,19 @@ class CustomSidebar(QFrame):
 
     # ── Lógica de navegación ──────────────────────────────────────────────────
 
+    # IDs que no corresponden a panels reales del stack
+    _NON_PANEL_IDS = {"switch_gym", "configuracion_sys"}
+
     def _on_nav_clicked(self, page_id: str) -> None:
+        if page_id == "switch_gym":
+            # Emitir señal especial
+            self.navigation_changed.emit("switch_gym")
+            return
+        if page_id == "configuracion_sys":
+            # Redirige a configuración estándar
+            self._set_active("configuracion")
+            self.navigation_changed.emit("configuracion")
+            return
         self._set_active(page_id)
         self.navigation_changed.emit(page_id)
 

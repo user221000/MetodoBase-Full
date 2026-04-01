@@ -6,7 +6,7 @@ desde aquí. Las listas se derivan dinámicamente de src.alimentos_base.CATEGORI
 para garantizar coherencia.
 """
 
-from src.alimentos_base import CATEGORIAS, ALIMENTOS_BASE
+from src.alimentos_base import CATEGORIAS
 
 
 # ---------------------------------------------------------------------------

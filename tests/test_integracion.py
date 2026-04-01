@@ -6,10 +6,11 @@ usando el servicio layer (api/services.py) y el TestClient de FastAPI.
 
 Run:
     pytest tests/test_integracion.py -v
+    
+NOTE: Tests now require authentication. Uses auth_client fixture from conftest.py.
 """
 from __future__ import annotations
 
-import os
 import time
 from pathlib import Path
 
@@ -23,6 +24,7 @@ from api.app import create_app
 
 @pytest.fixture(scope="module")
 def client():
+    """Unauthenticated client for tests that need it."""
     app = create_app()
     with TestClient(app, raise_server_exceptions=False) as c:
         yield c
@@ -74,16 +76,16 @@ def crear_cliente(client, datos: dict) -> str:
 class TestFlujoCompleto:
     """Prueba E2E desde creación hasta descarga de PDF."""
 
-    def test_flujo_completo_deficit(self, client):
+    def test_flujo_completo_deficit(self, auth_client):
         """
         Flujo: POST /clientes → POST /generar-plan → verifica ruta_pdf en disco
         """
         # 1. Crear cliente
-        id_c = crear_cliente(client, CLIENTE_DEFICIT)
+        id_c = crear_cliente(auth_client, CLIENTE_DEFICIT)
         assert id_c, "id_cliente vacío"
 
         # 2. Generar plan
-        resp_plan = client.post("/api/generar-plan", json={
+        resp_plan = auth_client.post("/api/generar-plan", json={
             "id_cliente": id_c, "plan_numero": 1
         })
         assert resp_plan.status_code == 200, f"Generar plan falló: {resp_plan.text[:500]}"
@@ -102,13 +104,13 @@ class TestFlujoCompleto:
         assert ruta_pdf.stat().st_size > 1024, "PDF demasiado pequeño (< 1 KB)"
 
         # 5. Cleanup
-        client.delete(f"/api/clientes/{id_c}")
+        auth_client.delete(f"/api/clientes/{id_c}")
         if ruta_pdf.exists():
             ruta_pdf.unlink(missing_ok=True)
 
-    def test_flujo_completo_superavit(self, client):
-        id_c = crear_cliente(client, CLIENTE_SUPERAVIT)
-        resp = client.post("/api/generar-plan", json={"id_cliente": id_c, "plan_numero": 1})
+    def test_flujo_completo_superavit(self, auth_client):
+        id_c = crear_cliente(auth_client, CLIENTE_SUPERAVIT)
+        resp = auth_client.post("/api/generar-plan", json={"id_cliente": id_c, "plan_numero": 1})
         assert resp.status_code == 200
         body = resp.json()
         macros = body["macros"]
@@ -118,19 +120,19 @@ class TestFlujoCompleto:
             "Superávit: kcal_objetivo debería ser cercana o mayor que GET"
         )
         ruta = Path(body["ruta_pdf"])
-        client.delete(f"/api/clientes/{id_c}")
+        auth_client.delete(f"/api/clientes/{id_c}")
         if ruta.exists():
             ruta.unlink(missing_ok=True)
 
-    def test_flujo_completo_sin_grasa(self, client):
+    def test_flujo_completo_sin_grasa(self, auth_client):
         """Sin % grasa corporal, el sistema usa 20% por defecto."""
-        id_c = crear_cliente(client, CLIENTE_MANTENIMIENTO)
-        resp = client.post("/api/generar-plan", json={"id_cliente": id_c, "plan_numero": 1})
+        id_c = crear_cliente(auth_client, CLIENTE_MANTENIMIENTO)
+        resp = auth_client.post("/api/generar-plan", json={"id_cliente": id_c, "plan_numero": 1})
         assert resp.status_code == 200
         body = resp.json()
         assert body["macros"]["tmb"] > 0
         ruta = Path(body["ruta_pdf"])
-        client.delete(f"/api/clientes/{id_c}")
+        auth_client.delete(f"/api/clientes/{id_c}")
         if ruta.exists():
             ruta.unlink(missing_ok=True)
 
@@ -142,39 +144,39 @@ class TestFlujoCompleto:
 class TestCalculoMacrosPorObjetivo:
     """Valida que el motor nutricional aplica los ajustes correctos."""
 
-    def _get_macros(self, client, objetivo: str) -> dict:
+    def _get_macros(self, auth_client, objetivo: str) -> dict:
         datos = {**CLIENTE_DEFICIT, "nombre": f"Test {objetivo}", "objetivo": objetivo}
-        id_c = crear_cliente(client, datos)
-        resp = client.post("/api/generar-plan", json={"id_cliente": id_c, "plan_numero": 1})
+        id_c = crear_cliente(auth_client, datos)
+        resp = auth_client.post("/api/generar-plan", json={"id_cliente": id_c, "plan_numero": 1})
         macros = resp.json()["macros"]
         ruta = Path(resp.json().get("ruta_pdf", ""))
-        client.delete(f"/api/clientes/{id_c}")
+        auth_client.delete(f"/api/clientes/{id_c}")
         if ruta.exists():
             ruta.unlink(missing_ok=True)
         return macros
 
-    def test_deficit_reduce_calorias(self, client):
-        macros = self._get_macros(client, "deficit")
+    def test_deficit_reduce_calorias(self, auth_client):
+        macros = self._get_macros(auth_client, "deficit")
         assert macros["kcal_objetivo"] < macros["get_total"], (
             "Déficit: kcal_objetivo debe ser < GET"
         )
 
-    def test_superavit_aumenta_calorias(self, client):
-        macros = self._get_macros(client, "superavit")
+    def test_superavit_aumenta_calorias(self, auth_client):
+        macros = self._get_macros(auth_client, "superavit")
         assert macros["kcal_objetivo"] > macros["get_total"], (
             "Superávit: kcal_objetivo debe ser > GET"
         )
 
-    def test_mantenimiento_igual_get(self, client):
-        macros = self._get_macros(client, "mantenimiento")
+    def test_mantenimiento_igual_get(self, auth_client):
+        macros = self._get_macros(auth_client, "mantenimiento")
         diferencia = abs(macros["kcal_objetivo"] - macros["get_total"])
         assert diferencia < macros["get_total"] * 0.10, (
             f"Mantenimiento: diferencia GET vs objetivo demasiado grande ({diferencia:.0f} kcal)"
         )
 
-    def test_proteina_positiva_siempre(self, client):
+    def test_proteina_positiva_siempre(self, auth_client):
         for obj in ("deficit", "mantenimiento", "superavit"):
-            macros = self._get_macros(client, obj)
+            macros = self._get_macros(auth_client, obj)
             assert macros["proteina_g"] > 0, f"proteina_g debe ser positiva para {obj}"
 
 
@@ -185,36 +187,36 @@ class TestCalculoMacrosPorObjetivo:
 class TestManejoErrores:
     """Verifica que la API devuelve códigos HTTP correctos ante errores."""
 
-    def test_generar_plan_cliente_inexistente(self, client):
-        resp = client.post("/api/generar-plan", json={
+    def test_generar_plan_cliente_inexistente(self, auth_client):
+        resp = auth_client.post("/api/generar-plan", json={
             "id_cliente": "ID_FALSO_ZZZ", "plan_numero": 1
         })
         assert resp.status_code == 404
 
-    def test_obtener_cliente_no_existe(self, client):
-        resp = client.get("/api/clientes/XYZ_INVALIDO_ZZZ")
+    def test_obtener_cliente_no_existe(self, auth_client):
+        resp = auth_client.get("/api/clientes/XYZ_INVALIDO_ZZZ")
         assert resp.status_code == 404
 
-    def test_crear_cliente_campos_invalidos(self, client):
+    def test_crear_cliente_campos_invalidos(self, auth_client):
         """Peso negativo → 422"""
-        resp = client.post("/api/clientes", json={
+        resp = auth_client.post("/api/clientes", json={
             **CLIENTE_DEFICIT,
             "peso_kg": -5,
         })
         assert resp.status_code == 422
 
-    def test_crear_cliente_sin_nombre(self, client):
+    def test_crear_cliente_sin_nombre(self, auth_client):
         datos = {k: v for k, v in CLIENTE_DEFICIT.items() if k != "nombre"}
-        resp = client.post("/api/clientes", json=datos)
+        resp = auth_client.post("/api/clientes", json=datos)
         assert resp.status_code == 422
 
-    def test_descargar_pdf_cliente_sin_planes(self, client):
+    def test_descargar_pdf_cliente_sin_planes(self, auth_client):
         """Cliente recién creado sin planes → 404 al intentar descargar PDF."""
-        id_c = crear_cliente(client, {**CLIENTE_DEFICIT, "nombre": "Sin Plan"})
-        resp = client.get(f"/api/descargar-pdf/{id_c}")
+        id_c = crear_cliente(auth_client, {**CLIENTE_DEFICIT, "nombre": "Sin Plan"})
+        resp = auth_client.get(f"/api/descargar-pdf/{id_c}")
         # Puede ser 404 (sin planes) o 200 si ya se generó alguno, pero no debe ser 500
         assert resp.status_code in (200, 404)
-        client.delete(f"/api/clientes/{id_c}")
+        auth_client.delete(f"/api/clientes/{id_c}")
 
 
 # ════════════════════════════════════════════════════════════════════════════════
@@ -286,16 +288,16 @@ class TestServicesLayer:
 class TestPerformance:
     """Smoke tests de rendimiento — umbrales conservadores para CI."""
 
-    def test_listar_clientes_rapido(self, client):
+    def test_listar_clientes_rapido(self, auth_client):
         t0 = time.perf_counter()
-        resp = client.get("/api/clientes")
+        resp = auth_client.get("/api/clientes")
         elapsed = time.perf_counter() - t0
         assert resp.status_code == 200
         assert elapsed < 2.0, f"Listar clientes tardó {elapsed:.2f}s (max 2s)"
 
-    def test_estadisticas_rapido(self, client):
+    def test_estadisticas_rapido(self, auth_client):
         t0 = time.perf_counter()
-        resp = client.get("/api/estadisticas")
+        resp = auth_client.get("/api/estadisticas")
         elapsed = time.perf_counter() - t0
         assert resp.status_code == 200
         assert elapsed < 2.0, f"Estadísticas tardaron {elapsed:.2f}s (max 2s)"

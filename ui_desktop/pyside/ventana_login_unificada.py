@@ -42,100 +42,36 @@ from PySide6.QtWidgets import (
     QLabel,
     QLineEdit,
     QPushButton,
-    QSizePolicy,
     QStackedWidget,
     QVBoxLayout,
     QWidget,
 )
 
 from core.services.auth_service import SesionActiva, crear_auth_service
+from design_system.tokens import Colors
 from utils.helpers import resource_path
 from utils.logger import logger
 
 # ── Regex email ──────────────────────────────────────────────────────────────
 _RE_EMAIL = re.compile(r"^[^@\s]+@[^@\s]+\.[^@\s]+$")
 
-# ── Paleta de colores (unificada web + desktop) ───────────────────────────────
-_BG         = "#0D0D0D"
-_CARD       = "#1A1A1A"
-_CARD_INNER = "#222222"
-_PRIMARIO   = "#9B4FB0"
-_PRIMARIO_H = "#B565C6"
-_PRIMARIO_P = "#7A3D8E"
-_SECUNDARIO = "#D4A84B"
-_TEXTO      = "#F5F5F5"
-_TEXTO_SUB  = "#B8B8B8"
-_BORDE      = "#444444"
-_ERROR      = "#F44336"
-_INPUT_BG   = "#2A2A2A"
-
 # ── QSS reutilizable ──────────────────────────────────────────────────────────
 _ENTRY_QSS = f"""
     QLineEdit {{
-        background: {_INPUT_BG};
-        color: {_TEXTO};
-        border: 1px solid {_BORDE};
+        background: {Colors.BG_CARD};
+        color: {Colors.TEXT_PRIMARY};
+        border: 1px solid {Colors.BORDER_DEFAULT};
         border-radius: 8px;
         padding: 0 14px;
         font-family: "Segoe UI", "DejaVu Sans", sans-serif;
         font-size: 13px;
     }}
     QLineEdit:focus {{
-        border: 1px solid {_PRIMARIO};
+        border: 1px solid {Colors.PRIMARY};
     }}
     QLineEdit:disabled {{
-        background: #1E1E1E;
-        color: #666666;
-    }}
-"""
-
-_BTN_PRIMARY_QSS = f"""
-    QPushButton {{
-        background: {_PRIMARIO};
-        color: white;
-        border: none;
-        border-radius: 10px;
-        font-family: "Segoe UI", "DejaVu Sans", sans-serif;
-        font-size: 14px;
-        font-weight: bold;
-        padding: 0 20px;
-    }}
-    QPushButton:hover {{
-        background: {_PRIMARIO_H};
-    }}
-    QPushButton:pressed {{
-        background: {_PRIMARIO_P};
-    }}
-    QPushButton:disabled {{
-        background: #444;
-        color: #888;
-    }}
-"""
-
-_TAB_ACTIVE_QSS = f"""
-    QPushButton {{
-        background: {_PRIMARIO};
-        color: white;
-        border: none;
-        border-radius: 8px;
-        font-family: "Segoe UI", "DejaVu Sans", sans-serif;
-        font-size: 13px;
-        font-weight: bold;
-    }}
-"""
-
-_TAB_INACTIVE_QSS = f"""
-    QPushButton {{
-        background: transparent;
-        color: {_TEXTO_SUB};
-        border: none;
-        border-radius: 8px;
-        font-family: "Segoe UI", "DejaVu Sans", sans-serif;
-        font-size: 13px;
-    }}
-    QPushButton:hover {{
-        background: #333333;
-        color: {_TEXTO};
+        background: {Colors.BG_INPUT};
+        color: {Colors.TEXT_HINT};
     }}
 """
 
@@ -151,7 +87,7 @@ class ResultadoLogin(IntEnum):
 # ── Helpers de UI ─────────────────────────────────────────────────────────────
 
 def _lbl_plain(text: str, size: int = 13, bold: bool = False,
-               color: str = _TEXTO) -> QLabel:
+               color: str = Colors.TEXT_PRIMARY) -> QLabel:
     """Crea un QLabel simple con fuente Segoe UI."""
     lbl = QLabel(text)
     f = QFont("Segoe UI, DejaVu Sans", size)
@@ -175,7 +111,7 @@ def _primary_btn(text: str) -> QPushButton:
     btn = QPushButton(text)
     btn.setFixedHeight(46)
     btn.setCursor(Qt.PointingHandCursor)
-    btn.setStyleSheet(_BTN_PRIMARY_QSS)
+    btn.setObjectName("loginPrimaryBtn")
     return btn
 
 
@@ -183,7 +119,7 @@ def _error_lbl() -> QLabel:
     lbl = QLabel("")
     lbl.setWordWrap(True)
     lbl.setStyleSheet(
-        f"color: {_ERROR}; background: transparent; "
+        f"color: {Colors.ERROR}; background: transparent; "
         f"font-family: 'Segoe UI', 'DejaVu Sans'; font-size: 12px;"
     )
     lbl.hide()
@@ -194,7 +130,7 @@ def _link_lbl(text: str) -> QLabel:
     lbl = QLabel(text)
     lbl.setOpenExternalLinks(False)
     lbl.setStyleSheet(
-        f"color: {_TEXTO_SUB}; background: transparent; "
+        f"color: {Colors.TEXT_SECONDARY}; background: transparent; "
         f"font-family: 'Segoe UI', 'DejaVu Sans'; font-size: 12px;"
     )
     return lbl
@@ -210,7 +146,7 @@ class _PanelGymLogin(QWidget):
 
     def __init__(self) -> None:
         super().__init__()
-        self.setStyleSheet("background: transparent;")
+        self.setObjectName("transparentWidget")
         self._auth = crear_auth_service()
         self._sesion: Optional[SesionActiva] = None
         self._build()
@@ -234,7 +170,7 @@ class _PanelGymLogin(QWidget):
         title.setAlignment(Qt.AlignHCenter)
         lay.addWidget(title)
 
-        sub = _lbl_plain("Accede con tus credenciales de gym", size=11, color=_TEXTO_SUB)
+        sub = _lbl_plain("Accede con tus credenciales de gym", size=11, color=Colors.TEXT_SECONDARY)
         sub.setAlignment(Qt.AlignHCenter)
         lay.addWidget(sub)
 
@@ -269,7 +205,7 @@ class _PanelGymLogin(QWidget):
         # Link para primera vez / registro
         lnk_reg = _link_lbl(
             "¿Primera vez? "
-            "<a href='reg' style='color:#D4A84B;'>Registrar mi gym →</a>"
+            "<a href='reg' style='color:#FFEB3B;'>Registrar mi gym →</a>"
         )
         lnk_reg.setOpenExternalLinks(False)
         lnk_reg.setAlignment(Qt.AlignHCenter)
@@ -333,7 +269,7 @@ class _PanelUsuarioLogin(QWidget):
 
     def __init__(self) -> None:
         super().__init__()
-        self.setStyleSheet("background: transparent;")
+        self.setObjectName("transparentWidget")
         self._auth = crear_auth_service()
         self._sesion: Optional[SesionActiva] = None
         self._build()
@@ -356,7 +292,7 @@ class _PanelUsuarioLogin(QWidget):
         title.setAlignment(Qt.AlignHCenter)
         lay.addWidget(title)
 
-        sub = _lbl_plain("Genera tu plan nutricional personal", size=11, color=_TEXTO_SUB)
+        sub = _lbl_plain("Genera tu plan nutricional personal", size=11, color=Colors.TEXT_SECONDARY)
         sub.setAlignment(Qt.AlignHCenter)
         lay.addWidget(sub)
 
@@ -364,7 +300,7 @@ class _PanelUsuarioLogin(QWidget):
 
         # Sub-stack: login (0) | registro (1)
         self._sub_stack = QStackedWidget()
-        self._sub_stack.setStyleSheet("background: transparent;")
+        self._sub_stack.setObjectName("transparentWidget")
         lay.addWidget(self._sub_stack)
 
         self._sub_stack.addWidget(self._build_login_sub())
@@ -383,7 +319,7 @@ class _PanelUsuarioLogin(QWidget):
 
     def _build_login_sub(self) -> QWidget:
         page = QWidget()
-        page.setStyleSheet("background: transparent;")
+        page.setObjectName("transparentWidget")
         lay = QVBoxLayout(page)
         lay.setContentsMargins(0, 0, 0, 0)
         lay.setSpacing(10)
@@ -410,7 +346,7 @@ class _PanelUsuarioLogin(QWidget):
         row = QHBoxLayout()
         row.addStretch()
         lnk = _link_lbl(
-            "¿Sin cuenta? <a href='reg' style='color:#9B4FB0;'>Regístrate</a>"
+            "¿Sin cuenta? <a href='reg' style='color:#FFEB3B;'>Regístrate</a>"
         )
         lnk.setOpenExternalLinks(False)
         lnk.linkActivated.connect(lambda _: self._sub_stack.setCurrentIndex(1))
@@ -424,7 +360,7 @@ class _PanelUsuarioLogin(QWidget):
 
     def _build_registro_sub(self) -> QWidget:
         page = QWidget()
-        page.setStyleSheet("background: transparent;")
+        page.setObjectName("transparentWidget")
         lay = QVBoxLayout(page)
         lay.setContentsMargins(0, 0, 0, 0)
         lay.setSpacing(8)
@@ -453,7 +389,7 @@ class _PanelUsuarioLogin(QWidget):
         self._btn_registrar = btn_reg
 
         lnk_back = _link_lbl(
-            "<a href='back' style='color:#9B4FB0;'>← Volver a inicio de sesión</a>"
+            "<a href='back' style='color:#FFEB3B;'>← Volver a inicio de sesión</a>"
         )
         lnk_back.setOpenExternalLinks(False)
         lnk_back.setAlignment(Qt.AlignHCenter)
@@ -581,7 +517,7 @@ class VentanaLoginUnificada(QDialog):
         self.setWindowTitle("Método Base — Iniciar Sesión")
         self.setFixedSize(self.WIN_W, self.WIN_H)
         self.setWindowFlag(Qt.WindowContextHelpButtonHint, False)
-        self.setStyleSheet(f"QDialog {{ background: {_BG}; }}")
+        self.setStyleSheet(f"QDialog {{ background: {Colors.BG_DEEP}; }}")
 
         self._sesion_gym:     Optional[SesionActiva] = None
         self._sesion_usuario: Optional[SesionActiva] = None
@@ -614,14 +550,16 @@ class VentanaLoginUnificada(QDialog):
         self._brand = QLabel(self)
         self._brand.setGeometry(brand_x, brand_y, self.WIN_W - self.PANEL_W - 120, 180)
         self._brand.setWordWrap(True)
-        self._brand.setStyleSheet("background: transparent;")
+        self._brand.setObjectName("transparentWidget")
         self._brand.setText(
-            "<span style='color:#F5F5F5;font-size:30px;font-weight:700;'>"
+            "<span style='color:#FFFFFF;font-size:32px;font-weight:700;line-height:1.2;'>"
             "Bienvenido a<br>"
-            "<span style='color:#9B4FB0;'>Método Base</span></span><br>"
-            "<span style='color:#C0C0C0;font-size:13px;'>"
-            "Tu plan nutricional personalizado,<br>"
-            "diseñado para alcanzar tus metas.</span>"
+            "<span style='color:#FFEB3B;'>MetodoBase</span></span><br><br>"
+            "<span style='color:#A1A1AA;font-size:15px;font-weight:600;'>"
+            "Una opción Innovadora<br>para tu gym</span><br><br>"
+            "<span style='color:#A1A1AA;font-size:12px;'>"
+            "Gestiona miembros, clases, planes nutricionales<br>"
+            "y suscripciones en un solo lugar.</span>"
         )
 
         # ── Panel lateral derecho ─────────────────────────────────────────────
@@ -632,17 +570,21 @@ class VentanaLoginUnificada(QDialog):
         self._panel.setObjectName("LoginPanel")
         self._panel.setStyleSheet(f"""
             QFrame#LoginPanel {{
-                background: {_CARD};
-                border: 1px solid {_BORDE};
+                background: {Colors.BG_INPUT};
+                border: 1px solid {Colors.BORDER_DEFAULT};
                 border-radius: 16px;
+            }}
+            QFrame#LoginPanel QLabel {{
+                color: {Colors.TEXT_PRIMARY};
+                background: transparent;
             }}
         """)
 
         # Sombra del panel
         shadow = QGraphicsDropShadowEffect()
-        shadow.setBlurRadius(40)
-        shadow.setColor(QColor(0, 0, 0, 180))
-        shadow.setOffset(0, 8)
+        shadow.setBlurRadius(48)
+        shadow.setColor(QColor(0, 0, 0, 120))
+        shadow.setOffset(0, 12)
         self._panel.setGraphicsEffect(shadow)
 
         # ── Layout del panel ──────────────────────────────────────────────────
@@ -650,12 +592,23 @@ class VentanaLoginUnificada(QDialog):
         panel_lay.setContentsMargins(28, 22, 28, 22)
         panel_lay.setSpacing(0)
 
-        # Logo y tagline
-        logo = _lbl_plain("Método Base", size=20, bold=True)
-        logo.setAlignment(Qt.AlignHCenter)
-        panel_lay.addWidget(logo)
+        # Logo icon + nombre
+        logo_row = QHBoxLayout()
+        logo_row.setAlignment(Qt.AlignHCenter)
+        logo_row.setSpacing(8)
 
-        tagline = _lbl_plain("Sistema Nutricional Profesional", size=10, color=_TEXTO_SUB)
+        logo_icon = QLabel("⚡")
+        logo_icon.setFixedSize(36, 36)
+        logo_icon.setAlignment(Qt.AlignCenter)
+        logo_icon.setObjectName("loginLogoIcon")
+        logo_row.addWidget(logo_icon)
+
+        logo_name = _lbl_plain("Método Base", size=18, bold=True)
+        logo_name.setStyleSheet(f"color: {Colors.TEXT_PRIMARY}; background: transparent;")
+        logo_row.addWidget(logo_name)
+        panel_lay.addLayout(logo_row)
+
+        tagline = _lbl_plain("Inicia sesión en tu cuenta", size=10, color=Colors.TEXT_SECONDARY)
         tagline.setAlignment(Qt.AlignHCenter)
         panel_lay.addWidget(tagline)
 
@@ -664,14 +617,14 @@ class VentanaLoginUnificada(QDialog):
         # Divisor
         sep = QFrame()
         sep.setFixedHeight(1)
-        sep.setStyleSheet(f"background: {_BORDE}; border: none;")
+        sep.setStyleSheet(f"background: {Colors.BORDER_DEFAULT}; border: none;")
         panel_lay.addWidget(sep)
 
         panel_lay.addSpacing(14)
 
         # ── Tabs GYM / USUARIO ────────────────────────────────────────────────
         tabs_frame = QFrame()
-        tabs_frame.setStyleSheet("QFrame { background: #252525; border-radius: 10px; }")
+        tabs_frame.setObjectName("loginTabsFrame")
         tabs_frame.setFixedHeight(46)
         tabs_lay = QHBoxLayout(tabs_frame)
         tabs_lay.setContentsMargins(4, 4, 4, 4)
@@ -682,14 +635,14 @@ class VentanaLoginUnificada(QDialog):
         self._btn_tab_gym.setChecked(True)
         self._btn_tab_gym.setCursor(Qt.PointingHandCursor)
         self._btn_tab_gym.setFixedHeight(38)
-        self._btn_tab_gym.setStyleSheet(_TAB_ACTIVE_QSS)
+        self._btn_tab_gym.setObjectName("loginTabActive")
         self._btn_tab_gym.setToolTip("Acceso para socios comerciales gym")
 
         self._btn_tab_user = QPushButton("👤  Usuario")
         self._btn_tab_user.setCheckable(True)
         self._btn_tab_user.setCursor(Qt.PointingHandCursor)
         self._btn_tab_user.setFixedHeight(38)
-        self._btn_tab_user.setStyleSheet(_TAB_INACTIVE_QSS)
+        self._btn_tab_user.setObjectName("loginTabInactive")
         self._btn_tab_user.setToolTip("Acceso para usuarios regulares")
 
         tabs_lay.addWidget(self._btn_tab_gym)
@@ -700,7 +653,7 @@ class VentanaLoginUnificada(QDialog):
 
         # ── Stack con formularios ─────────────────────────────────────────────
         self._stack = QStackedWidget()
-        self._stack.setStyleSheet("background: transparent;")
+        self._stack.setObjectName("transparentWidget")
         panel_lay.addWidget(self._stack)
 
         self._panel_gym_form  = _PanelGymLogin()
@@ -738,7 +691,7 @@ class VentanaLoginUnificada(QDialog):
             self._bg.setStyleSheet(
                 f"background: qlineargradient("
                 f"x1:0,y1:0,x2:1,y2:1,"
-                f"stop:0 #0D0D0D,stop:1 #1a0a22);"
+                f"stop:0 #0D0D0D,stop:1 #0A0A0A);"
             )
             return
 
@@ -766,17 +719,25 @@ class VentanaLoginUnificada(QDialog):
 
     def _cambiar_a_gym(self) -> None:
         self._btn_tab_gym.setChecked(True)
-        self._btn_tab_gym.setStyleSheet(_TAB_ACTIVE_QSS)
+        self._btn_tab_gym.setObjectName("loginTabActive")
+        self._btn_tab_gym.style().unpolish(self._btn_tab_gym)
+        self._btn_tab_gym.style().polish(self._btn_tab_gym)
         self._btn_tab_user.setChecked(False)
-        self._btn_tab_user.setStyleSheet(_TAB_INACTIVE_QSS)
+        self._btn_tab_user.setObjectName("loginTabInactive")
+        self._btn_tab_user.style().unpolish(self._btn_tab_user)
+        self._btn_tab_user.style().polish(self._btn_tab_user)
         self._panel_user_form.limpiar()
         self._stack.setCurrentIndex(0)
 
     def _cambiar_a_usuario(self) -> None:
         self._btn_tab_user.setChecked(True)
-        self._btn_tab_user.setStyleSheet(_TAB_ACTIVE_QSS)
+        self._btn_tab_user.setObjectName("loginTabActive")
+        self._btn_tab_user.style().unpolish(self._btn_tab_user)
+        self._btn_tab_user.style().polish(self._btn_tab_user)
         self._btn_tab_gym.setChecked(False)
-        self._btn_tab_gym.setStyleSheet(_TAB_INACTIVE_QSS)
+        self._btn_tab_gym.setObjectName("loginTabInactive")
+        self._btn_tab_gym.style().unpolish(self._btn_tab_gym)
+        self._btn_tab_gym.style().polish(self._btn_tab_gym)
         self._panel_gym_form.limpiar()
         self._stack.setCurrentIndex(1)
 

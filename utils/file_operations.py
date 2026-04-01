@@ -4,7 +4,6 @@ Utilidades para operaciones con archivos y carpetas.
 Apertura automática de carpetas y archivos en el explorador del sistema.
 """
 import os
-import sys
 import subprocess
 import platform
 

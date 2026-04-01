@@ -1,6 +1,10 @@
 """Contratos y estructura de comidas (CAPA 3)."""
+import logging
+
 from config.constantes import MODO_ESTRICTO, LEGUMINOSAS
 from src.alimentos_base import ALIMENTOS_BASE, CATEGORIAS
+
+logger = logging.getLogger(__name__)
 
 
 class MealStructureContract:
@@ -147,8 +151,6 @@ class ConstructorMealStructure:
         
         es_valida, errores = MealStructureContract.validar(comida_estructurada, nombre_comida)
         if not es_valida:
-            print(f"⚠️ ALERTA: {nombre_comida} no cumple contrato:")
-            for error in errores:
-                print(f"   {error}")
+            logger.warning("ALERTA: %s no cumple contrato: %s", nombre_comida, "; ".join(errores))
         
         return comida_estructurada

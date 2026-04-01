@@ -1,365 +1,80 @@
 """
 Exportador de PDF para planes con opciones múltiples.
 
-Genera PDFs en formato educativo mostrando opciones equivalentes
-que el cliente puede elegir.
+Genera PDFs profesionales mostrando opciones equivalentes por macronutriente
+(1/3 proteínas, 1/3 carbohidratos, 1/3 grasas) que el cliente puede elegir.
+
+Usa ReportLab Platypus para layout consistente con PDFGenerator (api/pdf_generator.py).
+Acepta `config` dict para personalizar branding del gym (nombre, logo, colores, contacto).
 """
 
-import os
-import textwrap
+from __future__ import annotations
+
+import logging
 from datetime import datetime
-from typing import Dict
+from pathlib import Path
+from typing import Dict, Optional
 
-from reportlab.lib.pagesizes import LETTER, letter
-from reportlab.pdfgen import canvas
 from reportlab.lib import colors
-from reportlab.lib.utils import ImageReader
-from reportlab.pdfbase import pdfmetrics
-from reportlab.pdfbase.ttfonts import TTFont
+from reportlab.lib.enums import TA_CENTER, TA_LEFT, TA_RIGHT
+from reportlab.lib.pagesizes import LETTER
+from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+from reportlab.lib.units import cm, mm
+from reportlab.platypus import (
+    HRFlowable,
+    Image,
+    KeepTogether,
+    Paragraph,
+    SimpleDocTemplate,
+    Spacer,
+    Table,
+    TableStyle,
+)
 
-from utils.helpers import resource_path
-from utils.logger import logger
-from core.branding import branding
+logger = logging.getLogger(__name__)
 
-# Registrar fuente (idempotente: si ya está registrada no falla)
-_font_inter_bolditalic = resource_path("fonts/Inter_18pt-BoldItalic.ttf")
-if os.path.exists(_font_inter_bolditalic):
-    try:
-        pdfmetrics.getFont("Inter-BoldItalic")
-    except KeyError:
-        pdfmetrics.registerFont(TTFont("Inter-BoldItalic", _font_inter_bolditalic))
-
-# Fuente por defecto si Inter no está disponible
-try:
-    pdfmetrics.getFont("Inter-BoldItalic")
-    _FONT = "Inter-BoldItalic"
-except KeyError:
-    _FONT = "Helvetica"
+_PAGE_W, _PAGE_H = LETTER
+_MARGIN = 1.5 * cm
+_COLOR_WHITE = colors.white
+_COLOR_GRAY  = colors.HexColor("#F3F4F6")
+_COLOR_DARK  = colors.HexColor("#0F0F0F")
+_COLOR_MIDNIGHT = colors.HexColor("#292524")
+_COLOR_GOLD  = colors.HexColor("#E5B800")
+_COLOR_MID   = colors.HexColor("#6B7280")
+_COLOR_GRAY2 = colors.HexColor("#E5E5E5")
 
 
 class GeneradorPDFConOpciones:
     """
     Generador de PDF para planes con opciones múltiples.
 
-    Formato de salida:
-    - Agrupa por categoría de macronutriente
-    - Muestra opciones numeradas con checkbox
-    - Incluye macros detallados por opción
-    - Nota educativa al final de cada comida
+    Acepta un dict `config` con las mismas llaves que PDFGenerator:
+        gym_nombre, gym_logo, gym_telefono, gym_direccion,
+        gym_instagram, gym_facebook, gym_tiktok,
+        color_primario, color_secundario
     """
 
-    def __init__(self, ruta_salida: str, ruta_logo: str | None = None):
+    def __init__(self, ruta_salida: str, config: Optional[dict] = None):
         self.ruta_salida = ruta_salida
-        self.ruta_logo = ruta_logo
-        self.width, self.height = LETTER
+        self.config = {**self._default_config(), **(config or {})}
+        self.styles = getSampleStyleSheet()
+        self._build_styles()
 
-    def _dibujar_header(self, c, cliente, kcal_total: float | None = None) -> float:
-        """Header con branding y subtítulo de 'Plan Flexible'."""
-        logo = None
-        if branding.get("pdf.mostrar_logo", True):
-            logo_file = self.ruta_logo or branding.obtener_logo_pdf_path()
-            if logo_file:
-                try:
-                    logo = ImageReader(str(logo_file))
-                except Exception:
-                    logo = None
+    @staticmethod
+    def _default_config() -> dict:
+        return {
+            "gym_nombre":       "Método Base",
+            "gym_logo":         None,
+            "gym_telefono":     "",
+            "gym_direccion":    "",
+            "gym_instagram":    "",
+            "gym_facebook":     "",
+            "gym_tiktok":       "",
+            "color_primario":   "#E5B800",
+            "color_secundario": "#292524",
+        }
 
-        page_width, page_height = letter
-        margin_x = 50
-        header_top = page_height - 50
-        tagline = (branding.get('tagline', '') or '').strip()
-        color_encabezado = branding.get(
-            "pdf.color_encabezado",
-            branding.get("colores.primario", "#2A3A7A"),
-        )
-
-        # Branding del gym (izquierda)
-        y_pos = header_top
-        c.setFillColor(colors.black)
-        c.setFont(_FONT, 16)
-        c.drawString(margin_x, y_pos, branding.get('nombre_gym', 'Gimnasio'))
-        y_pos -= 15
-
-        c.setFont(_FONT, 9)
-        c.setFillColor(colors.HexColor("#333333"))
-        c.drawString(margin_x, y_pos, branding.get('contacto.direccion_linea1', ''))
-        y_pos -= 11
-        c.drawString(margin_x, y_pos, branding.get('contacto.direccion_linea2', ''))
-        y_pos -= 11
-        c.drawString(margin_x, y_pos, branding.get('contacto.direccion_linea3', ''))
-        y_pos -= 13
-
-        c.setFont(_FONT, 8)
-        c.setFillColor(colors.HexColor("#888888"))
-        c.drawString(margin_x, y_pos, branding.get('redes_sociales.instagram', ''))
-        y_pos -= 14
-
-        # Logo (derecha)
-        if logo:
-            logo_width = 70
-            logo_height = 35
-            logo_x = page_width - logo_width - margin_x
-            logo_y = header_top - 25
-            try:
-                c.drawImage(
-                    logo, logo_x, logo_y,
-                    width=logo_width, height=logo_height,
-                    preserveAspectRatio=True, mask='auto',
-                )
-            except Exception:
-                pass
-            if tagline:
-                c.setFont("Helvetica", 7)
-                c.setFillColor(colors.gray)
-                c.drawRightString(page_width - margin_x, logo_y - 8, tagline)
-
-        # Línea separadora
-        c.setLineWidth(0.5)
-        c.setStrokeColor(colors.HexColor("#CCCCCC"))
-        c.line(margin_x, y_pos - 8, page_width - 50, y_pos - 8)
-        y_pos -= 20
-
-        # Título principal
-        c.setFont(_FONT, 16)
-        c.setFillColor(colors.HexColor(color_encabezado))
-        c.drawCentredString(page_width / 2, y_pos, "Plan Nutricional Flexible con Opciones")
-        y_pos -= 18
-
-        if kcal_total:
-            c.setFont(_FONT, 10)
-            c.setFillColor(colors.HexColor("#444444"))
-            c.drawCentredString(
-                page_width / 2, y_pos,
-                f"Calorías diarias objetivo: {int(round(kcal_total))} kcal",
-            )
-            y_pos -= 16
-
-        # Info del cliente
-        c.setFont(_FONT, 9)
-        c.setFillColor(colors.black)
-        cliente_nombre = getattr(cliente, 'nombre', '') or ''
-        cliente_edad = getattr(cliente, 'edad', '') or ''
-        cliente_peso = getattr(cliente, 'peso_kg', '') or ''
-        cliente_obj = (getattr(cliente, 'objetivo', '') or '').capitalize()
-        fecha_plan = datetime.now().strftime("%d %B %Y")
-
-        info_linea_1 = (
-            f"Cliente: {cliente_nombre}   Edad: {cliente_edad} años   "
-            f"Peso: {cliente_peso} kg   Objetivo: {cliente_obj}"
-        )
-        info_linea_2 = f"Fecha: {fecha_plan}"
-        c.drawString(margin_x, y_pos, info_linea_1)
-        y_pos -= 12
-        c.setFillColor(colors.HexColor("#555555"))
-        c.drawString(margin_x, y_pos, info_linea_2)
-        y_pos -= 18
-
-        # Nota explicativa
-        c.setFont(_FONT, 8)
-        c.setFillColor(colors.HexColor("#666666"))
-        c.drawString(
-            margin_x, y_pos,
-            "Este plan te ofrece OPCIONES flexibles. Elige UNA opción de cada categoría por comida.",
-        )
-        y_pos -= 12
-
-        return y_pos - 10
-
-    def _dibujar_seccion_macro(
-        self, c, y: float, titulo: str,
-        cantidad_objetivo: float, opciones: list,
-        unidad_macro: str,
-    ) -> float:
-        """Dibuja una sección de macronutriente con sus opciones."""
-        margin_x = 50
-
-        # Título de sección
-        c.setFont(_FONT, 10)
-        c.setFillColor(colors.HexColor("#444444"))
-        c.drawString(
-            margin_x + 10, y,
-            f"{titulo} (elige 1 opción — {cantidad_objetivo:.0f}g {unidad_macro}):",
-        )
-        y -= 14
-
-        # Opciones
-        c.setFont(_FONT, 9)
-        c.setFillColor(colors.black)
-
-        for idx, opcion in enumerate(opciones, 1):
-            alimento = opcion['alimento'].replace('_', ' ').title()
-            gramos = int(round(opcion['gramos']))
-            equivalencia = opcion.get('equivalencia', '')
-            macros = opcion['macros']
-
-            texto = f"□ Opción {idx}: {gramos}g {alimento}"
-            if equivalencia:
-                texto += f" ({equivalencia})"
-
-            c.drawString(margin_x + 25, y, texto)
-            y -= 11
-
-            # Macros detallados
-            c.setFont(_FONT, 7)
-            c.setFillColor(colors.HexColor("#666666"))
-            macros_texto = (
-                f"   → {macros['proteina']:.1f}g P | "
-                f"{macros['carbs']:.1f}g C | "
-                f"{macros['grasa']:.1f}g G | "
-                f"{int(macros['kcal'])} kcal"
-            )
-            c.drawString(margin_x + 30, y, macros_texto)
-            y -= 11
-
-            c.setFont(_FONT, 9)
-            c.setFillColor(colors.black)
-
-        y -= 8
-        return y
-
-    def _dibujar_comida_con_opciones(
-        self, c, y: float, nombre_comida: str, datos: Dict
-    ) -> float:
-        """Dibuja una comida completa con formato de opciones."""
-        page_width = self.width
-        margin_x = 50
-
-        # Título de comida
-        c.setFont(_FONT, 13)
-        c.setFillColor(colors.HexColor("#2A3A7A"))
-        kcal_obj = int(round(datos.get('kcal_objetivo', 0)))
-        c.drawString(margin_x, y, f"{nombre_comida.upper()} — {kcal_obj} kcal objetivo")
-        y -= 18
-
-        # Línea separadora
-        c.setStrokeColor(colors.HexColor("#2A3A7A"))
-        c.setLineWidth(1.5)
-        c.line(margin_x, y, page_width - margin_x, y)
-        y -= 12
-
-        # PROTEÍNAS
-        if datos.get('proteinas', {}).get('opciones'):
-            y = self._dibujar_seccion_macro(
-                c, y, "PROTEÍNAS",
-                datos['proteinas']['cantidad_objetivo'],
-                datos['proteinas']['opciones'],
-                "proteína",
-            )
-
-        # CARBOHIDRATOS
-        _carbs_datos = datos.get('carbohidratos', {})
-        if _carbs_datos.get('opciones'):
-            y = self._dibujar_seccion_macro(
-                c, y, "CARBOHIDRATOS",
-                _carbs_datos['cantidad_objetivo'],
-                _carbs_datos['opciones'],
-                "carbohidratos",
-            )
-        else:
-            c.setFont(_FONT, 10)
-            c.setFillColor(colors.HexColor("#888888"))
-            c.drawString(margin_x + 10, y, "CARBOHIDRATOS: No disponible para esta comida")
-            y -= 14
-
-        # GRASAS
-        if datos.get('grasas', {}).get('opciones'):
-            y = self._dibujar_seccion_macro(
-                c, y, "GRASAS",
-                datos['grasas']['cantidad_objetivo'],
-                datos['grasas']['opciones'],
-                "grasa",
-            )
-
-        # VEGETALES (fijos)
-        if datos.get('vegetales'):
-            c.setFont(_FONT, 10)
-            c.setFillColor(colors.HexColor("#228B22"))
-            c.drawString(margin_x + 10, y, "VEGETALES (siempre incluir):")
-            y -= 14
-
-            c.setFont(_FONT, 9)
-            c.setFillColor(colors.black)
-            for vegetal in datos['vegetales']:
-                nombre = vegetal['alimento'].replace('_', ' ').title()
-                gramos = int(round(vegetal['gramos']))
-                c.drawString(margin_x + 25, y, f"+ {gramos}g {nombre}")
-                y -= 13
-            y -= 8
-
-        # Nota educativa
-        c.setFont(_FONT, 7)
-        c.setFillColor(colors.HexColor("#666666"))
-        nota = (
-            "NOTA: Selecciona UNA opción de cada categoría. Los macros pueden variar "
-            "ligeramente según tu elección, pero todas las combinaciones cumplen tu "
-            "objetivo calórico."
-        )
-        wrapped = textwrap.wrap(nota, width=110)
-        for line in wrapped:
-            c.drawString(margin_x + 15, y, line)
-            y -= 9
-
-        y -= 15
-        return y
-
-    def _dibujar_instrucciones(self, c, y: float) -> float:
-        """Dibuja sección de instrucciones generales."""
-        margin_x = 50
-
-        c.setFont(_FONT, 11)
-        c.setFillColor(colors.HexColor("#2A3A7A"))
-        c.drawString(margin_x, y, "INSTRUCCIONES DE USO")
-        y -= 15
-
-        c.setFont(_FONT, 8)
-        c.setFillColor(colors.black)
-
-        instrucciones = [
-            "1. Por cada comida, selecciona UNA opción de cada categoría (proteínas, carbohidratos, grasas).",
-            "2. SIEMPRE incluye los vegetales indicados (no son opcionales).",
-            "3. Puedes variar tus opciones día a día según disponibilidad y preferencias.",
-            "4. Pesa los alimentos en CRUDO antes de cocinar (excepto si se indica lo contrario).",
-            "5. Las equivalencias son aproximadas (1 huevo ≈ 50g, 1 tortilla ≈ 30g, etc.).",
-            "6. Si no tienes un alimento, elige otra opción de la misma categoría.",
-            "7. Mantén 2-3 litros de agua diarios independientemente de las opciones elegidas.",
-            "8. Consulta con tu entrenador si tienes dudas sobre alguna combinación.",
-        ]
-
-        for instruccion in instrucciones:
-            wrapped = textwrap.wrap(instruccion, width=95)
-            for line in wrapped:
-                c.drawString(margin_x + 10, y, line)
-                y -= 11
-
-        y -= 10
-        return y
-
-    def _dibujar_disclaimer(self, c, y: float):
-        """Disclaimer legal al pie de página."""
-        disclaimer = (
-            "AVISO IMPORTANTE: Este plan nutricional es una guía general basada en "
-            "objetivos de entrenamiento y composición corporal. No constituye una "
-            "consulta médica ni nutricional profesional. Si usted padece enfermedades "
-            "crónicas, se recomienda consultar con un médico o nutriólogo certificado "
-            "antes de seguir cualquier plan alimenticio."
-        )
-
-        margin_x = 50
-        page_width = self.width
-
-        y = 60
-        c.setLineWidth(0.5)
-        c.setStrokeColor(colors.lightgrey)
-        c.line(margin_x, y, page_width - margin_x, y)
-        y -= 10
-
-        c.setFont(_FONT, 6)
-        c.setFillColor(colors.gray)
-
-        wrapped = textwrap.wrap(disclaimer, width=100)
-        for line in wrapped:
-            c.drawString(margin_x, y, line)
-            y -= 8
+    # ── Public API ─────────────────────────────────────────────────────────────
 
     def generar(self, cliente, plan: Dict) -> str | None:
         """
@@ -376,40 +91,516 @@ class GeneradorPDFConOpciones:
             if plan.get('metadata', {}).get('tipo_plan') != 'opciones':
                 raise ValueError("Plan no tiene estructura de opciones")
 
-            c_pdf = canvas.Canvas(self.ruta_salida, pagesize=LETTER)
-            _, page_height = letter
+            ruta = Path(self.ruta_salida)
+            ruta.parent.mkdir(parents=True, exist_ok=True)
 
-            comidas = ['desayuno', 'almuerzo', 'comida', 'cena']
-            kcal_total = sum(
-                plan.get(comida, {}).get('kcal_objetivo', 0)
-                for comida in comidas
+            doc = SimpleDocTemplate(
+                str(ruta),
+                pagesize=LETTER,
+                leftMargin=_MARGIN,
+                rightMargin=_MARGIN,
+                topMargin=_MARGIN,
+                bottomMargin=2 * cm,
             )
 
-            # Header
-            y = self._dibujar_header(c_pdf, cliente, kcal_total)
+            story = []
 
-            # Comidas
+            # Header con branding del gym
+            story += self._build_header(cliente, plan)
+            story.append(Spacer(1, 0.3 * cm))
+
+            # Info del cliente
+            story += self._build_client_card(cliente)
+            story.append(Spacer(1, 0.3 * cm))
+
+            # Resumen de macros
+            story += self._build_macro_summary(cliente, plan)
+            story.append(Spacer(1, 0.4 * cm))
+
+            # Comidas con opciones
+            comidas = ['desayuno', 'almuerzo', 'comida', 'cena']
+            COMIDAS_LABELS = {
+                'desayuno': 'Desayuno',
+                'almuerzo': 'Colación matutina / Almuerzo',
+                'comida':   'Comida principal',
+                'cena':     'Cena',
+            }
             for nombre_comida in comidas:
                 if nombre_comida in plan:
-                    if y < 250:
-                        c_pdf.showPage()
-                        y = page_height - 50
-
-                    y = self._dibujar_comida_con_opciones(
-                        c_pdf, y, nombre_comida, plan[nombre_comida]
+                    story += self._build_comida_opciones(
+                        COMIDAS_LABELS.get(nombre_comida, nombre_comida),
+                        plan[nombre_comida],
                     )
+                    story.append(Spacer(1, 0.3 * cm))
 
-            # Nueva página para instrucciones
-            c_pdf.showPage()
-            y = page_height - 80
-            y = self._dibujar_instrucciones(c_pdf, y)
+            # Instrucciones
+            story += self._build_instrucciones()
+            story.append(Spacer(1, 0.3 * cm))
 
-            self._dibujar_disclaimer(c_pdf, y)
+            # Footer
+            story += self._build_footer()
 
-            c_pdf.save()
+            doc.build(story, onFirstPage=self._draw_page_border,
+                      onLaterPages=self._draw_page_border)
             logger.info("[PDF OPCIONES] Generado: %s", self.ruta_salida)
             return self.ruta_salida
 
         except Exception as e:
             logger.error("[PDF OPCIONES] Error: %s", e, exc_info=True)
             return None
+
+    # ── Header ─────────────────────────────────────────────────────────────────
+
+    def _build_header(self, cliente, plan: Dict) -> list:
+        flowables = []
+        gym_nombre    = self.config["gym_nombre"]
+        gym_telefono  = self.config.get("gym_telefono", "")
+        gym_dir       = self.config.get("gym_direccion", "")
+        gym_instagram = self.config.get("gym_instagram", "")
+        gym_facebook  = self.config.get("gym_facebook", "")
+        gym_tiktok    = self.config.get("gym_tiktok", "")
+        fecha_str     = datetime.now().strftime("%d/%m/%Y")
+        logo_path     = self.config.get("gym_logo")
+        usable_w      = _PAGE_W - 2 * _MARGIN
+        _s = self.styles
+
+        # ── Left block: gym name + contact + social ──
+        info_parts = []
+        info_parts.append(Paragraph(gym_nombre, _s["OPT_GymName"]))
+
+        contact_lines = []
+        if gym_dir:
+            contact_lines.append(gym_dir)
+        if gym_telefono:
+            contact_lines.append(f"Tel: {gym_telefono}")
+        if contact_lines:
+            info_parts.append(Paragraph(" | ".join(contact_lines), _s["OPT_Contact"]))
+
+        redes = []
+        if gym_instagram:
+            redes.append(f"@{gym_instagram}" if not gym_instagram.startswith("@") else gym_instagram)
+        if gym_facebook:
+            redes.append(f"FB: {gym_facebook}")
+        if gym_tiktok:
+            redes.append(f"TikTok: {gym_tiktok}")
+        if redes:
+            info_parts.append(Paragraph(" · ".join(redes), _s["OPT_Social"]))
+
+        info_parts.append(Paragraph(f"Fecha: {fecha_str}", _s["OPT_Sub"]))
+
+        info_tbl = Table([[p] for p in info_parts], colWidths=[None])
+        info_tbl.setStyle(TableStyle([
+            ("LEFTPADDING",  (0, 0), (-1, -1), 0),
+            ("RIGHTPADDING", (0, 0), (-1, -1), 0),
+            ("TOPPADDING",   (0, 0), (-1, -1), 1),
+            ("BOTTOMPADDING",(0, 0), (-1, -1), 1),
+        ]))
+
+        # ── Right block: logo (standard bounding-box, aspect ratio preserved) ──
+        if logo_path and Path(logo_path).exists():
+            logo_w = 3.0 * cm
+            logo_h = 2.2 * cm
+            logo_img = Image(str(logo_path), width=logo_w, height=logo_h, kind="proportional")
+            logo_img.hAlign = "RIGHT"
+            logo_col_w = logo_w + 0.6 * cm
+            header_tbl = Table(
+                [[info_tbl, logo_img]],
+                colWidths=[usable_w - logo_col_w, logo_col_w],
+            )
+            header_tbl.setStyle(TableStyle([
+                ("VALIGN",       (0, 0), (-1, -1), "TOP"),
+                ("LEFTPADDING",  (0, 0), (-1, -1), 0),
+                ("RIGHTPADDING", (0, 0), (-1, -1), 0),
+                ("TOPPADDING",   (0, 0), (-1, -1), 0),
+                ("BOTTOMPADDING",(0, 0), (-1, -1), 0),
+            ]))
+            flowables.append(header_tbl)
+        else:
+            flowables.append(info_tbl)
+
+        flowables.append(Spacer(1, 0.25 * cm))
+        flowables.append(HRFlowable(width="100%", thickness=2.5, color=_COLOR_GOLD))
+        flowables.append(Spacer(1, 0.3 * cm))
+        flowables.append(
+            Paragraph("Tu Plan Nutricional a la Medida", _s["OPT_Title"])
+        )
+        return flowables
+
+    # ── Client card ────────────────────────────────────────────────────────────
+
+    def _build_client_card(self, cliente) -> list:
+        nombre    = getattr(cliente, "nombre", "—") or "—"
+        edad      = f"{getattr(cliente, 'edad', '—')} años"
+        sexo_raw  = getattr(cliente, "sexo", "") or ""
+        sexo      = {"M": "Masculino", "F": "Femenino"}.get(sexo_raw.upper(), sexo_raw or "—")
+        peso      = f"{getattr(cliente, 'peso_kg', '—')} kg"
+        estatura  = f"{getattr(cliente, 'estatura_cm', '—')} cm"
+        grasa     = getattr(cliente, "grasa_corporal_pct", None)
+        grasa_str = f"{grasa}%" if grasa else "—"
+        objetivo_map = {
+            "deficit": "Déficit calórico",
+            "mantenimiento": "Mantenimiento de peso",
+            "superavit": "Superávit calórico",
+        }
+        objetivo  = objetivo_map.get(str(getattr(cliente, "objetivo", "")).lower(),
+                                     str(getattr(cliente, "objetivo", "—")))
+        nivel_map = {
+            "nula": "Sedentario",
+            "leve": "Leve (1-3 días/sem)",
+            "moderada": "Moderada (3-5 días/sem)",
+            "intensa": "Intensa (6-7 días/sem)",
+        }
+        nivel = nivel_map.get(str(getattr(cliente, "nivel_actividad", "")).lower(),
+                              str(getattr(cliente, "nivel_actividad", "—")))
+
+        _s = self.styles
+        data = [
+            [Paragraph("Información del Cliente", _s["OPT_CardTitle"]), "", "", ""],
+            [Paragraph(f"<b>Nombre:</b> {nombre}", _s["OPT_Cell"]),
+             Paragraph(f"<b>Edad:</b> {edad}",     _s["OPT_Cell"]),
+             Paragraph(f"<b>Sexo:</b> {sexo}",     _s["OPT_Cell"]),
+             Paragraph(f"<b>Peso:</b> {peso}",     _s["OPT_Cell"])],
+            [Paragraph(f"<b>Estatura:</b> {estatura}", _s["OPT_Cell"]),
+             Paragraph(f"<b>% Grasa:</b> {grasa_str}", _s["OPT_Cell"]),
+             Paragraph(f"<b>Objetivo:</b> {objetivo}", _s["OPT_Cell"]),
+             Paragraph(f"<b>Actividad:</b> {nivel}",   _s["OPT_Cell"])],
+        ]
+        usable_w = _PAGE_W - 2 * _MARGIN
+        col_w    = usable_w / 4
+        tbl = Table(data, colWidths=[col_w] * 4)
+        tbl.setStyle(TableStyle([
+            ("SPAN",            (0, 0), (3, 0)),
+            ("BACKGROUND",      (0, 0), (3, 0), _COLOR_MIDNIGHT),
+            ("TEXTCOLOR",       (0, 0), (3, 0), _COLOR_GOLD),
+            ("FONTNAME",        (0, 0), (3, 0), "Helvetica-Bold"),
+            ("FONTSIZE",        (0, 0), (3, 0), 9),
+            ("TOPPADDING",      (0, 0), (3, 0), 5),
+            ("BOTTOMPADDING",   (0, 0), (3, 0), 5),
+            ("BACKGROUND",      (0, 1), (-1, -1), _COLOR_GRAY),
+            ("ROWBACKGROUNDS",  (0, 1), (-1, -1), [_COLOR_GRAY, colors.white]),
+            ("GRID",            (0, 0), (-1, -1), 0.4, _COLOR_GRAY2),
+            ("TOPPADDING",      (0, 1), (-1, -1), 5),
+            ("BOTTOMPADDING",   (0, 1), (-1, -1), 5),
+            ("LEFTPADDING",     (0, 0), (-1, -1), 8),
+        ]))
+        return [tbl]
+
+    # ── Macro summary ──────────────────────────────────────────────────────────
+
+    def _build_macro_summary(self, cliente, plan: Dict) -> list:
+        tmb      = int(round(getattr(cliente, "tmb", 0) or 0))
+        get_tot  = int(round(getattr(cliente, "get_total", 0) or 0))
+        kcal_obj = int(round(getattr(cliente, "kcal_objetivo", 0) or 0))
+        prot     = round(getattr(cliente, "proteina_g", 0) or 0, 1)
+        carb     = round(getattr(cliente, "carbs_g", 0) or 0, 1)
+        fat      = round(getattr(cliente, "grasa_g", 0) or 0, 1)
+
+        _s = self.styles
+
+        def _macro_cell(valor, label, bg_hex):
+            bg = colors.HexColor(bg_hex)
+            inner = Table(
+                [[Paragraph(str(valor), _s["OPT_MacroNum"])],
+                 [Paragraph(label,      _s["OPT_MacroLabel"])]],
+                colWidths=[None],
+            )
+            inner.setStyle(TableStyle([
+                ("BACKGROUND",    (0, 0), (-1, -1), bg),
+                ("TEXTCOLOR",     (0, 0), (-1, -1), _COLOR_WHITE),
+                ("ALIGN",         (0, 0), (-1, -1), "CENTER"),
+                ("TOPPADDING",    (0, 0), (-1, -1), 8),
+                ("BOTTOMPADDING", (0, 0), (-1, -1), 8),
+                ("ROUNDEDCORNERS", [4]),
+            ]))
+            return inner
+
+        usable_w = _PAGE_W - 2 * _MARGIN
+        cw = usable_w / 4
+
+        cells = [
+            _macro_cell(f"{kcal_obj}", "Calorías Objetivo", "#E5B800"),
+            _macro_cell(f"{prot}g", "Proteína",            "#292524"),
+            _macro_cell(f"{carb}g", "Carbohidratos",       "#292524"),
+            _macro_cell(f"{fat}g", "Grasas",               "#292524"),
+        ]
+        tbl = Table([cells], colWidths=[cw] * 4)
+        tbl.setStyle(TableStyle([
+            ("LEFTPADDING",   (0, 0), (-1, -1), 3),
+            ("RIGHTPADDING",  (0, 0), (-1, -1), 3),
+            ("TOPPADDING",    (0, 0), (-1, -1), 0),
+            ("BOTTOMPADDING", (0, 0), (-1, -1), 0),
+        ]))
+        return [
+            Paragraph("Resumen Nutricional Diario", _s["OPT_SectionTitle"]),
+            Spacer(1, 0.2 * cm),
+            tbl,
+        ]
+
+    # ── Meal with options ──────────────────────────────────────────────────────
+
+    def _build_comida_opciones(self, label: str, datos: Dict) -> list:
+        _s = self.styles
+        usable_w = _PAGE_W - 2 * _MARGIN
+        kcal_obj = int(round(datos.get('kcal_objetivo', 0)))
+        flowables = []
+
+        # Meal header
+        header_text = f"{label}  —  {kcal_obj} kcal objetivo"
+        header_tbl = Table(
+            [[Paragraph(header_text, _s["OPT_MealHeader"])]],
+            colWidths=[usable_w],
+        )
+        header_tbl.setStyle(TableStyle([
+            ("BACKGROUND",    (0, 0), (-1, -1), _COLOR_MIDNIGHT),
+            ("TEXTCOLOR",     (0, 0), (-1, -1), _COLOR_GOLD),
+            ("TOPPADDING",    (0, 0), (-1, -1), 5),
+            ("BOTTOMPADDING", (0, 0), (-1, -1), 5),
+            ("LEFTPADDING",   (0, 0), (-1, -1), 8),
+        ]))
+        flowables.append(header_tbl)
+
+        # Build rows for each macro group
+        macro_sections = [
+            ("PROTEÍNAS",      datos.get("proteinas", {}),      "#292524"),
+            ("CARBOHIDRATOS",  datos.get("carbohidratos", {}),  "#292524"),
+            ("GRASAS",         datos.get("grasas", {}),         "#292524"),
+        ]
+
+        col_widths = [usable_w * 0.08, usable_w * 0.42, usable_w * 0.15, usable_w * 0.35]
+
+        for macro_name, macro_data, accent_hex in macro_sections:
+            opciones = macro_data.get("opciones", [])
+            cant_obj = macro_data.get("cantidad_objetivo", 0)
+            if not opciones:
+                continue
+
+            accent = colors.HexColor(accent_hex)
+
+            # Macro section header
+            macro_header = Table(
+                [[Paragraph(
+                    f"{macro_name}  (elige 1 — {cant_obj:.0f}g objetivo)",
+                    _s["OPT_MacroSectionH"],
+                ), "", "", ""]],
+                colWidths=col_widths,
+            )
+            macro_header.setStyle(TableStyle([
+                ("SPAN",          (0, 0), (3, 0)),
+                ("BACKGROUND",    (0, 0), (-1, -1), accent),
+                ("TEXTCOLOR",     (0, 0), (-1, -1), _COLOR_WHITE),
+                ("TOPPADDING",    (0, 0), (-1, -1), 3),
+                ("BOTTOMPADDING", (0, 0), (-1, -1), 3),
+                ("LEFTPADDING",   (0, 0), (-1, -1), 8),
+            ]))
+            flowables.append(macro_header)
+
+            # Option rows
+            rows = []
+            for idx, opcion in enumerate(opciones, 1):
+                alimento = opcion.get('alimento', '').replace('_', ' ').title()
+                gramos = int(round(opcion.get('gramos', 0)))
+                equiv = opcion.get('equivalencia', '')
+                macros = opcion.get('macros', {})
+
+                nombre_col = f"{alimento}"
+                if equiv:
+                    nombre_col += f"  <i>({equiv})</i>"
+
+                macros_txt = (
+                    f"P:{macros.get('proteina', 0):.0f}g  "
+                    f"C:{macros.get('carbs', 0):.0f}g  "
+                    f"G:{macros.get('grasa', 0):.0f}g  "
+                    f"| {int(macros.get('kcal', 0))} kcal"
+                )
+
+                rows.append([
+                    Paragraph(f"<b>Op. {idx}</b>", _s["OPT_CellC"]),
+                    Paragraph(nombre_col, _s["OPT_Cell"]),
+                    Paragraph(f"<b>{gramos} g</b>", _s["OPT_CellC"]),
+                    Paragraph(macros_txt, _s["OPT_CellSmall"]),
+                ])
+
+            if rows:
+                opt_tbl = Table(rows, colWidths=col_widths)
+                opt_tbl.setStyle(TableStyle([
+                    ("ROWBACKGROUNDS", (0, 0), (-1, -1), [colors.white, _COLOR_GRAY]),
+                    ("GRID",           (0, 0), (-1, -1), 0.3, _COLOR_GRAY2),
+                    ("TOPPADDING",     (0, 0), (-1, -1), 3),
+                    ("BOTTOMPADDING",  (0, 0), (-1, -1), 3),
+                    ("LEFTPADDING",    (0, 0), (-1, -1), 6),
+                    ("VALIGN",         (0, 0), (-1, -1), "MIDDLE"),
+                ]))
+                flowables.append(opt_tbl)
+
+        # Vegetales (siempre incluir)
+        vegetales = datos.get("vegetales", [])
+        if vegetales:
+            veg_header = Table(
+                [[Paragraph("VEGETALES (siempre incluir)", _s["OPT_MacroSectionH"]), "", "", ""]],
+                colWidths=col_widths,
+            )
+            veg_header.setStyle(TableStyle([
+                ("SPAN",          (0, 0), (3, 0)),
+                ("BACKGROUND",    (0, 0), (-1, -1), _COLOR_GOLD),
+                ("TEXTCOLOR",     (0, 0), (-1, -1), _COLOR_DARK),
+                ("TOPPADDING",    (0, 0), (-1, -1), 3),
+                ("BOTTOMPADDING", (0, 0), (-1, -1), 3),
+                ("LEFTPADDING",   (0, 0), (-1, -1), 8),
+            ]))
+            flowables.append(veg_header)
+
+            veg_rows = []
+            for veg in vegetales:
+                nombre = veg.get('alimento', '').replace('_', ' ').title()
+                gramos = int(round(veg.get('gramos', 0)))
+                veg_rows.append([
+                    Paragraph("✓", _s["OPT_CellC"]),
+                    Paragraph(nombre, _s["OPT_Cell"]),
+                    Paragraph(f"<b>{gramos} g</b>", _s["OPT_CellC"]),
+                    Paragraph("", _s["OPT_Cell"]),
+                ])
+            if veg_rows:
+                veg_tbl = Table(veg_rows, colWidths=col_widths)
+                veg_tbl.setStyle(TableStyle([
+                    ("BACKGROUND",    (0, 0), (-1, -1), colors.HexColor("#FFFDE7")),
+                    ("GRID",          (0, 0), (-1, -1), 0.3, _COLOR_GRAY2),
+                    ("TOPPADDING",    (0, 0), (-1, -1), 3),
+                    ("BOTTOMPADDING", (0, 0), (-1, -1), 3),
+                    ("LEFTPADDING",   (0, 0), (-1, -1), 6),
+                ]))
+                flowables.append(veg_tbl)
+
+        # Nota educativa
+        flowables.append(Spacer(1, 0.15 * cm))
+        flowables.append(Paragraph(
+            "<i>Selecciona UNA opción de cada categoría. Todas las combinaciones "
+            "cumplen tu objetivo calórico.</i>",
+            _s["OPT_Note"],
+        ))
+
+        return flowables
+
+    # ── Instructions ───────────────────────────────────────────────────────────
+
+    def _build_instrucciones(self) -> list:
+        _s = self.styles
+        usable_w = _PAGE_W - 2 * _MARGIN
+
+        instrucciones = [
+            "Por cada comida, selecciona UNA opción de cada categoría (proteínas, carbohidratos, grasas).",
+            "SIEMPRE incluye los vegetales indicados (no son opcionales).",
+            "Puedes variar tus opciones día a día según disponibilidad y preferencias.",
+            "Pesa los alimentos en CRUDO antes de cocinar (excepto si se indica lo contrario).",
+            "Las equivalencias son aproximadas (1 huevo ≈ 50g, 1 tortilla ≈ 30g, etc.).",
+            "Si no tienes un alimento, elige otra opción de la misma categoría.",
+            "Mantén 2-3 litros de agua diarios independientemente de las opciones elegidas.",
+            "Consulta con tu entrenador si tienes dudas sobre alguna combinación.",
+        ]
+
+        rows = [[Paragraph("Instrucciones de Uso", _s["OPT_CardTitle"]), ""]]
+        for i, instruccion in enumerate(instrucciones, 1):
+            rows.append([
+                Paragraph(f"<b>{i}.</b>", _s["OPT_CellC"]),
+                Paragraph(instruccion, _s["OPT_Cell"]),
+            ])
+
+        tbl = Table(rows, colWidths=[usable_w * 0.06, usable_w * 0.94])
+        tbl.setStyle(TableStyle([
+            ("SPAN",          (0, 0), (1, 0)),
+            ("BACKGROUND",    (0, 0), (1, 0), _COLOR_MIDNIGHT),
+            ("TEXTCOLOR",     (0, 0), (1, 0), _COLOR_GOLD),
+            ("ROWBACKGROUNDS", (0, 1), (-1, -1), [colors.white, _COLOR_GRAY]),
+            ("GRID",          (0, 0), (-1, -1), 0.3, _COLOR_GRAY2),
+            ("TOPPADDING",    (0, 0), (-1, -1), 4),
+            ("BOTTOMPADDING", (0, 0), (-1, -1), 4),
+            ("LEFTPADDING",   (0, 0), (-1, -1), 6),
+        ]))
+        return [tbl]
+
+    # ── Footer ─────────────────────────────────────────────────────────────────
+
+    def _build_footer(self) -> list:
+        _s = self.styles
+        disclaimer = (
+            "AVISO: Este plan es una guía general basada en objetivos de entrenamiento y composición corporal. "
+            "No constituye consulta médica ni nutricional profesional. Ante condiciones de salud crónicas, "
+            "consulte con un médico o nutriólogo certificado antes de seguir cualquier plan alimenticio."
+        )
+        return [
+            HRFlowable(width="100%", thickness=0.5, color=_COLOR_GRAY2),
+            Spacer(1, 0.15 * cm),
+            Paragraph(
+                f"Generado con <b>Método Base</b> · {datetime.now().strftime('%d/%m/%Y')}",
+                _s["OPT_Footer"],
+            ),
+            Spacer(1, 0.1 * cm),
+            Paragraph(disclaimer, _s["OPT_Disclaimer"]),
+        ]
+
+    # ── Page border ────────────────────────────────────────────────────────────
+
+    def _draw_page_border(self, canvas, doc):
+        canvas.saveState()
+        canvas.setStrokeColor(colors.HexColor("#E5E5E5"))
+        canvas.setLineWidth(0.4)
+        x0 = _MARGIN * 0.7
+        y0 = _MARGIN * 0.7
+        w  = _PAGE_W - _MARGIN * 1.4
+        h  = _PAGE_H - _MARGIN * 1.4
+        canvas.rect(x0, y0, w, h)
+        # Gold accent line at top
+        canvas.setStrokeColor(colors.HexColor("#E5B800"))
+        canvas.setLineWidth(2.5)
+        canvas.line(x0, y0 + h, x0 + w, y0 + h)
+        canvas.restoreState()
+
+    # ── Styles ─────────────────────────────────────────────────────────────────
+
+    def _build_styles(self) -> None:
+        add = self.styles.add
+
+        add(ParagraphStyle("OPT_GymName",     parent=self.styles["Normal"],
+                           fontSize=16, fontName="Helvetica-Bold",
+                           textColor=_COLOR_DARK, leading=20))
+        add(ParagraphStyle("OPT_Contact",     parent=self.styles["Normal"],
+                           fontSize=8, textColor=_COLOR_DARK, leading=11))
+        add(ParagraphStyle("OPT_Social",      parent=self.styles["Normal"],
+                           fontSize=7.5, textColor=_COLOR_GOLD,
+                           fontName="Helvetica-Bold", leading=10))
+        add(ParagraphStyle("OPT_Sub",         parent=self.styles["Normal"],
+                           fontSize=7.5, textColor=_COLOR_MID, leading=10))
+        add(ParagraphStyle("OPT_Title",       parent=self.styles["Normal"],
+                           fontSize=16, fontName="Helvetica-Bold",
+                           textColor=_COLOR_GOLD, alignment=TA_CENTER,
+                           spaceAfter=2))
+        add(ParagraphStyle("OPT_SectionTitle", parent=self.styles["Normal"],
+                           fontSize=10, fontName="Helvetica-Bold",
+                           textColor=_COLOR_DARK, spaceBefore=4))
+        add(ParagraphStyle("OPT_CardTitle",   parent=self.styles["Normal"],
+                           fontSize=9, fontName="Helvetica-Bold",
+                           textColor=_COLOR_GOLD))
+        add(ParagraphStyle("OPT_Cell",        parent=self.styles["Normal"],
+                           fontSize=8, leading=11))
+        add(ParagraphStyle("OPT_CellC",       parent=self.styles["Normal"],
+                           fontSize=8, leading=11, alignment=TA_CENTER))
+        add(ParagraphStyle("OPT_CellSmall",   parent=self.styles["Normal"],
+                           fontSize=7, leading=10, textColor=_COLOR_MID))
+        add(ParagraphStyle("OPT_MealHeader",  parent=self.styles["Normal"],
+                           fontSize=9, fontName="Helvetica-Bold",
+                           textColor=_COLOR_WHITE))
+        add(ParagraphStyle("OPT_MacroSectionH", parent=self.styles["Normal"],
+                           fontSize=8, fontName="Helvetica-Bold",
+                           textColor=_COLOR_WHITE))
+        add(ParagraphStyle("OPT_MacroNum",    parent=self.styles["Normal"],
+                           fontSize=14, fontName="Helvetica-Bold",
+                           textColor=_COLOR_WHITE, alignment=TA_CENTER))
+        add(ParagraphStyle("OPT_MacroLabel",  parent=self.styles["Normal"],
+                           fontSize=6.5, textColor=_COLOR_WHITE,
+                           alignment=TA_CENTER))
+        add(ParagraphStyle("OPT_Note",        parent=self.styles["Normal"],
+                           fontSize=7, textColor=_COLOR_MID, leading=9))
+        add(ParagraphStyle("OPT_Footer",      parent=self.styles["Normal"],
+                           fontSize=7.5, alignment=TA_CENTER,
+                           textColor=_COLOR_MID))
+        add(ParagraphStyle("OPT_Disclaimer",  parent=self.styles["Normal"],
+                           fontSize=6.5, textColor=_COLOR_MID, leading=9))

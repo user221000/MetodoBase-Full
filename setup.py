@@ -28,32 +28,46 @@ BASE_DIR = Path(__file__).parent
 APP_NAME = "MetodoBase"
 MAIN_SCRIPT = "main.py"
 ICON_FILE = "assets/icon.ico"
-VERSION = "1.0.0"
+try:
+    from config.constantes import VERSION
+except ImportError:
+    VERSION = "2.0.0"
 
 # Datos a incluir (archivos y carpetas)
 DATAS = [
     (str(BASE_DIR / "assets"), "assets"),
     (str(BASE_DIR / "fonts"), "fonts"),
     (str(BASE_DIR / "config"), "config"),
+    (str(BASE_DIR / "src"), "src"),
+    (str(BASE_DIR / "core"), "core"),
+    (str(BASE_DIR / "utils"), "utils"),
+    (str(BASE_DIR / "ui_desktop"), "ui_desktop"),
+    (str(BASE_DIR / "design_system"), "design_system"),
 ]
 
 # Paquetes ocultos (que PyInstaller no detecta automáticamente)
 HIDDEN_IMPORTS = [
-    "customtkinter",
-    "PIL._tkinter_finder",
+    "PySide6.QtWidgets",
+    "PySide6.QtCore",
+    "PySide6.QtGui",
+    "core.branding",
+    "core.licencia",
+    "ui_desktop.pyside.theme_manager",
+    "ui_desktop.pyside.flow_controller",
+    "ui_desktop.pyside.gym_app_window",
+    "passlib.handlers.bcrypt",
+    "passlib.handlers.pbkdf2",
+    "cryptography.hazmat.backends.openssl",
+    "cryptography.hazmat.primitives.ciphers.algorithms",
     "reportlab",
     "reportlab.pdfbase",
     "reportlab.pdfbase.ttfonts",
     "reportlab.lib",
     "reportlab.lib.pagesizes",
     "reportlab.platypus",
-    "pandas",
-    "openpyxl",
-    "xlsxwriter",
-    "matplotlib",
-    "matplotlib.backends.backend_tkagg",
-    "numpy",
-    "dotenv",
+    "reportlab.graphics.barcode.code128",
+    "reportlab.graphics.barcode.code39",
+    "sqlite3",
 ]
 
 # Construir argumentos para PyInstaller
@@ -78,6 +92,10 @@ for src, dst in DATAS:
 # Agregar imports ocultos
 for imp in HIDDEN_IMPORTS:
     pyinstaller_args.extend(["--hidden-import", imp])
+
+# Excluir módulos legacy
+for exc in ["tkinter", "customtkinter"]:
+    pyinstaller_args.extend(["--exclude-module", exc])
 
 if __name__ == "__main__":
     print("=" * 60)

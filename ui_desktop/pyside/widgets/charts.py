@@ -26,7 +26,7 @@ class LineChartWidget(QWidget):
         super().__init__(parent)
         self._labels: List[str] = []
         self._values: List[float] = []
-        self._line_color = "#667eea"
+        self._line_color = "#FFEB3B"
         self.setMinimumHeight(180)
 
     def set_data(self, labels: List[str], values: List[float]) -> None:
@@ -64,17 +64,17 @@ class LineChartWidget(QWidget):
             return QPointF(x, y)
 
         # Líneas de cuadrícula horizontales
-        grid_pen = QPen(QColor("#2d2d40"), 1)
+        grid_pen = QPen(QColor("#1A1A1A"), 1)
         painter.setPen(grid_pen)
         label_font = QFont("Segoe UI", 9)
         painter.setFont(label_font)
-        painter.setPen(QColor("#8e8e93"))
+        painter.setPen(QColor("#71717A"))
         for i in range(5):
             y = pad_t + (i / 4) * chart_h
-            painter.setPen(QPen(QColor("#2d2d40"), 1))
+            painter.setPen(QPen(QColor("#1A1A1A"), 1))
             painter.drawLine(int(pad_l), int(y), int(w - pad_r), int(y))
             val = max_v - (i / 4) * val_range
-            painter.setPen(QColor("#8e8e93"))
+            painter.setPen(QColor("#71717A"))
             painter.drawText(0, int(y) - 8, pad_l - 6, 16,
                              Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter,
                              str(int(val)))
@@ -113,12 +113,12 @@ class LineChartWidget(QWidget):
 
         # Puntos
         painter.setBrush(QBrush(QColor(self._line_color)))
-        painter.setPen(QPen(QColor("#1e1e2e"), 2))
+        painter.setPen(QPen(QColor("#0A0A0A"), 2))
         for pt in points:
             painter.drawEllipse(pt, 4.5, 4.5)
 
         # Etiquetas eje X
-        painter.setPen(QColor("#8e8e93"))
+        painter.setPen(QColor("#71717A"))
         painter.setFont(label_font)
         for i, lbl in enumerate(self._labels):
             x = pad_l + (i / max(n - 1, 1)) * chart_w
@@ -133,7 +133,7 @@ class LineChartWidget(QWidget):
     def _paint_empty(self) -> None:
         painter = QPainter(self)
         painter.setRenderHint(QPainter.RenderHint.Antialiasing)
-        painter.setPen(QColor("#5e5e6e"))
+        painter.setPen(QColor("#71717A"))
         painter.setFont(QFont("Segoe UI", 11))
         painter.drawText(
             self.rect(), Qt.AlignmentFlag.AlignCenter,
@@ -147,7 +147,7 @@ class LineChartWidget(QWidget):
 class DonutChartWidget(QWidget):
     """Gráfico de tipo donut con leyenda inferior."""
 
-    _DEFAULT_COLORS = ["#10b981", "#ef4444", "#ffd700", "#4a90e2", "#a855f7"]
+    _DEFAULT_COLORS = ["#00FF88", "#FF1744", "#FFEB3B", "#FF9800", "#FFF176"]
 
     def __init__(self, parent=None):
         super().__init__(parent)
@@ -218,7 +218,7 @@ class DonutChartWidget(QWidget):
         if self._center_value:
             val_font = QFont("Segoe UI", max(10, inner_r // 2), QFont.Weight.Bold)
             painter.setFont(val_font)
-            painter.setPen(QColor("#f0f0f0"))
+            painter.setPen(QColor("#FFFFFF"))
             painter.drawText(
                 int(cx - inner_r), int(cy - inner_r),
                 int(inner_r * 2), int(inner_r * 2),
@@ -228,7 +228,7 @@ class DonutChartWidget(QWidget):
             if self._center_label:
                 lbl_font = QFont("Segoe UI", max(7, inner_r // 4))
                 painter.setFont(lbl_font)
-                painter.setPen(QColor("#8e8e93"))
+                painter.setPen(QColor("#71717A"))
                 painter.drawText(
                     int(cx - inner_r), int(cy + inner_r // 3),
                     int(inner_r * 2), int(inner_r),
@@ -257,7 +257,7 @@ class DonutChartWidget(QWidget):
 
             # Texto
             pct = f"{val / total * 100:.0f}%" if total > 0 else "0%"
-            painter.setPen(QColor("#8e8e93"))
+            painter.setPen(QColor("#71717A"))
             painter.drawText(
                 x + 16, y, col_w - 20, 22,
                 Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter,
@@ -269,7 +269,7 @@ class DonutChartWidget(QWidget):
     def _paint_empty(self) -> None:
         painter = QPainter(self)
         painter.setRenderHint(QPainter.RenderHint.Antialiasing)
-        painter.setPen(QColor("#5e5e6e"))
+        painter.setPen(QColor("#71717A"))
         painter.setFont(QFont("Segoe UI", 11))
         painter.drawText(
             self.rect(), Qt.AlignmentFlag.AlignCenter,

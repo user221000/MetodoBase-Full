@@ -13,7 +13,6 @@ Run:
 """
 from __future__ import annotations
 
-import tempfile
 import time
 from datetime import datetime
 from pathlib import Path
@@ -113,7 +112,6 @@ class TestPDFGenerator:
 
     def test_pdf_contiene_nombre_cliente(self, tmp_dir):
         """El texto del PDF incluye el nombre del cliente."""
-        import pypdf
         from api.pdf_generator import PDFGenerator
         gen = PDFGenerator()
         ruta = gen.generar_plan(DATOS_PLAN_COMPLETO, tmp_dir / "nombre.pdf")
@@ -122,7 +120,6 @@ class TestPDFGenerator:
 
     def test_pdf_contiene_macros(self, tmp_dir):
         """El PDF incluye valores de TMB, GET o kcal objetivo."""
-        import pypdf
         from api.pdf_generator import PDFGenerator
         gen = PDFGenerator()
         ruta = gen.generar_plan(DATOS_PLAN_COMPLETO, tmp_dir / "macros.pdf")
@@ -192,17 +189,16 @@ class TestPDFGenerator:
 
 
 # ════════════════════════════════════════════════════════════════════════════════
-# 2. Generador legacy (core/exportador_salida.py) — Smoke test de compatibilidad
+# 2. PDFGenerator con datos_from_cliente — Test de integración
 # ════════════════════════════════════════════════════════════════════════════════
 
-class TestGeneradorLegacy:
-    """Valida que el generador existente sigue funcionando sin regresiones."""
+class TestPDFGeneratorFromCliente:
+    """Valida el helper datos_from_cliente para generar PDFs desde ClienteEvaluacion."""
 
     def _construir_cliente(self):
-        from core.modelos import ClienteEvaluacion
         from api.dependencies import build_cliente_from_dict
         return build_cliente_from_dict({
-            "nombre": "Legacy Test",
+            "nombre": "Integration Test",
             "edad": 30,
             "peso_kg": 80.0,
             "estatura_cm": 175.0,
@@ -211,10 +207,10 @@ class TestGeneradorLegacy:
             "objetivo": "mantenimiento",
         })
 
-    def test_legacy_genera_pdf(self, tmp_dir):
-        """GeneradorPDFProfesional produce un archivo válido."""
+    def test_datos_from_cliente_genera_pdf(self, tmp_dir):
+        """PDFGenerator.datos_from_cliente produce un archivo válido."""
         import pypdf
-        from core.exportador_salida import GeneradorPDFProfesional
+        from api.pdf_generator import PDFGenerator
         from core.generador_planes import ConstructorPlanNuevo
         import os
         from config.constantes import CARPETA_PLANES
@@ -223,34 +219,35 @@ class TestGeneradorLegacy:
         os.makedirs(CARPETA_PLANES, exist_ok=True)
         plan = ConstructorPlanNuevo.construir(cliente, plan_numero=1, directorio_planes=CARPETA_PLANES)
 
-        ruta = str(tmp_dir / "legacy.pdf")
-        gen = GeneradorPDFProfesional(ruta)
-        result = gen.generar(cliente, plan)
+        ruta = tmp_dir / "from_cliente.pdf"
+        gen = PDFGenerator()
+        datos = PDFGenerator.datos_from_cliente(cliente, plan)
+        result = gen.generar_plan(datos, ruta)
 
-        pdf_path = Path(result)
-        assert pdf_path.exists(), f"PDF legacy no encontrado en {pdf_path}"
-        reader = pypdf.PdfReader(str(pdf_path))
+        assert result.exists(), f"PDF no encontrado en {result}"
+        reader = pypdf.PdfReader(str(result))
         assert len(reader.pages) >= 1
 
-    def test_legacy_tiempo_generacion(self, tmp_dir):
-        """El generador legacy no debe tardar más de 15 segundos."""
-        from core.exportador_salida import GeneradorPDFProfesional
+    def test_datos_from_cliente_tiempo(self, tmp_dir):
+        """El generador no debe tardar más de 15 segundos."""
+        from api.pdf_generator import PDFGenerator
         from core.generador_planes import ConstructorPlanNuevo
         import os
         from config.constantes import CARPETA_PLANES
 
         cliente = self._construir_cliente()
         os.makedirs(CARPETA_PLANES, exist_ok=True)
-        ruta = str(tmp_dir / "legacy_perf.pdf")
+        ruta = tmp_dir / "from_cliente_perf.pdf"
 
         t0 = time.perf_counter()
         plan = ConstructorPlanNuevo.construir(cliente, plan_numero=2, directorio_planes=CARPETA_PLANES)
-        gen = GeneradorPDFProfesional(ruta)
-        gen.generar(cliente, plan)
+        gen = PDFGenerator()
+        datos = PDFGenerator.datos_from_cliente(cliente, plan)
+        gen.generar_plan(datos, ruta)
         elapsed = time.perf_counter() - t0
 
-        assert elapsed < 15.0, f"Generador legacy tardó {elapsed:.2f}s (límite: 15s)"
-        print(f"\n  Tiempo generación legacy: {elapsed:.2f}s")
+        assert elapsed < 15.0, f"Generador tardó {elapsed:.2f}s (límite: 15s)"
+        print(f"\n  Tiempo generación: {elapsed:.2f}s")
 
 
 # ── Helpers ───────────────────────────────────────────────────────────────────

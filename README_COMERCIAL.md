@@ -2,7 +2,7 @@
 
 **Versión:** 1.0.0  
 **Desarrollado por:** Consultoría Hernández  
-**Soporte:** Oscar_Autumn@outlook.com | +52 1 7441614117
+**Soporte:** [VENDOR_EMAIL] | [VENDOR_PHONE]
 
 ---
 
@@ -237,7 +237,7 @@ Accede desde Panel Admin > Base de Datos > "Ver Reportes Completos"
 ### Canales de Contacto
 
 - 📱 **WhatsApp:** +52 1 7441614117
-- 📧 **Email:** Oscar_Autumn@outlook.com
+- 📧 **Email:** [VENDOR_EMAIL]
 
 ### Horario de Atención
 Lunes a Viernes: 9:00 - 18:00 hrs  
@@ -250,16 +250,25 @@ Sábados: 10:00 - 14:00 hrs
 
 ---
 
-## 💰 Información de Licenciamiento
+## 💰 Planes y Precios
 
-### Licencia Anual Gimnasio
-- **Precio:** $12,000 MXN/año
-- **Incluye:**
-  - Software completo
-  - Actualizaciones menores
-  - Soporte técnico
-  - Personalización de branding
-  - Planes ilimitados
+| Plan | Precio | Clientes activos | Multi-usuario | Ideal para |
+|------|--------|-----------------|---------------|------------|
+| **Starter** | $29 USD / mes | Hasta 25 | No | Entrenadores independientes |
+| **Profesional** | $59 USD / mes | Hasta 100 | No | Gimnasios medianos |
+| **Clínica** | $129 USD / mes | Ilimitado | Sí | Clínicas y franquicias |
+
+Todos los planes incluyen:
+- Software completo con actualizaciones
+- Soporte técnico prioritario
+- Personalización de branding (logo, colores)
+- Generación ilimitada de planes nutricionales
+- Exportación PDF profesional
+
+### Trial gratuito
+- **14 días** de prueba sin compromiso
+- Límite de **3 clientes activos** durante el trial
+- Todas las funciones disponibles
 
 ### Renovación
 Contactar 30 días antes del vencimiento para:
@@ -325,7 +334,7 @@ Contactar 30 días antes del vencimiento para:
 ### Fitness Gym Real del Valle - Guadalajara
 > "Método Base revolucionó nuestra operación. Ahora generamos planes personalizados en minutos y nuestros clientes están más satisfechos. ROI en 6 meses."
 >
-> — Oscar Hernández, Director
+> — [VENDOR_NAME], Director
 
 **Resultados:**
 - 📈 +40% retención de clientes
@@ -350,7 +359,7 @@ Si no estás satisfecho en los primeros 30 días:
 **Contacta hoy mismo:**
 
 📱 WhatsApp: +52 1 7441614117  
-📧 Email: Oscar_Autumn@outlook.com
+📧 Email: [VENDOR_EMAIL]
 
 ---
 

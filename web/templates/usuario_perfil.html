@@ -1,0 +1,288 @@
+{% extends "base_usuario.html" %}
+{% block title %}Mi Perfil{% endblock %}
+
+{% block content %}
+
+<div class="u-hero">
+  <h1 class="u-hero-title">Mi Perfil</h1>
+  <p class="u-hero-subtitle">Datos corporales para calcular tu plan nutricional</p>
+</div>
+
+<div class="u-context-bar">
+  <span class="u-context-tag">📏 Medidas precisas = plan más efectivo</span>
+  <span class="u-context-tag">🔄 Actualiza tus datos cuando cambien</span>
+</div>
+
+<form id="form-perfil" class="u-form-max">
+
+  <!-- Datos personales -->
+  <div class="u-card u-card-mb">
+    <h3 class="u-card-title">👤 Datos Personales</h3>
+    <div class="u-grid-2">
+      <div class="u-form-group">
+        <label class="u-form-label" for="field-nombre">Nombre</label>
+        <input type="text" id="field-nombre" class="u-form-input" placeholder="Tu nombre" disabled />
+      </div>
+      <div class="u-form-group">
+        <label class="u-form-label" for="field-email">Email</label>
+        <input type="email" id="field-email" class="u-form-input" placeholder="tu@email.com" disabled />
+      </div>
+    </div>
+  </div>
+
+  <!-- Medidas corporales -->
+  <div class="u-card u-card-mb">
+    <h3 class="u-card-title">⚖️ Medidas Corporales</h3>
+    <div class="u-grid-3">
+      <div class="u-form-group">
+        <label class="u-form-label" for="field-edad">Edad *</label>
+        <input type="number" id="field-edad" class="u-form-input" min="12" max="100" required placeholder="25" />
+      </div>
+      <div class="u-form-group">
+        <label class="u-form-label" for="field-peso">Peso (kg) *</label>
+        <input type="number" id="field-peso" class="u-form-input" min="30" max="300" step="0.1" required placeholder="70.5" />
+      </div>
+      <div class="u-form-group">
+        <label class="u-form-label" for="field-estatura">Estatura (cm) *</label>
+        <input type="number" id="field-estatura" class="u-form-input" min="100" max="250" step="0.1" required placeholder="170" />
+      </div>
+    </div>
+    <div class="u-grid-2 u-mt-md">
+      <div class="u-form-group">
+        <label class="u-form-label" for="field-sexo">Sexo</label>
+        <select id="field-sexo" class="u-form-input">
+          <option value="">Sin especificar</option>
+          <option value="M">Masculino</option>
+          <option value="F">Femenino</option>
+          <option value="Otro">Otro</option>
+        </select>
+      </div>
+      <div class="u-form-group">
+        <label class="u-form-label" for="field-grasa">% Grasa corporal</label>
+        <input type="number" id="field-grasa" class="u-form-input" min="3" max="60" step="0.1" placeholder="20 (opcional)" />
+      </div>
+    </div>
+  </div>
+
+  <!-- Objetivo y actividad -->
+  <div class="u-card u-card-mb">
+    <h3 class="u-card-title">🎯 Objetivo y Actividad</h3>
+    <div class="u-grid-2">
+      <div class="u-form-group">
+        <label class="u-form-label" for="field-objetivo">Objetivo *</label>
+        <select id="field-objetivo" class="u-form-input" required>
+          <option value="">Seleccionar...</option>
+          <option value="deficit">Déficit (bajar grasa)</option>
+          <option value="mantenimiento">Mantenimiento</option>
+          <option value="superavit">Superávit (ganar masa)</option>
+        </select>
+      </div>
+      <div class="u-form-group">
+        <label class="u-form-label" for="field-actividad">Nivel de actividad *</label>
+        <select id="field-actividad" class="u-form-input" required>
+          <option value="">Seleccionar...</option>
+          <option value="sedentario">Sedentario (nula)</option>
+          <option value="leve">Actividad leve</option>
+          <option value="moderada">Actividad moderada</option>
+          <option value="intensa">Actividad intensa</option>
+        </select>
+      </div>
+    </div>
+  </div>
+
+  <!-- Notas -->
+  <div class="u-card u-card-mb">
+    <h3 class="u-card-title">📝 Notas</h3>
+    <div class="u-form-group">
+      <label class="u-form-label" for="field-notas">Notas personales</label>
+      <textarea id="field-notas" class="u-form-input" rows="3" placeholder="Alergias, preferencias alimentarias, medicamentos..."></textarea>
+    </div>
+  </div>
+
+  <!-- Excluir alimentos -->
+  <div class="u-card u-card-mb-lg">
+    <h3 class="u-card-title">🚫 Excluir Alimentos</h3>
+    <p class="u-card-desc">Selecciona los alimentos que deseas eliminar de tus planes nutricionales.</p>
+
+    <div id="excluidos-tags" class="u-excl-tags"></div>
+
+    <div id="catalogo-container" class="u-excl-catalogo">
+      <p class="u-excl-loading">Cargando catálogo...</p>
+    </div>
+  </div>
+
+  <div class="u-flex-actions">
+    <button type="submit" class="u-btn u-btn-primary" id="btn-guardar">
+      <svg width="16" height="16" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/></svg>
+      Guardar Perfil
+    </button>
+    <a href="/mi-plan" class="u-btn u-btn-outline">← Volver a Mi Plan</a>
+  </div>
+</form>
+
+{% endblock %}
+
+{% block scripts %}
+<script nonce="{{ request.state.csp_nonce }}">
+(async function() {
+
+  var excluidos = [];
+  var CAT_LABELS = {
+    proteina: '🥩 Proteínas',
+    carbs: '🍞 Carbohidratos',
+    grasa: '🥑 Grasas',
+    verdura: '🥦 Verduras',
+    fruta: '🍎 Frutas'
+  };
+
+  function prettyName(s) {
+    return s.replace(/_/g, ' ').replace(/\b\w/g, function(c) { return c.toUpperCase(); });
+  }
+
+  function renderTags() {
+    var container = document.getElementById('excluidos-tags');
+    if (!excluidos.length) {
+      container.innerHTML = '<span class="u-excl-empty">No hay alimentos excluidos</span>';
+      return;
+    }
+    container.innerHTML = excluidos.map(function(a) {
+      return '<span class="u-excl-tag">' + prettyName(a) + '<button type="button" class="u-excl-tag-remove" data-food="' + a + '">&times;</button></span>';
+    }).join('');
+
+    container.querySelectorAll('.u-excl-tag-remove').forEach(function(btn) {
+      btn.addEventListener('click', function() {
+        var f = this.getAttribute('data-food');
+        excluidos = excluidos.filter(function(x) { return x !== f; });
+        renderTags();
+        syncChips();
+      });
+    });
+  }
+
+  function syncChips() {
+    document.querySelectorAll('.u-excl-chip').forEach(function(chip) {
+      var f = chip.getAttribute('data-food');
+      chip.classList.toggle('u-excl-chip-active', excluidos.indexOf(f) !== -1);
+    });
+  }
+
+  async function loadCatalogo() {
+    try {
+      var res = await fetch('/api/usuario/catalogo-alimentos', {
+        headers: { 'Authorization': 'Bearer ' + localStorage.getItem('mb_token') }
+      });
+      if (!res.ok) throw new Error('Error cargando catálogo');
+      var catalogo = await res.json();
+      var container = document.getElementById('catalogo-container');
+      var html = '';
+      var order = ['proteina', 'carbs', 'grasa', 'verdura', 'fruta'];
+      order.forEach(function(cat) {
+        var items = catalogo[cat] || [];
+        if (!items.length) return;
+        html += '<div class="u-excl-group">';
+        html += '<h4 class="u-excl-group-title">' + (CAT_LABELS[cat] || cat) + '</h4>';
+        html += '<div class="u-excl-chips">';
+        items.forEach(function(food) {
+          var active = excluidos.indexOf(food) !== -1 ? ' u-excl-chip-active' : '';
+          html += '<button type="button" class="u-excl-chip' + active + '" data-food="' + food + '">' + prettyName(food) + '</button>';
+        });
+        html += '</div></div>';
+      });
+      container.innerHTML = html;
+
+      container.querySelectorAll('.u-excl-chip').forEach(function(chip) {
+        chip.addEventListener('click', function() {
+          var f = this.getAttribute('data-food');
+          var idx = excluidos.indexOf(f);
+          if (idx === -1) {
+            excluidos.push(f);
+          } else {
+            excluidos.splice(idx, 1);
+          }
+          this.classList.toggle('u-excl-chip-active');
+          renderTags();
+        });
+      });
+    } catch(err) {
+      document.getElementById('catalogo-container').innerHTML = '<p class="u-excl-error">No se pudo cargar el catálogo de alimentos.</p>';
+    }
+  }
+
+  // Load current profile
+  try {
+    var res = await fetch('/api/usuario/perfil', {
+      headers: { 'Authorization': 'Bearer ' + localStorage.getItem('mb_token') }
+    });
+    if (res.ok) {
+      var p = await res.json();
+      document.getElementById('field-nombre').value = p.nombre || '';
+      document.getElementById('field-email').value = p.email || '';
+      document.getElementById('field-edad').value = p.edad || '';
+      document.getElementById('field-peso').value = p.peso_kg || '';
+      document.getElementById('field-estatura').value = p.estatura_cm || '';
+      document.getElementById('field-sexo').value = p.sexo || '';
+      document.getElementById('field-grasa').value = p.grasa_corporal_pct || '';
+      document.getElementById('field-objetivo').value = p.objetivo || '';
+      document.getElementById('field-actividad').value = p.nivel_actividad || '';
+      document.getElementById('field-notas').value = p.notas || '';
+      excluidos = Array.isArray(p.alimentos_excluidos) ? p.alimentos_excluidos : [];
+      renderTags();
+    }
+  } catch(err) {}
+
+  await loadCatalogo();
+
+  // Save profile
+  document.getElementById('form-perfil').addEventListener('submit', async function(e) {
+    e.preventDefault();
+    var btn = document.getElementById('btn-guardar');
+    btn.disabled = true;
+    btn.textContent = 'Guardando...';
+
+    var payload = {
+      edad: parseInt(document.getElementById('field-edad').value) || null,
+      peso_kg: parseFloat(document.getElementById('field-peso').value) || null,
+      estatura_cm: parseFloat(document.getElementById('field-estatura').value) || null,
+      sexo: document.getElementById('field-sexo').value || null,
+      grasa_corporal_pct: parseFloat(document.getElementById('field-grasa').value) || null,
+      objetivo: document.getElementById('field-objetivo').value || null,
+      nivel_actividad: document.getElementById('field-actividad').value || null,
+      notas: document.getElementById('field-notas').value || null,
+      alimentos_excluidos: excluidos,
+    };
+
+    try {
+      var res = await fetch('/api/usuario/perfil', {
+        method: 'PUT',
+        headers: {
+          'Authorization': 'Bearer ' + localStorage.getItem('mb_token'),
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(payload),
+      });
+      if (!res.ok) {
+        var err = await res.json().catch(function() { return {}; });
+        throw new Error(err.detail || 'Error guardando perfil');
+      }
+      showToast('✅ Perfil guardado correctamente');
+    } catch(e) {
+      showToast('❌ ' + e.message, 'error');
+    } finally {
+      btn.disabled = false;
+      btn.innerHTML = '<svg width="16" height="16" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/></svg> Guardar Perfil';
+    }
+  });
+
+  function showToast(msg, type) {
+    var c = document.getElementById('toast-container');
+    if (!c) return;
+    var t = document.createElement('div');
+    t.className = 'u-toast' + (type === 'error' ? ' u-toast-error' : '');
+    t.textContent = msg;
+    c.appendChild(t);
+    setTimeout(function() { t.remove(); }, 4000);
+  }
+
+})();
+</script>
+{% endblock %}

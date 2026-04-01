@@ -27,17 +27,14 @@ import re
 from typing import Optional
 
 from PySide6.QtCore import Qt, QTimer
-from PySide6.QtGui import QClipboard, QGuiApplication
+from PySide6.QtGui import QGuiApplication
 from PySide6.QtWidgets import (
-    QApplication,
     QDialog,
     QFrame,
     QHBoxLayout,
     QLabel,
     QLineEdit,
-    QMessageBox,
     QPushButton,
-    QSizePolicy,
     QStackedWidget,
     QVBoxLayout,
     QWidget,
@@ -45,7 +42,6 @@ from PySide6.QtWidgets import (
 
 from core.services.auth_service import AuthService, SesionActiva
 from ui_desktop.pyside.widgets.secure_password_input import SecurePasswordInput
-from utils.logger import logger
 
 
 # ── RE email simple ──────────────────────────────────────────────────────────
@@ -267,10 +263,10 @@ class _PanelRegistro(QWidget):
         if p2:
             if p1 == p2:
                 self._lbl_match.setText("✓ Las contraseñas coinciden")
-                self._lbl_match.setStyleSheet("color: #30D158; font-size: 10px;")
+                self._lbl_match.setStyleSheet("color: #00FF88; font-size: 10px;")
             else:
                 self._lbl_match.setText("✗ Las contraseñas no coinciden")
-                self._lbl_match.setStyleSheet("color: #FF453A; font-size: 10px;")
+                self._lbl_match.setStyleSheet("color: #FF1744; font-size: 10px;")
         else:
             self._lbl_match.setText("")
             self._lbl_match.setStyleSheet("")
@@ -455,27 +451,27 @@ class VentanaAuth(QDialog):
         banner = QWidget()
         banner.setStyleSheet(
             "background: qlineargradient(x1:0,y1:0,x2:1,y2:0,"
-            "stop:0 #0a1409,stop:1 #152515);"
-            "border-bottom: 1px solid #2a4a2a;"
+            "stop:0 #0A0A0A,stop:1 #141414);"
+            "border-bottom: 1px solid #1F1F1F;"
         )
         banner_lay = QHBoxLayout(banner)
         banner_lay.setContentsMargins(32, 16, 32, 16)
 
         dot = QLabel("●")
-        dot.setStyleSheet("color: #39ff14; font-size: 14px; background: transparent;")
+        dot.setStyleSheet("color: #FFEB3B; font-size: 14px; background: transparent;")
         banner_lay.addWidget(dot)
 
         brand = QLabel("  Método Base")
         brand.setStyleSheet(
-            "color: #e8f5e9; font-size: 16px; font-weight: 700; background: transparent;"
+            "color: #FFFFFF; font-size: 16px; font-weight: 700; background: transparent;"
         )
         banner_lay.addWidget(brand)
         banner_lay.addStretch()
 
         plan_lbl = QLabel("Usuario Regular")
         plan_lbl.setStyleSheet(
-            "color: #66bb6a; font-size: 12px; background: transparent; padding: 2px 8px;"
-            "border: 1px solid #2a4a2a; border-radius: 10px;"
+            "color: #FFEB3B; font-size: 12px; background: transparent; padding: 2px 8px;"
+            "border: 1px solid #1F1F1F; border-radius: 10px;"
         )
         banner_lay.addWidget(plan_lbl)
 

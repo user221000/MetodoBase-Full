@@ -1,0 +1,284 @@
+{% extends "base.html" %}
+{% block title %}Historial de Planes{% endblock %}
+
+{% block content %}
+
+<!-- ── Page header ────────────────────────────────────────────── -->
+<div class="page-header">
+  <div>
+    <h1 class="page-title">Historial de Planes</h1>
+    <p class="page-subtitle">Todos los planes nutricionales generados</p>
+  </div>
+</div>
+
+<!-- ── Context bar ────────────────────────────────────────────── -->
+<div class="context-bar">
+  <span class="context-bar-item">📋 Registro completo de planes nutricionales</span>
+  <span class="context-bar-item">📊 Métricas de macros y calorías</span>
+  <span class="context-bar-item">📥 Descarga directa en PDF</span>
+</div>
+
+<!-- ── Resumen KPIs ───────────────────────────────────────────── -->
+<div class="kpi-grid" style="margin-bottom:24px;">
+  <div class="kpi-card kpi-info">
+    <div class="kpi-header">
+      <div class="kpi-label">Planes esta semana</div>
+      <span class="kpi-badge info">Semanal</span>
+    </div>
+    <div class="kpi-value" id="kpi-planes-semana">—</div>
+  </div>
+  <div class="kpi-card kpi-success">
+    <div class="kpi-header">
+      <div class="kpi-label">Planes este mes</div>
+      <span class="kpi-badge success">Mensual</span>
+    </div>
+    <div class="kpi-value" id="kpi-planes-mes-detail">—</div>
+  </div>
+  <div class="kpi-card">
+    <div class="kpi-header">
+      <div class="kpi-label">Total histórico</div>
+      <span class="kpi-badge" style="background:rgba(251,191,36,.12);color:var(--accent-primary);">Acumulado</span>
+    </div>
+    <div class="kpi-value" id="kpi-planes-total">—</div>
+  </div>
+</div>
+
+<!-- ── Filtros ────────────────────────────────────────────────── -->
+<div class="chart-container search-bar mb-4">
+  <div class="flex items-center gap-3">
+    <span style="font-size:.78rem;color:var(--text-muted)">Período:</span>
+    <div class="time-tabs" id="filter-periodo">
+      <button class="time-tab active" data-periodo="">Todos</button>
+      <button class="time-tab" data-periodo="semana">Semana</button>
+      <button class="time-tab" data-periodo="mes">Mes</button>
+      <button class="time-tab" data-periodo="anio">Año</button>
+    </div>
+  </div>
+  <div class="flex items-center gap-3" style="margin-left:auto;">
+    <span style="font-size:.78rem;color:var(--text-muted)">Total:</span>
+    <span id="total-planes" style="font-size:.85rem;font-weight:700;color:var(--accent-purple)">—</span>
+  </div>
+</div>
+
+<!-- ── Tabla de planes ────────────────────────────────────────── -->
+<div class="chart-container overflow-hidden">
+  <div style="overflow-x:auto;">
+    <table class="data-table" id="tabla-planes">
+      <thead>
+        <tr>
+          <th>Cliente</th>
+          <th>Fecha</th>
+          <th>Kcal</th>
+          <th>Proteína</th>
+          <th>Carbs</th>
+          <th>Grasas</th>
+          <th>Objetivo</th>
+          <th style="text-align:right">Acciones</th>
+        </tr>
+      </thead>
+      <tbody id="planes-tbody">
+        <tr>
+          <td colspan="8">
+            <div class="empty-state">
+              <div class="empty-state-icon">⏳</div>
+              <p>Cargando planes...</p>
+            </div>
+          </td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<!-- ── Paginación ─────────────────────────────────────────────── -->
+<div class="pagination" id="pagination" style="margin-top:16px;display:flex;justify-content:center;gap:8px;">
+</div>
+
+{% endblock %}
+
+{% block scripts %}
+<script nonce="{{ request.state.csp_nonce }}">
+document.addEventListener('DOMContentLoaded', async () => {
+  let currentPage = 0;
+  const limit = 50;
+  let currentPeriodo = '';
+
+  // ── Cargar resumen ──────────────────────────────────────────
+  async function loadResumen() {
+    try {
+      const data = await Api.planes.resumen();
+      document.getElementById('kpi-planes-semana').textContent = data.planes_semana || 0;
+      document.getElementById('kpi-planes-mes-detail').textContent = data.planes_mes || 0;
+      document.getElementById('kpi-planes-total').textContent = data.planes_total || 0;
+    } catch (e) {
+      console.error('Error cargando resumen:', e);
+    }
+  }
+
+  // ── Cargar planes ──────────────────────────────────────────
+  async function loadPlanes(page = 0) {
+    const tbody = document.getElementById('planes-tbody');
+    tbody.innerHTML = `
+      <tr>
+        <td colspan="8">
+          <div class="empty-state">
+            <div class="empty-state-icon">⏳</div>
+            <p>Cargando planes...</p>
+          </div>
+        </td>
+      </tr>
+    `;
+
+    try {
+      const data = await Api.planes.listar(limit, page * limit, currentPeriodo);
+      document.getElementById('total-planes').textContent = data.total || 0;
+
+      if (!data.planes || data.planes.length === 0) {
+        tbody.innerHTML = `
+          <tr>
+            <td colspan="8">
+              <div class="empty-state">
+                <div class="empty-state-icon">📄</div>
+                <p style="font-weight:600;margin-bottom:4px;">Sin planes generados</p>
+                <p style="color:var(--text-muted);font-size:.85rem;">Aún no se han generado planes nutricionales</p>
+              </div>
+            </td>
+          </tr>
+        `;
+        return;
+      }
+
+      tbody.innerHTML = '';
+      data.planes.forEach(p => {
+        const fecha = p.fecha_generacion 
+          ? new Date(p.fecha_generacion).toLocaleDateString('es-MX', { 
+              day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' 
+            })
+          : '—';
+
+        const objBadge = buildObjBadge(p.objetivo);
+
+        const tr = document.createElement('tr');
+        tr.innerHTML = `
+          <td>
+            <div class="flex items-center gap-2">
+              <div class="avatar avatar-sm"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 12c2.7 0 4.8-2.2 4.8-4.8S14.7 2.4 12 2.4 7.2 4.5 7.2 7.2 9.3 12 12 12zm0 2.4c-3.2 0-9.6 1.6-9.6 4.8v2.4h19.2v-2.4c0-3.2-6.4-4.8-9.6-4.8z"/></svg></div>
+              <span style="font-weight:500">${esc(p.nombre_cliente)}</span>
+            </div>
+          </td>
+          <td style="font-size:.85rem;color:var(--text-secondary)">${fecha}</td>
+          <td style="font-weight:600;color:var(--accent-primary)">${p.kcal_objetivo || '—'}</td>
+          <td>${p.proteina_g || '—'}g</td>
+          <td>${p.carbs_g || '—'}g</td>
+          <td>${p.grasa_g || '—'}g</td>
+          <td>${objBadge}</td>
+          <td style="text-align:right">
+            ${p.ruta_pdf 
+              ? `<a href="/api/descargar-pdf/${esc(p.id_cliente)}" class="btn btn-sm btn-secondary" target="_blank">
+                  <svg style="width:14px;height:14px" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/>
+                  </svg>
+                  PDF
+                </a>`
+              : '—'
+            }
+          </td>
+        `;
+        tbody.appendChild(tr);
+      });
+
+      // Render pagination
+      renderPagination(data.total, page, limit);
+
+    } catch (e) {
+      console.error('Error:', e);
+      tbody.innerHTML = `
+        <tr>
+          <td colspan="8">
+            <div class="empty-state">
+              <div class="empty-state-icon">❌</div>
+              <p>Error cargando planes</p>
+            </div>
+          </td>
+        </tr>
+      `;
+    }
+  }
+
+  function renderPagination(total, currentPage, limit) {
+    const container = document.getElementById('pagination');
+    const totalPages = Math.ceil(total / limit);
+    
+    if (totalPages <= 1) {
+      container.innerHTML = '';
+      return;
+    }
+
+    let html = '';
+    
+    // Previous
+    if (currentPage > 0) {
+      html += `<button class="btn btn-sm btn-secondary" data-page="${currentPage - 1}">← Anterior</button>`;
+    }
+
+    // Page info
+    html += `<span style="padding:8px 16px;color:var(--text-secondary);font-size:.85rem;">
+      Página ${currentPage + 1} de ${totalPages}
+    </span>`;
+
+    // Next
+    if (currentPage < totalPages - 1) {
+      html += `<button class="btn btn-sm btn-secondary" data-page="${currentPage + 1}">Siguiente →</button>`;
+    }
+
+    container.innerHTML = html;
+
+    // Event listeners
+    container.querySelectorAll('button[data-page]').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const page = parseInt(btn.dataset.page);
+        loadPlanes(page);
+      });
+    });
+  }
+
+  // ── Helpers ────────────────────────────────────────────────
+  function esc(str) {
+    if (!str) return '';
+    const div = document.createElement('div');
+    div.textContent = str;
+    return div.innerHTML;
+  }
+
+  function getInitials(name) {
+    if (!name) return '?';
+    return name.split(' ').map(w => w[0]).join('').slice(0, 2).toUpperCase();
+  }
+
+  function buildObjBadge(obj) {
+    const colors = {
+      deficit: { bg: 'rgba(45,212,191,.12)', color: 'var(--accent-purple)', label: 'Déficit' },
+      mantenimiento: { bg: 'rgba(255,229,0,.12)', color: 'var(--accent-primary)', label: 'Mant.' },
+      superavit: { bg: 'rgba(0,255,136,.12)', color: 'var(--accent-green)', label: 'Superávit' },
+    };
+    const o = colors[obj] || { bg: 'rgba(139,139,158,.12)', color: 'var(--text-secondary)', label: obj || '—' };
+    return `<span style="background:${o.bg};color:${o.color};padding:3px 10px;border-radius:99px;font-size:.75rem;font-weight:600;">${o.label}</span>`;
+  }
+
+  // ── Filtros de período ─────────────────────────────────────
+  document.querySelectorAll('#filter-periodo .time-tab').forEach(btn => {
+    btn.addEventListener('click', () => {
+      document.querySelectorAll('#filter-periodo .time-tab').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      currentPeriodo = btn.dataset.periodo || '';
+      currentPage = 0;
+      loadPlanes(0);
+    });
+  });
+
+  // ── Init ───────────────────────────────────────────────────
+  await loadResumen();
+  await loadPlanes(0);
+});
+</script>
+{% endblock %}

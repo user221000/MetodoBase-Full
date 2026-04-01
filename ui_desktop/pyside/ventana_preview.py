@@ -68,27 +68,26 @@ class PlanPreviewWindow(QDialog):
         # Header
         lbl_step = QLabel("Paso 2 de 3 · Preview del plan")
         lbl_step.setAlignment(Qt.AlignCenter)
-        lbl_step.setStyleSheet("color: #9B4FB0; font-size: 13px; font-weight: bold;")
+        lbl_step.setObjectName("previewStepLabel")
         root.addWidget(lbl_step)
 
         lbl_nombre = QLabel(f"Cliente: {cliente.nombre}")
         lbl_nombre.setAlignment(Qt.AlignCenter)
-        lbl_nombre.setStyleSheet("color: #F5F5F5; font-size: 21px; font-weight: bold;")
+        lbl_nombre.setObjectName("previewClientName")
         root.addWidget(lbl_nombre)
 
         obj = getattr(cliente, "objetivo", "").upper()
         kcal = getattr(cliente, "kcal_objetivo", 0)
         lbl_meta = QLabel(f"Meta: {obj}  |  Kcal objetivo del día: {kcal:.0f}")
         lbl_meta.setAlignment(Qt.AlignCenter)
-        lbl_meta.setStyleSheet("color: #D4A84B; font-size: 12px;")
+        lbl_meta.setObjectName("previewMetaLabel")
         root.addWidget(lbl_meta)
 
         # Scroll
         scroll = QScrollArea()
         scroll.setWidgetResizable(True)
-        scroll.setStyleSheet("border: none;")
         inner = QWidget()
-        inner.setStyleSheet("background-color: #0D0D0D;")
+        inner.setObjectName("previewScrollInner")
         inner_layout = QVBoxLayout(inner)
         inner_layout.setSpacing(8)
         inner_layout.setContentsMargins(4, 4, 4, 4)
@@ -104,21 +103,13 @@ class PlanPreviewWindow(QDialog):
 
         btn_confirmar = QPushButton("Confirmar y Exportar")
         btn_confirmar.setMinimumHeight(42)
-        btn_confirmar.setStyleSheet(
-            "QPushButton { background-color: #9B4FB0; color: #FFFFFF;"
-            " border-radius: 10px; font-size: 14px; font-weight: bold; }"
-            "QPushButton:hover { background-color: #B565C6; }"
-        )
+        btn_confirmar.setObjectName("primaryButton")
         btn_confirmar.clicked.connect(self.accept)
         btn_layout.addWidget(btn_confirmar)
 
         btn_cancelar = QPushButton("Volver a Captura")
         btn_cancelar.setMinimumHeight(42)
-        btn_cancelar.setStyleSheet(
-            "QPushButton { background-color: transparent; color: #B8B8B8;"
-            " border: 1px solid #444444; border-radius: 10px; font-size: 14px; }"
-            "QPushButton:hover { background-color: #2A2A2A; }"
-        )
+        btn_cancelar.setObjectName("secondaryButton")
         btn_cancelar.clicked.connect(self.reject)
         btn_layout.addWidget(btn_cancelar)
 
@@ -143,26 +134,23 @@ class PlanPreviewWindow(QDialog):
             kcal_t += kcal; prot_t += p; carb_t += c; gras_t += g
 
             card = QFrame()
-            card.setStyleSheet(
-                "QFrame { background-color: #1A1A1A; border: 1px solid #444444;"
-                " border-radius: 10px; }"
-            )
+            card.setObjectName("previewMealCard")
             cl = QVBoxLayout(card)
             cl.setContentsMargins(14, 10, 14, 10)
             cl.setSpacing(4)
 
             lbl_n = QLabel(label)
-            lbl_n.setStyleSheet("color: #F5F5F5; font-size: 15px; font-weight: bold;")
+            lbl_n.setObjectName("previewMealName")
             cl.addWidget(lbl_n)
 
             # Métricas
             metrics_w = QWidget()
-            metrics_w.setStyleSheet("background: transparent;")
+            metrics_w.setObjectName("transparentWidget")
             mg = QGridLayout(metrics_w)
             mg.setSpacing(6)
             mg.setContentsMargins(0, 0, 0, 0)
-            self._metric(mg, 0, "Kcal",       f"{kcal:.0f}",  "#D4A84B")
-            self._metric(mg, 1, "Proteína",   f"{p:.0f} g",   "#4CAF50")
+            self._metric(mg, 0, "Kcal",       f"{kcal:.0f}",  "#FFEB3B")
+            self._metric(mg, 1, "Proteína",   f"{p:.0f} g",   "#00FF88")
             self._metric(mg, 2, "Carbohid.",  f"{c:.0f} g",   "#42A5F5")
             self._metric(mg, 3, "Grasas",     f"{g:.0f} g",   "#FFA726")
             cl.addWidget(metrics_w)
@@ -170,12 +158,12 @@ class PlanPreviewWindow(QDialog):
             # Separador
             sep = QFrame()
             sep.setFrameShape(QFrame.HLine)
-            sep.setStyleSheet("background-color: #333333; border: none;")
+            sep.setObjectName("dividerLine")
             sep.setFixedHeight(1)
             cl.addWidget(sep)
 
             lbl_g = QLabel("Guía de porciones")
-            lbl_g.setStyleSheet("color: #B8B8B8; font-size: 11px; font-weight: bold;")
+            lbl_g.setObjectName("previewSectionTitle")
             cl.addWidget(lbl_g)
 
             alimentos = comida.get("alimentos", {})
@@ -183,16 +171,16 @@ class PlanPreviewWindow(QDialog):
                 nombre_fmt = nombre.replace("_", " ").title()
                 equiv = _equiv_txt(nombre, gramos)
                 row_w = QWidget()
-                row_w.setStyleSheet("background: transparent;")
+                row_w.setObjectName("transparentWidget")
                 rl = QHBoxLayout(row_w)
                 rl.setContentsMargins(0, 0, 0, 0)
                 rl.setSpacing(0)
                 lbl_al = QLabel(f"• {nombre_fmt}")
-                lbl_al.setStyleSheet("color: #D0D0D0; font-size: 11px;")
+                lbl_al.setObjectName("previewFoodName")
                 rl.addWidget(lbl_al)
                 rl.addStretch()
                 lbl_gr = QLabel(f"{gramos:.0f} g{equiv}")
-                lbl_gr.setStyleSheet("color: #B8B8B8; font-size: 11px;")
+                lbl_gr.setObjectName("previewFoodGrams")
                 rl.addWidget(lbl_gr)
                 cl.addWidget(row_w)
 
@@ -200,19 +188,17 @@ class PlanPreviewWindow(QDialog):
 
         # Totales
         total = QFrame()
-        total.setStyleSheet(
-            "QFrame { background-color: #232323; border: 1px solid #D4A84B; border-radius: 10px; }"
-        )
+        total.setObjectName("previewTotalCard")
         tl = QVBoxLayout(total)
         tl.setContentsMargins(14, 10, 14, 10)
         lbl_rt = QLabel("Resumen del día")
         lbl_rt.setAlignment(Qt.AlignCenter)
-        lbl_rt.setStyleSheet("color: #F5F5F5; font-size: 13px; font-weight: bold;")
+        lbl_rt.setObjectName("previewTotalTitle")
         tl.addWidget(lbl_rt)
         mg2 = QGridLayout()
         mg2.setSpacing(6)
-        self._metric(mg2, 0, "Kcal totales", f"{kcal_t:.0f}",  "#D4A84B")
-        self._metric(mg2, 1, "Proteína",     f"{prot_t:.0f} g","#4CAF50")
+        self._metric(mg2, 0, "Kcal totales", f"{kcal_t:.0f}",  "#FFEB3B")
+        self._metric(mg2, 1, "Proteína",     f"{prot_t:.0f} g","#00FF88")
         self._metric(mg2, 2, "Carbohid.",    f"{carb_t:.0f} g","#42A5F5")
         self._metric(mg2, 3, "Grasas",       f"{gras_t:.0f} g","#FFA726")
         tl.addLayout(mg2)
@@ -221,15 +207,13 @@ class PlanPreviewWindow(QDialog):
     @staticmethod
     def _metric(grid: QGridLayout, col: int, title: str, value: str, accent: str) -> None:
         frame = QFrame()
-        frame.setStyleSheet(
-            "QFrame { background-color: #262626; border: 1px solid #3A3A3A; border-radius: 8px; }"
-        )
+        frame.setObjectName("previewMetricFrame")
         fl = QVBoxLayout(frame)
         fl.setContentsMargins(6, 6, 6, 6)
         fl.setSpacing(2)
         lt = QLabel(title)
         lt.setAlignment(Qt.AlignCenter)
-        lt.setStyleSheet("color: #B8B8B8; font-size: 10px;")
+        lt.setObjectName("previewMetricTitle")
         fl.addWidget(lt)
         lv = QLabel(value)
         lv.setAlignment(Qt.AlignCenter)

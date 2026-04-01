@@ -5,8 +5,8 @@ Lee ``config/branding.json`` y expone los valores con soporte para
 *dot-notation*::
 
     from core.branding import branding
-    branding.get('colores.primario')      # '#9B4FB0'
-    branding.get('nombre_gym')            # 'Fitness Gym Real del Valle'
+    branding.get('colores.primario')      # '#FFEB3B'
+    branding.get('nombre_gym')            # 'Mi Gimnasio'
 """
 
 import json
@@ -20,92 +20,28 @@ class GestorBranding:
     """Lee / escribe la configuración de branding del gimnasio."""
 
     ARCHIVO_BRANDING = str(Path(CARPETA_CONFIG) / "branding.json")
-    TEMAS_PRECONFIGURADOS: dict[str, dict[str, str]] = {
-        "Metodo Base Clasico": {
-            "primario": "#9B4FB0",
-            "primario_hover": "#B565C6",
-            "secundario": "#D4A84B",
-            "secundario_hover": "#E4B85B",
-            "pdf_color": "#9B4FB0",
-        },
-        "Titan Rojo": {
-            "primario": "#C62828",
-            "primario_hover": "#D84343",
-            "secundario": "#F9A825",
-            "secundario_hover": "#FFB300",
-            "pdf_color": "#C62828",
-        },
-        "Oceano Pro": {
-            "primario": "#1565C0",
-            "primario_hover": "#1E88E5",
-            "secundario": "#26A69A",
-            "secundario_hover": "#4DB6AC",
-            "pdf_color": "#1565C0",
-        },
-        "Verde Elite": {
-            "primario": "#2E7D32",
-            "primario_hover": "#43A047",
-            "secundario": "#F57C00",
-            "secundario_hover": "#FB8C00",
-            "pdf_color": "#2E7D32",
-        },
-        "Carbon Naranja": {
-            "primario": "#E65100",
-            "primario_hover": "#F57C00",
-            "secundario": "#37474F",
-            "secundario_hover": "#455A64",
-            "pdf_color": "#E65100",
-        },
-        "Aurora Mint": {
-            "primario": "#00897B",
-            "primario_hover": "#00A693",
-            "secundario": "#7CB342",
-            "secundario_hover": "#8BC34A",
-            "pdf_color": "#00897B",
-        },
-        "Solar Dorado": {
-            "primario": "#F9A825",
-            "primario_hover": "#FFB300",
-            "secundario": "#6A1B9A",
-            "secundario_hover": "#7B1FA2",
-            "pdf_color": "#F9A825",
-        },
-        "Granate Premium": {
-            "primario": "#8E2430",
-            "primario_hover": "#A93242",
-            "secundario": "#C9A227",
-            "secundario_hover": "#D9B338",
-            "pdf_color": "#8E2430",
-        },
-        "Cobalto Neon": {
-            "primario": "#0D47A1",
-            "primario_hover": "#1565C0",
-            "secundario": "#00ACC1",
-            "secundario_hover": "#26C6DA",
-            "pdf_color": "#0D47A1",
-        },
-        "Aurora Fitness": {
-            "primario": "#00897B",
-            "primario_hover": "#006B5F",
-            "secundario": "#7CB342",
-            "secundario_hover": "#3D7D52",
-            "pdf_color": "#00897B",
-            "neutral_bg": "#0A0A0B",
-            "neutral_card": "#121214",
-            "neutral_text": "#E8E8EC",
-        },
+    # Tema visual fijo: Yellow Neon Premium (Black & Yellow)
+    # Los colores de la interfaz los gobierna design_system/tokens.py
+    # y el QSS amarillo_neon.qss. Estos valores solo afectan PDFs/branding.
+    TEMA_VISUAL = "Yellow Neon Premium"
+    COLORES_FIJOS: dict[str, str] = {
+        "primario": "#FFEB3B",
+        "primario_hover": "#FDD835",
+        "secundario": "#FFD700",
+        "secundario_hover": "#F9A825",
+        "pdf_color": "#FFEB3B",
     }
 
     DEFAULTS: dict = {
         "nombre_gym": "",
         "nombre_corto": "Método Base",
         "tagline": "Powered by Consultoría Hernández",
-        "tema_visual": "Aurora Fitness",
+        "tema_visual": "Yellow Neon Premium",
         "colores": {
-            "primario": "#00897B",
-            "primario_hover": "#006B5F",
-            "secundario": "#7CB342",
-            "secundario_hover": "#3D7D52",
+            "primario": "#FFEB3B",
+            "primario_hover": "#FDD835",
+            "secundario": "#FFD700",
+            "secundario_hover": "#F9A825",
         },
         "contacto": {
             "telefono": "",
@@ -129,11 +65,12 @@ class GestorBranding:
             "mostrar_logo": True,
             "logo_path": "assets/logo.png",
             "mostrar_contacto": True,
-            "color_encabezado": "#9B4FB0",
+            "color_encabezado": "#FFEB3B",
         },
         "alimentos": {
             "excluidos": [],
         },
+        "cuota_mensual": 800,
         "whatsapp": {
             "mensaje_plan": (
                 "Hola {nombre} 👋\n\n"
@@ -149,10 +86,53 @@ class GestorBranding:
     def __init__(self) -> None:
         self.ruta = Path(self.ARCHIVO_BRANDING)
         self.config: dict = self._cargar_config()
+        self._migrar_a_neon_premium()
 
     # ------------------------------------------------------------------
     # Carga
     # ------------------------------------------------------------------
+
+    def _migrar_a_neon_premium(self) -> None:
+        """Fuerza los colores del interfaz al tema Yellow Neon Premium.
+
+        Limpia claves sueltas que temas legacy dejaron a nivel raíz
+        (primario, secundario, pdf_color, neutral_*) y sobreescribe
+        colores.primario / colores.secundario con los valores fijos.
+        """
+        changed = False
+
+        # Limpiar claves legacy a nivel raíz
+        _LEGACY_KEYS = (
+            "primario", "primario_hover", "secundario", "secundario_hover",
+            "pdf_color", "neutral_bg", "neutral_card", "neutral_text",
+        )
+        for k in _LEGACY_KEYS:
+            if k in self.config:
+                del self.config[k]
+                changed = True
+
+        # Forzar tema visual
+        if self.config.get("tema_visual") != self.TEMA_VISUAL:
+            self.config["tema_visual"] = self.TEMA_VISUAL
+            changed = True
+
+        # Forzar colores a neon premium
+        colores = self.config.setdefault("colores", {})
+        for key, val in self.COLORES_FIJOS.items():
+            if key == "pdf_color":
+                continue  # pdf_color va en pdf.color_encabezado
+            if colores.get(key) != val:
+                colores[key] = val
+                changed = True
+
+        # Forzar color PDF si es legacy
+        pdf = self.config.setdefault("pdf", {})
+        if pdf.get("color_encabezado") not in ("#FFEB3B", ""):
+            pdf["color_encabezado"] = "#FFEB3B"
+            changed = True
+
+        if changed:
+            self._guardar(self.config)
 
     def _cargar_config(self) -> dict:
         if not self.ruta.exists():
@@ -268,24 +248,9 @@ class GestorBranding:
                 return resuelto
         return None
 
-    @classmethod
-    def obtener_temas_preconfigurados(cls) -> dict[str, dict[str, str]]:
-        return cls.TEMAS_PRECONFIGURADOS.copy()
-
-    def aplicar_tema_visual(self, nombre_tema: str) -> bool:
-        tema = self.TEMAS_PRECONFIGURADOS.get(nombre_tema)
-        if not tema:
-            return False
-
-        self.config.setdefault("colores", {})
-        self.config.setdefault("pdf", {})
-        self.config["tema_visual"] = nombre_tema
-        self.config["colores"]["primario"] = tema["primario"]
-        self.config["colores"]["primario_hover"] = tema["primario_hover"]
-        self.config["colores"]["secundario"] = tema["secundario"]
-        self.config["colores"]["secundario_hover"] = tema["secundario_hover"]
-        self.config["pdf"]["color_encabezado"] = tema.get("pdf_color", tema["primario"])
-        return self.guardar()
+    def obtener_colores_fijos(self) -> dict[str, str]:
+        """Retorna los colores fijos del tema Yellow Neon Premium."""
+        return self.COLORES_FIJOS.copy()
 
 
 # Instancia global lista para importar

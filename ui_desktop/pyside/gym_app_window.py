@@ -17,19 +17,18 @@ Layout:
 """
 from __future__ import annotations
 
-import os
 import webbrowser
-from pathlib import Path
 
 from PySide6.QtCore import Qt, QTimer
 from PySide6.QtGui import QKeySequence, QShortcut
 from PySide6.QtWidgets import (
-    QApplication, QFrame, QHBoxLayout, QMainWindow,
+    QFrame, QHBoxLayout, QMainWindow,
     QStackedWidget, QWidget,
 )
 
 from core.branding import branding
 from src.gestor_bd import GestorBDClientes
+from design_system.tokens import Colors
 from ui_desktop.pyside.dashboard_panel import DashboardPanel
 from ui_desktop.pyside.clientes_panel import ClientesPanel
 from ui_desktop.pyside.generar_plan_panel import GenerarPlanPanel
@@ -46,8 +45,6 @@ try:
     from config.constantes import ENABLE_BILLING
 except ImportError:
     ENABLE_BILLING = True   # fallback seguro: no deshabilitar si no se puede leer
-
-_VERDE_PREMIUM_QSS = Path(__file__).parent / "styles" / "verde_premium.qss"
 
 # Mapa page_id → índice en QStackedWidget
 _PAGE_INDEX = {
@@ -69,12 +66,8 @@ class GymAppWindow(QMainWindow):
     def __init__(self):
         super().__init__()
 
-        # Aplicar tema verde premium a toda la aplicación
-        if _VERDE_PREMIUM_QSS.exists():
-            app = QApplication.instance()
-            if app:
-                app.setStyleSheet(_VERDE_PREMIUM_QSS.read_text(encoding="utf-8"))
-                logger.info("[THEME] verde_premium.qss aplicado")
+        # NOTE: No aplicar tema aquí — ThemeManager.reload() en main.py
+        # ya cargó el QSS a nivel de QApplication.
 
         # Gestor de BD compartido
         try:
@@ -92,6 +85,7 @@ class GymAppWindow(QMainWindow):
         self._build_ui()
         self._conectar_senales()
         self._setup_shortcuts()
+        self._mostrar_banner_trial()
 
         # Mostrar dashboard al iniciar
         self._navegar("dashboard")
@@ -100,7 +94,6 @@ class GymAppWindow(QMainWindow):
 
     def _build_ui(self) -> None:
         central = QWidget()
-        central.setStyleSheet("background: #0a1409;")
         self.setCentralWidget(central)
 
         main_layout = QHBoxLayout(central)
@@ -115,12 +108,11 @@ class GymAppWindow(QMainWindow):
         sep = QFrame()
         sep.setObjectName("separator")
         sep.setFrameShape(QFrame.Shape.VLine)
-        sep.setStyleSheet("background-color: #2a4a2a; border: none; max-width: 1px;")
+        sep.setStyleSheet(f"background-color: {Colors.BORDER_SUBTLE}; border: none; max-width: 1px;")
         main_layout.addWidget(sep)
 
         # ── Área de contenido (stacked) ───────────────────────────────────────
         self._stack = QStackedWidget()
-        self._stack.setStyleSheet("background: #0a1409;")
         main_layout.addWidget(self._stack)
 
         # ── Panels ────────────────────────────────────────────────────────────
@@ -157,21 +149,14 @@ class GymAppWindow(QMainWindow):
         # Sidebar → stacked
         self._sidebar.navigation_changed.connect(self._navegar)
 
-        # Dashboard → otros paneles
-        self._panel_dashboard._btn_nuevo_plan.clicked.disconnect()
-        self._panel_dashboard._btn_nuevo_plan.clicked.connect(
-            lambda: self._navegar("generar_plan")
-        )
-        # El botón "Ver clientes" del dashboard
-        for btn in self._panel_dashboard.findChildren(
-            type(self._panel_dashboard._btn_nuevo_plan)
-        ):
-            if btn.objectName() == "secondaryButton":
-                btn.clicked.connect(lambda: self._navegar("clientes"))
-                break
+        # Dashboard → navegación directa
+        self._panel_dashboard.navigate_to.connect(self._navegar)
 
         # Clientes → Generar plan
         self._panel_clientes.generar_plan_para.connect(self._generar_plan_para_cliente)
+
+        # Clientes → Plan rápido (skip step 2)
+        self._panel_clientes.plan_rapido_para.connect(self._plan_rapido_para_cliente)
 
         # Generar plan → navegación
         self._panel_generar.navigate_to.connect(self._navegar)
@@ -181,7 +166,7 @@ class GymAppWindow(QMainWindow):
         sc = QShortcut(QKeySequence("Ctrl+Shift+A"), self)
         sc.activated.connect(self._abrir_admin)
 
-        # Ctrl+1, Ctrl+2, Ctrl+3 → navegación rápida
+        # Ctrl+1..9 → fast navigation to all panels
         QShortcut(QKeySequence("Ctrl+1"), self).activated.connect(
             lambda: self._navegar("dashboard")
         )
@@ -191,10 +176,64 @@ class GymAppWindow(QMainWindow):
         QShortcut(QKeySequence("Ctrl+3"), self).activated.connect(
             lambda: self._navegar("generar_plan")
         )
+        QShortcut(QKeySequence("Ctrl+4"), self).activated.connect(
+            lambda: self._navegar("suscripciones")
+        )
+        QShortcut(QKeySequence("Ctrl+5"), self).activated.connect(
+            lambda: self._navegar("clases")
+        )
+        QShortcut(QKeySequence("Ctrl+6"), self).activated.connect(
+            lambda: self._navegar("instructores")
+        )
+        QShortcut(QKeySequence("Ctrl+7"), self).activated.connect(
+            lambda: self._navegar("reportes")
+        )
+        QShortcut(QKeySequence("Ctrl+8"), self).activated.connect(
+            lambda: self._navegar("configuracion")
+        )
+        # Ctrl+N → quick register new client
+        QShortcut(QKeySequence("Ctrl+N"), self).activated.connect(
+            self._registro_rapido
+        )
+        # Ctrl+G → go to generate plan panel
+        QShortcut(QKeySequence("Ctrl+G"), self).activated.connect(
+            lambda: self._navegar("generar_plan")
+        )
+
+    # ── Banner Trial ────────────────────────────────────────────────────────
+
+    def _mostrar_banner_trial(self) -> None:
+        """Si la licencia es trial, muestra un banner con los días restantes."""
+        try:
+            from core.licencia import GestorLicencias
+            gestor = GestorLicencias()
+            if not gestor.es_trial():
+                return
+            vigente, dias = gestor.validar_trial()
+            if not vigente:
+                return
+            from PySide6.QtWidgets import QLabel
+            banner = QLabel(
+                f"⏱ Trial — {dias} días restantes  |  Máx. 3 clientes  |  "
+                "Activa tu licencia para desbloquear todas las funciones"
+            )
+            banner.setStyleSheet(
+                f"background: {Colors.WARNING}; color: {Colors.TEXT_INVERSE}; padding: 6px 12px; "
+                "font-size: 12px; font-weight: 600;"
+            )
+            banner.setAlignment(Qt.AlignCenter)
+            self.statusBar().addPermanentWidget(banner, 1)
+        except Exception as exc:
+            logger.debug("[TRIAL] No se pudo mostrar banner: %s", exc)
 
     # ── Navegación ────────────────────────────────────────────────────────────
 
     def _navegar(self, page_id: str) -> None:
+        # Cerrar sesión → confirmar y salir
+        if page_id == "switch_gym":
+            self._cerrar_sesion()
+            return
+
         # Bloquear navegación a facturación si el módulo está desactivado
         if page_id == "facturacion" and not ENABLE_BILLING:
             logger.debug("[NAV] Facturación desactivada — redirigiendo a dashboard")
@@ -223,7 +262,7 @@ class GymAppWindow(QMainWindow):
         }
         panel = panel_map.get(page_id)
         if panel and hasattr(panel, "refresh"):
-            QTimer.singleShot(100, panel.refresh)
+            panel.refresh()
 
         logger.info("[NAV] Panel activo: %s", page_id)
 
@@ -232,10 +271,30 @@ class GymAppWindow(QMainWindow):
         self._navegar("generar_plan")
         QTimer.singleShot(50, lambda: self._panel_generar.iniciar_con_cliente(cliente))
 
+    def _plan_rapido_para_cliente(self, cliente: dict) -> None:
+        """Plan rápido: navega y genera con última configuración."""
+        self._navegar("generar_plan")
+        QTimer.singleShot(50, lambda: self._panel_generar.iniciar_plan_rapido(cliente))
+
     # ── Acciones adicionales ──────────────────────────────────────────────────
 
     def _abrir_api_docs(self) -> None:
-        webbrowser.open("http://localhost:8000/docs")
+        """Abrir API docs en navegador web (URL configurable)."""
+        import os
+        api_docs_url = os.getenv("API_DOCS_URL", "http://localhost:8000/docs")
+        webbrowser.open(api_docs_url)
+
+    def _cerrar_sesion(self) -> None:
+        """Confirma y cierra la sesión actual."""
+        from ui_desktop.pyside.widgets.confirm_dialog import confirmar
+        if confirmar(
+            self, "Cerrar sesión",
+            "¿Deseas cerrar la sesión actual?",
+            texto_si="Sí, cerrar",
+            texto_no="Cancelar",
+        ):
+            logger.info("[SESSION] Sesión cerrada por el usuario.")
+            self.close()
 
     def _abrir_admin(self) -> None:
         try:
@@ -244,3 +303,8 @@ class GymAppWindow(QMainWindow):
             dlg.exec()
         except Exception as exc:
             logger.warning("[ADMIN] No se pudo abrir panel admin: %s", exc)
+
+    def _registro_rapido(self) -> None:
+        """Ctrl+N shortcut: navigate to clients and open registration dialog."""
+        self._navegar("clientes")
+        QTimer.singleShot(100, self._panel_clientes._abrir_dialogo_registro)

@@ -18,13 +18,15 @@ except Exception:
 from PySide6.QtWidgets import (
     QDialog, QVBoxLayout, QHBoxLayout, QLabel, QPushButton,
     QFrame, QTabWidget, QWidget, QScrollArea, QComboBox,
-    QTableWidget, QTableWidgetItem, QHeaderView, QMessageBox,
+    QTableWidget, QTableWidgetItem, QHeaderView,
     QFileDialog, QGridLayout,
 )
 from PySide6.QtCore import Qt
 from PySide6.QtGui import QColor
 
 from src.gestor_bd import GestorBDClientes
+from design_system.tokens import Colors
+from ui_desktop.pyside.widgets.toast import mostrar_toast
 from utils.logger import logger
 
 
@@ -65,21 +67,19 @@ class VentanaReportes(QDialog):
 
         # Header
         hdr = QFrame()
-        hdr.setStyleSheet(
-            "QFrame { background-color: #1A1A1A; border-radius: 10px; border: none; }"
-        )
+        hdr.setObjectName("reportHeader")
         hdr.setFixedHeight(68)
         hl = QVBoxLayout(hdr)
         hl.setAlignment(Qt.AlignCenter)
         t = QLabel("📊  Reportes del Gimnasio")
         t.setAlignment(Qt.AlignCenter)
-        t.setStyleSheet("color: #9B4FB0; font-size: 20px; font-weight: bold;")
+        t.setObjectName("reportTitle")
         hl.addWidget(t)
         root.addWidget(hdr)
 
         # Toolbar
         bar = QWidget()
-        bar.setStyleSheet("background: transparent;")
+        bar.setObjectName("transparentWidget")
         bl = QHBoxLayout(bar)
         bl.setContentsMargins(0, 0, 0, 0)
         self.combo_periodo = QComboBox()
@@ -89,14 +89,11 @@ class VentanaReportes(QDialog):
         bl.addWidget(self.combo_periodo)
         bl.addSpacing(16)
         btn_act = QPushButton("🔄 Actualizar")
+        btn_act.setObjectName("ghostButton")
         btn_act.clicked.connect(self._actualizar)
         bl.addWidget(btn_act)
         btn_exp = QPushButton("📤 Exportar")
-        btn_exp.setStyleSheet(
-            "QPushButton { background-color: #4CAF50; color: #FFFFFF;"
-            " border-radius: 6px; padding: 6px 14px; }"
-            "QPushButton:hover { background-color: #43A047; }"
-        )
+        btn_exp.setObjectName("btn_success")
         btn_exp.clicked.connect(self._exportar)
         bl.addWidget(btn_exp)
         bl.addStretch()
@@ -112,15 +109,12 @@ class VentanaReportes(QDialog):
 
         # Footer
         ftr = QWidget()
-        ftr.setStyleSheet("background: transparent;")
+        ftr.setObjectName("transparentWidget")
         fl = QHBoxLayout(ftr)
         fl.setContentsMargins(0, 0, 0, 0)
         fl.addStretch()
-        btn_cerrar = QPushButton("Cerrar")
-        btn_cerrar.setStyleSheet(
-            "QPushButton { background-color: transparent; border: 1px solid #B8B8B8;"
-            " color: #B8B8B8; border-radius: 6px; padding: 6px 20px; }"
-        )
+        btn_cerrar = QPushButton("❌  Cerrar")
+        btn_cerrar.setObjectName("reportCloseBtn")
         btn_cerrar.clicked.connect(self.accept)
         fl.addWidget(btn_cerrar)
         root.addWidget(ftr)
@@ -132,7 +126,7 @@ class VentanaReportes(QDialog):
     def _crear_tab_dashboard(self) -> None:
         scroll = QScrollArea()
         scroll.setWidgetResizable(True)
-        scroll.setStyleSheet("border: none;")
+        scroll.setObjectName("reportScroll")
         inner = QWidget()
         self.dash_layout = QVBoxLayout(inner)
         self.dash_layout.setContentsMargins(20, 20, 20, 20)
@@ -150,27 +144,25 @@ class VentanaReportes(QDialog):
 
         d = self._datos
         kpis = [
-            ("👥 Total Clientes",          d.get("total_clientes", 0),           "#9B4FB0"),
-            ("📈 Clientes Nuevos",          d.get("clientes_nuevos", 0),          "#D4A84B"),
-            ("🍽️ Planes Generados",         d.get("planes_generados", 0),         "#4CAF50"),
-            ("⚡ Promedio Kcal / Plan",     f"{d.get('promedio_kcal', 0):.0f}",   "#2196F3"),
-            ("💪 Objetivo + Común",         d.get("objetivo_comun", "—"),         "#9B4FB0"),
-            ("🕐 Planes (período)",          d.get("planes_periodo", 0),           "#D4A84B"),
+            ("👥 Total Clientes",          d.get("total_clientes", 0),           "#FFEB3B"),
+            ("📈 Clientes Nuevos",          d.get("clientes_nuevos", 0),          "#FFEB3B"),
+            ("🍽️ Planes Generados",         d.get("planes_generados", 0),         "#00FF88"),
+            ("⚡ Promedio Kcal / Plan",     f"{d.get('promedio_kcal', 0):.0f}",   "#FFEB3B"),
+            ("💪 Objetivo + Común",         d.get("objetivo_comun", "—"),         "#FFEB3B"),
+            ("🕐 Planes (período)",          d.get("planes_periodo", 0),           "#FFEB3B"),
         ]
 
         grid = QGridLayout()
         grid.setSpacing(12)
         for i, (titulo, valor, color) in enumerate(kpis):
             f = QFrame()
-            f.setStyleSheet(
-                f"QFrame {{ background-color: #1A1A1A; border-radius: 10px; border: none; }}"
-            )
+            f.setObjectName("reportKpiCard")
             fl = QVBoxLayout(f)
             fl.setContentsMargins(16, 14, 16, 14)
             fl.setSpacing(4)
             tl = QLabel(titulo)
             tl.setAlignment(Qt.AlignCenter)
-            tl.setStyleSheet("color: #B8B8B8; font-size: 12px;")
+            tl.setObjectName("reportKpiTitle")
             fl.addWidget(tl)
             vl = QLabel(str(valor))
             vl.setAlignment(Qt.AlignCenter)
@@ -183,18 +175,18 @@ class VentanaReportes(QDialog):
         obj_dist = d.get("distribucion_objetivos", {})
         if obj_dist:
             t = QLabel("📊  Distribución de Objetivos")
-            t.setStyleSheet("color: #D4A84B; font-size: 14px; font-weight: bold;")
+            t.setObjectName("reportSectionTitle")
             self.dash_layout.addWidget(t)
             for objetivo, cnt in sorted(obj_dist.items(), key=lambda x: -x[1])[:8]:
                 row = QWidget()
-                row.setStyleSheet("background: transparent;")
+                row.setObjectName("transparentWidget")
                 rl = QHBoxLayout(row)
                 rl.setContentsMargins(0, 0, 0, 0)
                 lbl = QLabel(f"• {objetivo}")
-                lbl.setStyleSheet("color: #F5F5F5; font-size: 12px;")
+                lbl.setObjectName("reportObjLabel")
                 rl.addWidget(lbl, 1)
                 cnt_lbl = QLabel(str(cnt))
-                cnt_lbl.setStyleSheet("color: #9B4FB0; font-size: 12px; font-weight: bold;")
+                cnt_lbl.setObjectName("reportObjCount")
                 rl.addWidget(cnt_lbl)
                 self.dash_layout.addWidget(row)
 
@@ -215,7 +207,7 @@ class VentanaReportes(QDialog):
     def _poblar_graficas(self) -> None:
         if not _MPL_OK:
             lbl = QLabel("matplotlib no disponible — instala con: pip install matplotlib")
-            lbl.setStyleSheet("color: #F44336;")
+            lbl.setObjectName("error_label")
             self.graficas_layout.addWidget(lbl)
             return
 
@@ -238,22 +230,22 @@ class VentanaReportes(QDialog):
 
         axes[0].bar(
             clientes_x, clientes_y[:7] if len(clientes_y) >= 7 else clientes_y + [0] * (7 - len(clientes_y)),
-            color="#9B4FB0", edgecolor="#1A1A1A"
+            color="#FFEB3B", edgecolor="#1A1A1A"
         )
-        axes[0].set_title("Nuevos clientes (últimos 7 días)", color="#F5F5F5", fontsize=10)
+        axes[0].set_title("Nuevos clientes (últimos 7 días)", color="#FFFFFF", fontsize=10)
         axes[0].set_facecolor("#1A1A1A")
-        axes[0].tick_params(colors="#B8B8B8")
+        axes[0].tick_params(colors="#A1A1AA")
 
         obj_dist = d.get("distribucion_objetivos", {})
         if obj_dist:
             labels = list(obj_dist.keys())[:6]
             vals   = [obj_dist[k] for k in labels]
             axes[1].pie(vals, labels=labels, autopct="%1.0f%%",
-                        colors=["#9B4FB0", "#D4A84B", "#4CAF50", "#2196F3", "#FF9800", "#E91E63"],
-                        textprops={"color": "#F5F5F5", "fontsize": 8})
-            axes[1].set_title("Distribución de objetivos", color="#F5F5F5", fontsize=10)
+                        colors=[Colors.PRIMARY, Colors.ACCENT, Colors.SUCCESS, Colors.INFO, Colors.PRIMARY, Colors.ERROR],
+                        textprops={"color": Colors.TEXT_PRIMARY, "fontsize": 8})
+            axes[1].set_title("Distribución de objetivos", color=Colors.TEXT_PRIMARY, fontsize=10)
         else:
-            axes[1].text(0.5, 0.5, "Sin datos", ha="center", va="center", color="#B8B8B8")
+            axes[1].text(0.5, 0.5, "Sin datos", ha="center", va="center", color=Colors.TEXT_SECONDARY)
 
         fig.tight_layout(pad=1.5)
         canvas = FigureCanvas(fig)
@@ -268,40 +260,172 @@ class VentanaReportes(QDialog):
     def _crear_tab_clientes(self) -> None:
         scroll = QScrollArea()
         scroll.setWidgetResizable(True)
-        scroll.setStyleSheet("border: none;")
+        scroll.setObjectName("reportScroll")
         inner = QWidget()
         self.clientes_tab_layout = QVBoxLayout(inner)
-        self.clientes_tab_layout.setContentsMargins(12, 12, 12, 12)
+        self.clientes_tab_layout.setContentsMargins(16, 16, 16, 16)
+        self.clientes_tab_layout.setSpacing(12)
         scroll.setWidget(inner)
         self.tabs.addTab(scroll, "👥 Clientes")
 
+        # Title and description
+        header = QWidget()
+        header.setObjectName("transparentWidget")
+        hdr_layout = QVBoxLayout(header)
+        hdr_layout.setContentsMargins(0, 0, 0, 0)
+        hdr_layout.setSpacing(4)
+        
+        title = QLabel("📋 Clientes Recientes")
+        title.setObjectName("reportSectionTitle")
+        hdr_layout.addWidget(title)
+        
+        self.lbl_cli_count = QLabel("Mostrando los últimos 100 clientes registrados")
+        self.lbl_cli_count.setObjectName("reportCaption")
+        hdr_layout.addWidget(self.lbl_cli_count)
+        
+        self.clientes_tab_layout.addWidget(header)
+
+        # Table with expanded columns
         self.tabla_cli = QTableWidget()
-        self.tabla_cli.setColumnCount(5)
-        self.tabla_cli.setHorizontalHeaderLabels(["Nombre", "Teléfono", "Objetivo", "Peso (kg)", "Último plan"])
-        self.tabla_cli.horizontalHeader().setSectionResizeMode(0, QHeaderView.Stretch)
+        self.tabla_cli.setColumnCount(7)
+        self.tabla_cli.setHorizontalHeaderLabels([
+            "Nombre", "Teléfono", "Edad", "Peso (kg)", 
+            "Objetivo", "Estado", "Último plan"
+        ])
+        
+        hdr = self.tabla_cli.horizontalHeader()
+        hdr.setSectionResizeMode(0, QHeaderView.Stretch)     # Nombre - stretch
+        hdr.setSectionResizeMode(1, QHeaderView.ResizeToContents)  # Teléfono
+        hdr.setSectionResizeMode(2, QHeaderView.ResizeToContents)  # Edad
+        hdr.setSectionResizeMode(3, QHeaderView.ResizeToContents)  # Peso
+        hdr.setSectionResizeMode(4, QHeaderView.Fixed)       # Objetivo - fixed
+        hdr.setSectionResizeMode(5, QHeaderView.Fixed)       # Estado - fixed
+        hdr.setSectionResizeMode(6, QHeaderView.ResizeToContents)  # Último plan
+        self.tabla_cli.setColumnWidth(4, 140)
+        self.tabla_cli.setColumnWidth(5, 100)
+        
         self.tabla_cli.setEditTriggers(QTableWidget.NoEditTriggers)
         self.tabla_cli.setSelectionBehavior(QTableWidget.SelectRows)
         self.tabla_cli.setAlternatingRowColors(True)
-        self.tabla_cli.setStyleSheet(
-            "QTableWidget { background-color: #0D0D0D; border: 1px solid #333;"
-            " border-radius: 8px; gridline-color: #2A2A2A; }"
-            "QTableWidget::item { color: #F5F5F5; padding: 6px; }"
-            "QTableWidget::item:selected { background-color: #9B4FB0; }"
-            "QHeaderView::section { background-color: #1A1A1A; color: #D4A84B;"
-            " border: none; padding: 6px; font-weight: bold; }"
-        )
+        self.tabla_cli.verticalHeader().setVisible(False)
+        self.tabla_cli.setShowGrid(False)
+        self.tabla_cli.setObjectName("reportTable")
         self.clientes_tab_layout.addWidget(self.tabla_cli, 1)
+        
+        # Empty state message (hidden by default)
+        self._cli_empty_state = QLabel("No hay clientes registrados en este período")
+        self._cli_empty_state.setObjectName("reportEmptyState")
+        self._cli_empty_state.setAlignment(Qt.AlignCenter)
+        self._cli_empty_state.hide()
+        self.clientes_tab_layout.addWidget(self._cli_empty_state)
 
     def _poblar_tabla_clientes(self) -> None:
         clientes = self._datos.get("clientes_recientes", [])
         self.tabla_cli.setRowCount(0)
+        
+        # Update count label
+        if hasattr(self, 'lbl_cli_count'):
+            self.lbl_cli_count.setText(f"Mostrando {len(clientes)} cliente{'s' if len(clientes) != 1 else ''}")
+        
+        # Show/hide empty state
+        if not clientes:
+            self.tabla_cli.hide()
+            if hasattr(self, '_cli_empty_state'):
+                self._cli_empty_state.show()
+            return
+        else:
+            self.tabla_cli.show()
+            if hasattr(self, '_cli_empty_state'):
+                self._cli_empty_state.hide()
+        
         self.tabla_cli.setRowCount(len(clientes))
         for row, cli in enumerate(clientes):
-            for col, key in enumerate(["nombre", "telefono", "objetivo", "peso", "ultimo_plan"]):
-                val = cli.get(key, "")
-                item = QTableWidgetItem(str(val) if val is not None else "")
-                item.setForeground(QColor("#F5F5F5"))
-                self.tabla_cli.setItem(row, col, item)
+            self.tabla_cli.setRowHeight(row, 48)
+            
+            # Col 0: Nombre
+            nombre = cli.get("nombre", "—")
+            item_nombre = QTableWidgetItem(nombre)
+            item_nombre.setForeground(QColor(Colors.TEXT_PRIMARY))
+            self.tabla_cli.setItem(row, 0, item_nombre)
+            
+            # Col 1: Teléfono
+            telefono = cli.get("telefono", "") or "—"
+            item_tel = QTableWidgetItem(telefono)
+            item_tel.setForeground(QColor(Colors.TEXT_SECONDARY))
+            self.tabla_cli.setItem(row, 1, item_tel)
+            
+            # Col 2: Edad
+            edad = cli.get("edad", "—")
+            item_edad = QTableWidgetItem(str(edad) if edad else "—")
+            item_edad.setForeground(QColor(Colors.TEXT_SECONDARY))
+            self.tabla_cli.setItem(row, 2, item_edad)
+            
+            # Col 3: Peso
+            peso = cli.get("peso_kg", cli.get("peso", ""))
+            item_peso = QTableWidgetItem(f"{peso} kg" if peso else "—")
+            item_peso.setForeground(QColor(Colors.TEXT_SECONDARY))
+            self.tabla_cli.setItem(row, 3, item_peso)
+            
+            # Col 4: Objetivo (with status tag)
+            objetivo = (cli.get("objetivo") or "—").strip()
+            widget_obj = QWidget()
+            widget_obj.setObjectName("transparentWidget")
+            ol = QHBoxLayout(widget_obj)
+            ol.setContentsMargins(4, 4, 4, 4)
+            
+            # Determine tag colors
+            obj_lower = objetivo.lower()
+            if "déficit" in obj_lower or "deficit" in obj_lower:
+                tag_bg, tag_fg = Colors.INFO_BG, Colors.INFO  # Blue
+            elif "superávit" in obj_lower or "superavit" in obj_lower:
+                tag_bg, tag_fg = Colors.ACCENT_SOFT, Colors.ACCENT_HOVER  # Purple
+            else:
+                tag_bg, tag_fg = Colors.BG_INPUT, Colors.TEXT_SECONDARY  # Gray
+                
+            tag = QLabel(objetivo.capitalize())
+            tag.setStyleSheet(
+                f"background-color: {tag_bg}; color: {tag_fg}; border-radius: 10px;"
+                " padding: 4px 10px; font-size: 11px; font-weight: 600;"
+            )
+            tag.setAlignment(Qt.AlignCenter)
+            ol.addWidget(tag)
+            ol.addStretch()
+            self.tabla_cli.setCellWidget(row, 4, widget_obj)
+            
+            # Col 5: Estado (active/inactive)
+            activo = cli.get("activo", True)
+            estado_text = "Activo" if activo else "Inactivo"
+            estado_bg = Colors.SUCCESS_BG if activo else Colors.BG_INPUT
+            estado_fg = Colors.SUCCESS if activo else Colors.TEXT_HINT
+            
+            widget_estado = QWidget()
+            widget_estado.setObjectName("transparentWidget")
+            el = QHBoxLayout(widget_estado)
+            el.setContentsMargins(4, 4, 4, 4)
+            estado_tag = QLabel(estado_text)
+            estado_tag.setStyleSheet(
+                f"background-color: {estado_bg}; color: {estado_fg}; border-radius: 10px;"
+                " padding: 4px 8px; font-size: 10px; font-weight: 600;"
+            )
+            estado_tag.setAlignment(Qt.AlignCenter)
+            el.addWidget(estado_tag)
+            el.addStretch()
+            self.tabla_cli.setCellWidget(row, 5, widget_estado)
+            
+            # Col 6: Último plan (date)
+            ultimo_plan = cli.get("ultimo_plan", "")
+            if ultimo_plan and len(str(ultimo_plan)) > 10:
+                try:
+                    dt = datetime.fromisoformat(str(ultimo_plan)[:19])
+                    fecha_texto = dt.strftime("%d/%m/%Y")
+                except Exception:
+                    fecha_texto = str(ultimo_plan)[:10]
+            else:
+                fecha_texto = str(ultimo_plan) if ultimo_plan else "—"
+            
+            item_plan = QTableWidgetItem(fecha_texto)
+            item_plan.setForeground(QColor(Colors.TEXT_SECONDARY))
+            self.tabla_cli.setItem(row, 6, item_plan)
 
     # ------------------------------------------------------------------
     # Actualizar datos
@@ -338,7 +462,7 @@ class VentanaReportes(QDialog):
 
     def _exportar(self) -> None:
         if not _MPL_OK:
-            QMessageBox.warning(self, "Advertencia", "matplotlib no disponible para exportar gráficas.")
+            mostrar_toast(self, "⚠️ matplotlib no disponible para exportar gráficas.", "warning")
             return
         ruta, _ = QFileDialog.getSaveFileName(
             self, "Exportar reporte como imagen PNG",
@@ -349,6 +473,6 @@ class VentanaReportes(QDialog):
             return
         try:
             plt.savefig(ruta, facecolor="#0D0D0D", bbox_inches="tight")
-            QMessageBox.information(self, "Exportado", f"Reporte guardado en:\n{ruta}")
+            mostrar_toast(self, f"✅ Reporte guardado en: {ruta}", "success")
         except Exception as exc:
-            QMessageBox.critical(self, "Error", f"No se pudo exportar:\n{exc}")
+            mostrar_toast(self, f"❌ No se pudo exportar: {exc}", "error")

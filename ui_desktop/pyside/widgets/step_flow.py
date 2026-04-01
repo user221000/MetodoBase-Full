@@ -4,16 +4,11 @@
 from PySide6.QtWidgets import QWidget, QHBoxLayout, QVBoxLayout, QLabel, QFrame
 from PySide6.QtCore import Qt
 
+from design_system.tokens import Colors, Radius
+
 
 class StepFlowIndicator(QWidget):
     """Widget visual de pasos: Captura → Preview → Exportar."""
-
-    COLOR_BG = "#1E1E1E"
-    COLOR_BORDER = "#444444"
-    COLOR_TEXT = "#F5F5F5"
-    COLOR_MUTED = "#A8A8A8"
-    COLOR_ACTIVE = "#9B4FB0"
-    COLOR_DONE = "#4CAF50"
 
     def __init__(self, parent=None):
         super().__init__(parent)
@@ -28,8 +23,8 @@ class StepFlowIndicator(QWidget):
 
     def _build(self) -> None:
         self.setStyleSheet(
-            f"StepFlowIndicator {{ background-color: {self.COLOR_BG}; "
-            f"border: 1px solid {self.COLOR_BORDER}; border-radius: 10px; }}"
+            f"StepFlowIndicator {{ background-color: {Colors.BG_CARD}; "
+            f"border: 1px solid {Colors.BORDER_DEFAULT}; border-radius: {Radius.LG}px; }}"
         )
 
         outer = QVBoxLayout(self)
@@ -38,7 +33,7 @@ class StepFlowIndicator(QWidget):
 
         title = QLabel("Flujo de trabajo")
         title.setStyleSheet(
-            f"color: {self.COLOR_TEXT}; font-size: 12px; font-weight: bold;"
+            f"color: {Colors.TEXT_PRIMARY}; font-size: 12px; font-weight: bold;"
             " background: transparent; border: none;"
         )
         outer.addWidget(title)
@@ -62,7 +57,7 @@ class StepFlowIndicator(QWidget):
             dot.setFixedSize(28, 28)
             dot.setAlignment(Qt.AlignCenter)
             dot.setStyleSheet(
-                "background-color: #2A2A2A; color: #A8A8A8; border-radius: 14px;"
+                f"background-color: {Colors.BG_HOVER}; color: {Colors.TEXT_SECONDARY}; border-radius: 14px;"
                 " font-size: 12px; font-weight: bold; border: none;"
             )
             cell_layout.addWidget(dot, alignment=Qt.AlignCenter)
@@ -70,7 +65,7 @@ class StepFlowIndicator(QWidget):
             lbl = QLabel(step_name)
             lbl.setAlignment(Qt.AlignCenter)
             lbl.setStyleSheet(
-                "color: #A8A8A8; font-size: 11px; background: transparent; border: none;"
+                f"color: {Colors.TEXT_SECONDARY}; font-size: 11px; background: transparent; border: none;"
             )
             cell_layout.addWidget(lbl, alignment=Qt.AlignCenter)
 
@@ -82,7 +77,7 @@ class StepFlowIndicator(QWidget):
                 line = QFrame()
                 line.setFrameShape(QFrame.HLine)
                 line.setFixedHeight(2)
-                line.setStyleSheet(f"background-color: {self.COLOR_BORDER}; border: none;")
+                line.setStyleSheet(f"background-color: {Colors.BORDER_DEFAULT}; border: none;")
                 self._connectors.append(line)
                 row.addWidget(line, stretch=2)
 
@@ -106,29 +101,29 @@ class StepFlowIndicator(QWidget):
             if idx in self._completed:
                 dot.setText("✓")
                 dot.setStyleSheet(
-                    f"background-color: {self.COLOR_DONE}; color: #FFFFFF;"
+                    f"background-color: {Colors.SUCCESS}; color: #FFFFFF;"
                     " border-radius: 14px; font-size: 12px; font-weight: bold; border: none;"
                 )
-                lbl.setStyleSheet(f"color: {self.COLOR_DONE}; font-size: 11px; background: transparent; border: none;")
+                lbl.setStyleSheet(f"color: {Colors.SUCCESS}; font-size: 11px; background: transparent; border: none;")
             elif idx == self._active_step:
                 dot.setText(str(idx + 1))
                 dot.setStyleSheet(
-                    f"background-color: {self.COLOR_ACTIVE}; color: #FFFFFF;"
+                    f"background-color: {Colors.PRIMARY}; color: #FFFFFF;"
                     " border-radius: 14px; font-size: 12px; font-weight: bold; border: none;"
                 )
-                lbl.setStyleSheet(f"color: {self.COLOR_TEXT}; font-size: 11px; background: transparent; border: none;")
+                lbl.setStyleSheet(f"color: {Colors.TEXT_PRIMARY}; font-size: 11px; background: transparent; border: none;")
             else:
                 dot.setText(str(idx + 1))
                 dot.setStyleSheet(
-                    "background-color: #2A2A2A; color: #A8A8A8;"
+                    f"background-color: {Colors.BG_HOVER}; color: {Colors.TEXT_SECONDARY};"
                     " border-radius: 14px; font-size: 12px; font-weight: bold; border: none;"
                 )
-                lbl.setStyleSheet("color: #A8A8A8; font-size: 11px; background: transparent; border: none;")
+                lbl.setStyleSheet(f"color: {Colors.TEXT_SECONDARY}; font-size: 11px; background: transparent; border: none;")
 
         for idx, connector in enumerate(self._connectors):
             if idx in self._completed:
-                connector.setStyleSheet(f"background-color: {self.COLOR_DONE}; border: none;")
+                connector.setStyleSheet(f"background-color: {Colors.SUCCESS}; border: none;")
             elif idx < self._active_step:
-                connector.setStyleSheet(f"background-color: {self.COLOR_ACTIVE}; border: none;")
+                connector.setStyleSheet(f"background-color: {Colors.PRIMARY}; border: none;")
             else:
-                connector.setStyleSheet(f"background-color: {self.COLOR_BORDER}; border: none;")
+                connector.setStyleSheet(f"background-color: {Colors.BORDER_DEFAULT}; border: none;")

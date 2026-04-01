@@ -1,0 +1,994 @@
+{% extends "base_usuario.html" %}
+{% block title %}Mi Plan{% endblock %}
+
+{% block content %}
+
+<!-- ── 1. HERO SECTION ────────────────────────────────────── -->
+<div class="u-hero">
+  <h1 class="u-hero-title" id="saludo">¡Comienza fuerte!</h1>
+  <p class="u-hero-subtitle">Tu plan personalizado generado con inteligencia artificial</p>
+</div>
+
+<!-- ── 2. TWO-COLUMN LAYOUT ───────────────────────────────── -->
+<div class="u-grid-2-1" id="macros-section" style="display:none;">
+
+  <!-- LEFT: Daily Goal Card -->
+  <div class="u-card">
+    <div class="u-goal-card">
+      <div class="u-goal-card-left">
+        <div class="u-goal-card-badge">⚡ Meta diaria</div>
+        <div class="u-goal-card-pct" id="goal-pct-label">Vas al 0% de tu meta diaria</div>
+        <div class="u-goal-progress">
+          <div class="u-goal-progress-bar" id="goal-progress-bar" style="width:0%;"></div>
+        </div>
+        <div class="u-goal-card-numbers">
+          <span id="goal-current">0</span> / <span id="goal-target">0</span> kcal
+        </div>
+      </div>
+      <div class="u-goal-card-right">
+        <svg class="u-ring" viewBox="0 0 120 120" width="110" height="110">
+          <circle class="u-ring-bg" cx="60" cy="60" r="52" stroke-width="10" fill="none"/>
+          <circle class="u-ring-fg" id="goal-ring" cx="60" cy="60" r="52" stroke-width="10" fill="none"
+                  stroke-dasharray="326.73" stroke-dashoffset="326.73"
+                  stroke-linecap="round" transform="rotate(-90 60 60)"/>
+          <text x="60" y="56" text-anchor="middle" class="u-ring-pct" id="goal-ring-pct">0%</text>
+          <text x="60" y="72" text-anchor="middle" class="u-ring-label">kcal</text>
+        </svg>
+      </div>
+    </div>
+  </div>
+
+  <!-- RIGHT: Nutrition Tip Card -->
+  <div class="u-card u-tip-card">
+    <div class="u-tip-badge">💡 Consejo IA</div>
+    <p class="u-tip-text">Distribuye tu proteína equitativamente entre comidas para maximizar la síntesis muscular. Apunta a 25-40g por comida.</p>
+    <div class="u-tip-rings">
+      <div class="u-tip-ring-item">
+        <svg viewBox="0 0 44 44" width="44" height="44">
+          <circle cx="22" cy="22" r="18" stroke-width="4" fill="none" class="u-ring-bg"/>
+          <circle cx="22" cy="22" r="18" stroke-width="4" fill="none" class="u-ring-fg" id="tip-ring-p"
+                  stroke-dasharray="113.1" stroke-dashoffset="113.1"
+                  stroke-linecap="round" transform="rotate(-90 22 22)"/>
+        </svg>
+        <span class="u-tip-ring-label">P</span>
+      </div>
+      <div class="u-tip-ring-item">
+        <svg viewBox="0 0 44 44" width="44" height="44">
+          <circle cx="22" cy="22" r="18" stroke-width="4" fill="none" class="u-ring-bg"/>
+          <circle cx="22" cy="22" r="18" stroke-width="4" fill="none" class="u-ring-fg-green" id="tip-ring-c"
+                  stroke-dasharray="113.1" stroke-dashoffset="113.1"
+                  stroke-linecap="round" transform="rotate(-90 22 22)"/>
+        </svg>
+        <span class="u-tip-ring-label">C</span>
+      </div>
+      <div class="u-tip-ring-item">
+        <svg viewBox="0 0 44 44" width="44" height="44">
+          <circle cx="22" cy="22" r="18" stroke-width="4" fill="none" class="u-ring-bg"/>
+          <circle cx="22" cy="22" r="18" stroke-width="4" fill="none" class="u-ring-fg-blue" id="tip-ring-g"
+                  stroke-dasharray="113.1" stroke-dashoffset="113.1"
+                  stroke-linecap="round" transform="rotate(-90 22 22)"/>
+        </svg>
+        <span class="u-tip-ring-label">G</span>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<!-- ── 3. QUICK ACTION BUTTONS ────────────────────────────── -->
+<div class="u-quick-actions" id="quick-actions" style="display:none;">
+  <button class="u-quick-btn" id="btn-generar" title="Generar Plan">
+    <span class="u-quick-btn-icon">
+      <svg viewBox="0 0 24 24" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg>
+    </span>
+    <span class="u-quick-btn-label">Generar</span>
+  </button>
+  <button class="u-quick-btn" id="btn-comidas" title="Ver Comidas">
+    <span class="u-quick-btn-icon">
+      <svg viewBox="0 0 24 24" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3h18v18H3zM12 8v8m-4-4h8"/></svg>
+    </span>
+    <span class="u-quick-btn-label">Comidas</span>
+  </button>
+  <button class="u-quick-btn" id="btn-agua" title="Hidratación">
+    <span class="u-quick-btn-icon">
+      <svg viewBox="0 0 24 24" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2.69l5.66 5.66a8 8 0 11-11.31 0z"/></svg>
+    </span>
+    <span class="u-quick-btn-label">Agua</span>
+  </button>
+  <button class="u-quick-btn" id="btn-descargar-pdf" style="display:none;" title="Descargar PDF">
+    <span class="u-quick-btn-icon">
+      <svg viewBox="0 0 24 24" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4m4-5l5 5 5-5m-5 5V3"/></svg>
+    </span>
+    <span class="u-quick-btn-label">PDF</span>
+  </button>
+  <a href="/mi-perfil" class="u-quick-btn" title="Mi Perfil">
+    <span class="u-quick-btn-icon">
+      <svg viewBox="0 0 24 24" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+    </span>
+    <span class="u-quick-btn-label">Perfil</span>
+  </a>
+</div>
+
+<!-- ── 4. ONBOARDING CARD ─────────────────────────────────── -->
+<div id="onboarding-card" class="u-onboarding" style="display:none;">
+  <div class="u-onboarding-icon">🎯</div>
+  <div class="u-onboarding-body">
+    <h3 class="u-onboarding-title">¡Bienvenido! Completa tu perfil</h3>
+    <p class="u-onboarding-text">Necesitamos tus datos corporales para calcular tu plan nutricional personalizado.</p>
+  </div>
+  <a href="/mi-perfil" class="u-btn u-btn-primary">Completar Perfil →</a>
+</div>
+
+<!-- ── 5. CONTEXT BAR ─────────────────────────────────────── -->
+<div class="u-context-bar" id="context-bar" style="display:none;">
+  <span class="u-context-tag">🔥 Plan calculado con tus datos</span>
+  <span class="u-context-tag">🎯 Objetivo: <strong id="lbl-objetivo">—</strong></span>
+  <span class="u-context-tag">📅 Generado: <strong id="lbl-fecha-plan">—</strong></span>
+</div>
+
+<!-- ── 6. SUMMARY SECTION ─────────────────────────────────── -->
+<div id="summary-section" style="display:none;">
+  <div class="u-section-header">
+    <h2 class="u-section-title">📊 Resumen</h2>
+  </div>
+  <div class="u-grid-4">
+    <div class="u-kpi-card">
+      <div class="u-kpi-dot" style="background:var(--u-accent);"></div>
+      <div class="u-kpi-label">Calorías diarias</div>
+      <div class="u-kpi-value" id="kpi-kcal">—</div>
+      <div class="u-kpi-sub">kcal objetivo</div>
+    </div>
+    <div class="u-kpi-card">
+      <div class="u-kpi-dot" style="background:var(--u-orange);"></div>
+      <div class="u-kpi-label">Proteína</div>
+      <div class="u-kpi-value" id="kpi-proteina">—</div>
+      <div class="u-kpi-sub">gramos / día</div>
+    </div>
+    <div class="u-kpi-card">
+      <div class="u-kpi-dot" style="background:var(--u-green);"></div>
+      <div class="u-kpi-label">Carbohidratos</div>
+      <div class="u-kpi-value" id="kpi-carbs">—</div>
+      <div class="u-kpi-sub">gramos / día</div>
+    </div>
+    <div class="u-kpi-card">
+      <div class="u-kpi-dot" style="background:var(--u-blue);"></div>
+      <div class="u-kpi-label">Grasas</div>
+      <div class="u-kpi-value" id="kpi-grasa">—</div>
+      <div class="u-kpi-sub">gramos / día</div>
+    </div>
+  </div>
+</div>
+
+<!-- ── 7. MEALS SECTION (opciones) ─────────────────────────── -->
+<div id="plan-comidas" style="display:none;">
+  <div class="u-section-header">
+    <h2 class="u-section-title">🍽️ Tu Menú del Día</h2>
+    <p class="u-section-subtitle">Elige <strong>una opción</strong> de cada grupo por comida</p>
+  </div>
+  <div id="meals-container" style="display:grid; gap:20px;"></div>
+</div>
+
+<!-- ── 7b. NUTRITIONAL RECOMMENDATIONS ────────────────────── -->
+<div id="recomendaciones-section" style="display:none;">
+  <div class="u-section-header">
+    <h2 class="u-section-title">💧 Recomendaciones Nutricionales</h2>
+  </div>
+  <div class="u-reco-grid">
+    <div class="u-reco-card">
+      <span class="u-reco-icon">💧</span>
+      <div class="u-reco-body">
+        <h4 class="u-reco-title">Hidratación</h4>
+        <p class="u-reco-text">Toma al menos <strong>2 a 3 litros de agua</strong> al día. Tu metabolismo funciona mejor cuando estás bien hidratado.</p>
+      </div>
+    </div>
+    <div class="u-reco-card">
+      <span class="u-reco-icon">🥗</span>
+      <div class="u-reco-body">
+        <h4 class="u-reco-title">Vegetales en cada comida</h4>
+        <p class="u-reco-text">Incluye al menos <strong>una porción de verduras</strong> en cada comida. Aportan fibra, vitaminas y te ayudan a sentirte satisfecho.</p>
+      </div>
+    </div>
+    <div class="u-reco-card">
+      <span class="u-reco-icon">⏰</span>
+      <div class="u-reco-body">
+        <h4 class="u-reco-title">Horarios regulares</h4>
+        <p class="u-reco-text">Intenta comer a las <strong>mismas horas</strong> cada día. La regularidad mejora tu digestión y niveles de energía.</p>
+      </div>
+    </div>
+    <div class="u-reco-card">
+      <span class="u-reco-icon">🍳</span>
+      <div class="u-reco-body">
+        <h4 class="u-reco-title">Proteína en cada comida</h4>
+        <p class="u-reco-text">Distribuye tu proteína entre las <strong>4 comidas del día</strong>. Esto maximiza la síntesis muscular y te mantiene satisfecho.</p>
+      </div>
+    </div>
+    <div class="u-reco-card">
+      <span class="u-reco-icon">🚫</span>
+      <div class="u-reco-body">
+        <h4 class="u-reco-title">Limita azúcares añadidos</h4>
+        <p class="u-reco-text">Evita refrescos, jugos industriales y dulces. Prefiere <strong>agua natural, té o café sin azúcar</strong>.</p>
+      </div>
+    </div>
+    <div class="u-reco-card">
+      <span class="u-reco-icon">😴</span>
+      <div class="u-reco-body">
+        <h4 class="u-reco-title">Descansa bien</h4>
+        <p class="u-reco-text">Duerme <strong>7 a 9 horas</strong> diarias. El descanso es clave para la recuperación muscular y el control del apetito.</p>
+      </div>
+    </div>
+    <div class="u-reco-card">
+      <span class="u-reco-icon">🧂</span>
+      <div class="u-reco-body">
+        <h4 class="u-reco-title">Modera la sal</h4>
+        <p class="u-reco-text">Usa <strong>especias y hierbas</strong> para sazonar. Reduce la sal de mesa para cuidar tu presión arterial.</p>
+      </div>
+    </div>
+    <div class="u-reco-card">
+      <span class="u-reco-icon">🔥</span>
+      <div class="u-reco-body">
+        <h4 class="u-reco-title">No te saltes comidas</h4>
+        <p class="u-reco-text">Saltarse comidas <strong>ralentiza tu metabolismo</strong>. Es mejor comer porciones controladas que ayunar sin plan.</p>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ── WATER TRACKING PANEL ────────────────────────────────── -->
+<div class="u-panel-overlay" id="panel-agua-overlay" style="display:none;">
+  <div class="u-panel" id="panel-agua">
+    <div class="u-panel-header">
+      <h3 class="u-panel-title">💧 Registro de Agua</h3>
+      <button class="u-panel-close" id="panel-agua-close">&times;</button>
+    </div>
+    <div class="u-panel-body">
+      <p class="u-panel-question">¿Cuántos litros de agua llevas hoy?</p>
+      <div class="u-water-input-row">
+        <input type="number" id="water-input" class="u-water-input" min="0" max="20" step="0.1" placeholder="0.0" />
+        <span class="u-water-unit">litros</span>
+      </div>
+      <div class="u-water-visual" id="water-visual">
+        <div class="u-water-bar-track">
+          <div class="u-water-bar-fill" id="water-bar-fill" style="width:0%"></div>
+        </div>
+        <div class="u-water-bar-labels">
+          <span>0 L</span>
+          <span>Meta: 3 L</span>
+        </div>
+      </div>
+      <div class="u-water-status" id="water-status"></div>
+      <button class="u-btn u-btn-primary" id="btn-water-save" style="width:100%;margin-top:16px;">Guardar 💧</button>
+    </div>
+  </div>
+</div>
+
+<!-- ── MEAL SELECTOR PANEL ─────────────────────────────────── -->
+<div class="u-panel-overlay" id="panel-comidas-overlay" style="display:none;">
+  <div class="u-panel u-panel-lg" id="panel-comidas">
+    <div class="u-panel-header">
+      <h3 class="u-panel-title">🍽️ Arma tu Comida</h3>
+      <button class="u-panel-close" id="panel-comidas-close">&times;</button>
+    </div>
+    <div class="u-panel-body">
+      <!-- Meal tabs -->
+      <div class="u-meal-tabs" id="meal-tabs"></div>
+      <!-- Options selector per macro -->
+      <div id="meal-selector-content"></div>
+      <!-- Selection summary -->
+      <div class="u-selection-summary" id="selection-summary" style="display:none;">
+        <h4 class="u-summary-title">📊 Calorías totales de esta selección</h4>
+        <div class="u-summary-grid">
+          <div class="u-summary-item u-summary-kcal">
+            <span class="u-summary-value" id="sel-kcal">0</span>
+            <span class="u-summary-label">kcal</span>
+          </div>
+          <div class="u-summary-item">
+            <span class="u-summary-value" id="sel-prot">0g</span>
+            <span class="u-summary-label">Proteína</span>
+          </div>
+          <div class="u-summary-item">
+            <span class="u-summary-value" id="sel-carb">0g</span>
+            <span class="u-summary-label">Carbohidratos</span>
+          </div>
+          <div class="u-summary-item">
+            <span class="u-summary-value" id="sel-fat">0g</span>
+            <span class="u-summary-label">Grasas</span>
+          </div>
+        </div>
+      </div>
+      <button class="u-btn u-btn-primary" id="btn-comidas-save" style="width:100%;margin-top:16px;">Guardar selección del día ✅</button>
+    </div>
+  </div>
+</div>
+
+<!-- ── 8. EMPTY STATE ─────────────────────────────────────── -->
+<div id="empty-plan" style="display:none;">
+  <div class="u-card">
+    <div class="u-empty">
+      <div class="u-empty-icon">🍽️</div>
+      <h3 class="u-empty-title">Aún no tienes un plan generado</h3>
+      <p class="u-empty-text">Haz clic en "Generar" para crear tu primer plan nutricional personalizado con IA.</p>
+      <button class="u-btn u-btn-primary" id="btn-generar-empty">Generar Mi Primer Plan 🚀</button>
+    </div>
+  </div>
+</div>
+
+<!-- ── 9. LOADING STATE ───────────────────────────────────── -->
+<div id="loading-plan">
+  <div class="u-loading">
+    <div class="u-spinner"></div>
+    <p class="u-loading-text">Cargando tu plan...</p>
+  </div>
+</div>
+
+
+
+{% endblock %}
+
+{% block scripts %}
+<script nonce="{{ request.state.csp_nonce }}">
+(async function() {
+
+  const OBJETIVOS = {
+    'deficit': 'Déficit (bajar grasa)',
+    'mantenimiento': 'Mantenimiento',
+    'superavit': 'Superávit (ganar masa)',
+  };
+
+  const MEAL_ICONS = {
+    'desayuno': '🌅',
+    'almuerzo': '🥗',
+    'comida': '🍖',
+    'cena': '🌙',
+  };
+
+  const MEAL_LABELS = {
+    'desayuno': 'Desayuno',
+    'almuerzo': 'Almuerzo',
+    'comida': 'Comida',
+    'cena': 'Cena',
+  };
+
+  /* ── Helpers ── */
+  function esc(s) {
+    var d = document.createElement('div');
+    d.textContent = s;
+    return d.innerHTML;
+  }
+
+  function showToast(msg, type) {
+    var c = document.getElementById('toast-container');
+    if (!c) return;
+    var t = document.createElement('div');
+    t.className = 'u-toast' + (type === 'error' ? ' u-toast-error' : '');
+    t.textContent = msg;
+    c.appendChild(t);
+    setTimeout(function() { t.remove(); }, 4000);
+  }
+
+  function updateRing(circleId, pct) {
+    var el = document.getElementById(circleId);
+    if (!el) return;
+    var r = parseFloat(el.getAttribute('r'));
+    var circumference = 2 * Math.PI * r;
+    var clamped = Math.min(Math.max(pct, 0), 100);
+    el.setAttribute('stroke-dasharray', circumference.toFixed(2));
+    el.setAttribute('stroke-dashoffset', (circumference * (1 - clamped / 100)).toFixed(2));
+  }
+
+  /* ── Load profile ── */
+  var perfil = null;
+  var ultimoPlan = null;
+
+  try {
+    var res = await Api.auth.me();
+    document.getElementById('saludo').textContent = '\u00a1Hola, ' + (res.nombre || 'Usuario') + '!';
+    perfil = res;
+  } catch(e) {
+    window.location.href = '/login-usuario';
+    return;
+  }
+
+  try {
+    var data = await fetch('/api/usuario/perfil', {
+      headers: { 'Authorization': 'Bearer ' + localStorage.getItem('mb_token') }
+    });
+    if (data.ok) {
+      perfil = Object.assign({}, perfil, await data.json());
+    }
+  } catch(e) {}
+
+  var perfilCompleto = perfil.peso_kg && perfil.estatura_cm && perfil.edad && perfil.objetivo;
+
+  if (!perfilCompleto) {
+    document.getElementById('loading-plan').style.display = 'none';
+    document.getElementById('onboarding-card').style.display = 'flex';
+    return;
+  }
+
+  /* ── Load latest plan ── */
+  try {
+    var res2 = await fetch('/api/usuario/mi-plan', {
+      headers: { 'Authorization': 'Bearer ' + localStorage.getItem('mb_token') }
+    });
+    if (res2.ok) {
+      ultimoPlan = await res2.json();
+    }
+  } catch(e) {}
+
+  document.getElementById('loading-plan').style.display = 'none';
+  document.getElementById('macros-section').style.display = '';
+  document.getElementById('quick-actions').style.display = '';
+  document.getElementById('context-bar').style.display = '';
+  document.getElementById('summary-section').style.display = '';
+
+  if (ultimoPlan && ultimoPlan.plan) {
+    renderPlan(ultimoPlan);
+  } else {
+    document.getElementById('empty-plan').style.display = 'block';
+    document.getElementById('recomendaciones-section').style.display = 'block';
+  }
+
+  /* ── Render plan ── */
+  function renderPlan(data) {
+    var plan = data.plan;
+    var meta = data.meta || {};
+
+    var kcalTarget = Math.round(meta.kcal_objetivo || 0);
+    var protG = Math.round(meta.proteina_g || 0);
+    var carbG = Math.round(meta.carbs_g || 0);
+    var fatG = Math.round(meta.grasa_g || 0);
+
+    /* KPIs */
+    document.getElementById('kpi-kcal').textContent = kcalTarget.toLocaleString();
+    document.getElementById('kpi-proteina').textContent = protG + 'g';
+    document.getElementById('kpi-carbs').textContent = carbG + 'g';
+    document.getElementById('kpi-grasa').textContent = fatG + 'g';
+    document.getElementById('lbl-objetivo').textContent = OBJETIVOS[perfil.objetivo] || perfil.objetivo || '\u2014';
+    document.getElementById('lbl-fecha-plan').textContent = meta.fecha ? new Date(meta.fecha).toLocaleDateString('es-MX') : 'Hoy';
+
+    /* Calculate actual kcal from meals */
+    var totalKcalReal = 0;
+    var comidas = ['desayuno', 'almuerzo', 'comida', 'cena'];
+    for (var i = 0; i < comidas.length; i++) {
+      var c = comidas[i];
+      if (plan[c]) totalKcalReal += Math.round(plan[c].kcal_real || plan[c].kcal_objetivo || 0);
+    }
+    /* Use meta kcal_real if available (more accurate for options plans) */
+    if (meta.kcal_real && meta.kcal_real > 0) totalKcalReal = Math.round(meta.kcal_real);
+
+    /* Goal card progress */
+    var pct = kcalTarget > 0 ? Math.min(Math.round((totalKcalReal / kcalTarget) * 100), 100) : 0;
+    document.getElementById('goal-pct-label').textContent = 'Vas al ' + pct + '% de tu meta diaria';
+    document.getElementById('goal-progress-bar').style.width = pct + '%';
+    document.getElementById('goal-current').textContent = totalKcalReal.toLocaleString();
+    document.getElementById('goal-target').textContent = kcalTarget.toLocaleString();
+    document.getElementById('goal-ring-pct').textContent = pct + '%';
+    updateRing('goal-ring', pct);
+
+    /* Tip card macro rings */
+    var totalMacroG = protG + carbG + fatG;
+    if (totalMacroG > 0) {
+      updateRing('tip-ring-p', (protG / totalMacroG) * 100 * 2.5);
+      updateRing('tip-ring-c', (carbG / totalMacroG) * 100 * 2.5);
+      updateRing('tip-ring-g', (fatG / totalMacroG) * 100 * 2.5);
+    }
+
+    /* PDF button */
+    if (data.tiene_pdf) {
+      document.getElementById('btn-descargar-pdf').style.display = '';
+    }
+
+    /* Render meals */
+    var container = document.getElementById('meals-container');
+    container.innerHTML = '';
+
+    var MACRO_LABELS = { proteinas: '🥩 Proteína', carbohidratos: '🍞 Carbohidratos', grasas: '🥑 Grasas' };
+    var MACRO_CLASSES = { proteinas: 'u-macro-prot', carbohidratos: 'u-macro-carb', grasas: 'u-macro-fat' };
+
+    for (var j = 0; j < comidas.length; j++) {
+      var comida = comidas[j];
+      var mealData = plan[comida];
+      if (!mealData) continue;
+
+      var icon = MEAL_ICONS[comida] || '🍽️';
+      var label = MEAL_LABELS[comida] || comida;
+      var kcalObj = Math.round(mealData.kcal_objetivo || 0);
+
+      var isOpciones = mealData.tipo_plan === 'opciones' || mealData.proteinas;
+
+      var bodyHtml = '';
+
+      if (isOpciones) {
+        /* ── Options plan rendering ── */
+        var macros = ['proteinas', 'carbohidratos', 'grasas'];
+        for (var m = 0; m < macros.length; m++) {
+          var macroKey = macros[m];
+          var macroData = mealData[macroKey];
+          if (!macroData || !macroData.opciones || !macroData.opciones.length) continue;
+
+          var cantObj = Math.round(macroData.cantidad_objetivo || 0);
+          bodyHtml += '<div class="u-macro-group ' + (MACRO_CLASSES[macroKey] || '') + '">';
+          bodyHtml += '<div class="u-macro-group-header">' +
+            '<span class="u-macro-group-label">' + MACRO_LABELS[macroKey] + '</span>' +
+            '<span class="u-macro-group-target">' + cantObj + 'g objetivo</span>' +
+          '</div>';
+          bodyHtml += '<div class="u-options-list">';
+
+          for (var o = 0; o < macroData.opciones.length; o++) {
+            var op = macroData.opciones[o];
+            var nombre = (op.alimento || '').replace(/_/g, ' ');
+            nombre = nombre.charAt(0).toUpperCase() + nombre.slice(1);
+            var equiv = op.equivalencia ? ' · ' + esc(op.equivalencia) : '';
+            bodyHtml += '<div class="u-option-item">' +
+              '<span class="u-option-num">' + (o + 1) + '</span>' +
+              '<span class="u-option-name">' + esc(nombre) + equiv + '</span>' +
+              '<span class="u-option-grams">' + Math.round(op.gramos || 0) + 'g</span>' +
+            '</div>';
+          }
+          bodyHtml += '</div></div>';
+        }
+
+        /* Vegetables */
+        var vegs = mealData.vegetales || [];
+        if (vegs.length) {
+          bodyHtml += '<div class="u-macro-group u-macro-veg">';
+          bodyHtml += '<div class="u-macro-group-header">' +
+            '<span class="u-macro-group-label">🥬 Vegetales</span>' +
+            '<span class="u-macro-group-target">125g recomendados</span>' +
+          '</div>';
+          bodyHtml += '<div class="u-veg-list">';
+          for (var v = 0; v < vegs.length; v++) {
+            var vn = (vegs[v].alimento || '').replace(/_/g, ' ');
+            vn = vn.charAt(0).toUpperCase() + vn.slice(1);
+            bodyHtml += '<span class="u-veg-chip">' + esc(vn) + ' · ' + Math.round(vegs[v].gramos || 0) + 'g</span>';
+          }
+          bodyHtml += '</div></div>';
+        }
+      } else {
+        /* ── Fixed plan rendering (legacy) ── */
+        var alimentos = mealData.alimentos || {};
+        var entries = Object.entries(alimentos);
+        for (var k = 0; k < entries.length; k++) {
+          var nombre = entries[k][0];
+          var gramos = entries[k][1];
+          bodyHtml += '<div class="u-meal-item">' +
+            '<span class="u-meal-item-name">' + esc(nombre) + '</span>' +
+            '<span class="u-meal-item-amount">' + Math.round(gramos) + 'g</span>' +
+          '</div>';
+        }
+      }
+
+      if (!bodyHtml) continue;
+
+      container.innerHTML += '<div class="u-card u-meal-card">' +
+        '<div class="u-meal-header">' +
+          '<h3 class="u-meal-title">' + icon + ' ' + esc(label) + '</h3>' +
+          '<span class="u-meal-kcal">' + kcalObj + ' kcal</span>' +
+        '</div>' +
+        bodyHtml +
+      '</div>';
+    }
+
+    document.getElementById('plan-comidas').style.display = 'block';
+    document.getElementById('recomendaciones-section').style.display = 'block';
+    document.getElementById('empty-plan').style.display = 'none';
+
+    /* Update goal card from today's saved selections */
+    updateGoalFromSelections(kcalTarget);
+  }
+
+  /* ── Update goal card with real selected macros ── */
+  function updateGoalFromSelections(kcalTarget) {
+    if (!ultimoPlan || !ultimoPlan.plan) return;
+    if (!kcalTarget) {
+      kcalTarget = ultimoPlan.meta ? (ultimoPlan.meta.kcal_objetivo || 0) : 0;
+    }
+    var totals = computeDailyTotals();
+    if (totals.kcal <= 0) return; // no selections yet
+
+    var pct = kcalTarget > 0 ? Math.min(Math.round((totals.kcal / kcalTarget) * 100), 150) : 0;
+    document.getElementById('goal-pct-label').textContent = 'Vas al ' + Math.min(pct, 100) + '% de tu meta diaria';
+    document.getElementById('goal-progress-bar').style.width = Math.min(pct, 100) + '%';
+    document.getElementById('goal-current').textContent = totals.kcal.toLocaleString();
+    document.getElementById('goal-target').textContent = kcalTarget.toLocaleString();
+    document.getElementById('goal-ring-pct').textContent = Math.min(pct, 100) + '%';
+    updateRing('goal-ring', Math.min(pct, 100));
+  }
+
+  /* ── Generate plan ── */
+  async function generarPlan() {
+    var btn = document.getElementById('btn-generar');
+    var btnE = document.getElementById('btn-generar-empty');
+    [btn, btnE].forEach(function(b) {
+      if (b) { b.disabled = true; b.style.opacity = '0.6'; }
+    });
+    if (btn) {
+      var lbl = btn.querySelector('.u-quick-btn-label');
+      if (lbl) lbl.textContent = 'Generando\u2026';
+    }
+    if (btnE) { btnE.textContent = 'Generando...'; }
+
+    try {
+      var res = await fetch('/api/usuario/generar-plan', {
+        method: 'POST',
+        headers: {
+          'Authorization': 'Bearer ' + localStorage.getItem('mb_token'),
+          'Content-Type': 'application/json',
+        },
+      });
+      if (!res.ok) {
+        var err = await res.json().catch(function() { return {}; });
+        throw new Error(err.detail || 'Error generando el plan');
+      }
+      var data = await res.json();
+      ultimoPlan = data;
+      renderPlan(data);
+      showToast('✅ ¡Plan generado exitosamente!');
+    } catch (e) {
+      showToast('❌ ' + e.message, 'error');
+    } finally {
+      if (btn) {
+        btn.disabled = false;
+        btn.style.opacity = '';
+        var lbl2 = btn.querySelector('.u-quick-btn-label');
+        if (lbl2) lbl2.textContent = 'Generar';
+      }
+      if (btnE) { btnE.disabled = false; btnE.textContent = 'Generar Mi Primer Plan 🚀'; }
+    }
+  }
+
+  document.getElementById('btn-generar').addEventListener('click', generarPlan);
+  var btnE = document.getElementById('btn-generar-empty');
+  if (btnE) btnE.addEventListener('click', generarPlan);
+
+  /* ── Download PDF ── */
+  document.getElementById('btn-descargar-pdf').addEventListener('click', async function() {
+    var tkn = localStorage.getItem('mb_token');
+    var res = await fetch('/api/usuario/descargar-pdf', {
+      headers: tkn ? { 'Authorization': 'Bearer ' + tkn } : {},
+    });
+    if (!res.ok) { showToast('❌ No hay PDF disponible', 'error'); return; }
+    var blob = await res.blob();
+    var url = URL.createObjectURL(blob);
+    var a = document.createElement('a');
+    a.href = url;
+    a.download = 'mi_plan_nutricional.pdf';
+    a.click();
+    URL.revokeObjectURL(url);
+  });
+
+  /* ══════════════════════════════════════════════════════════
+     WATER TRACKING PANEL
+     ══════════════════════════════════════════════════════════ */
+  var WATER_KEY = 'mb_water_' + new Date().toISOString().slice(0, 10);
+  var TODAY_KEY = new Date().toISOString().slice(0, 10);
+  var waterOverlay = document.getElementById('panel-agua-overlay');
+  var waterInput = document.getElementById('water-input');
+  var waterBarFill = document.getElementById('water-bar-fill');
+  var waterStatus = document.getElementById('water-status');
+  var WATER_GOAL = 3;
+
+  // Load saved water
+  var savedWater = parseFloat(localStorage.getItem(WATER_KEY) || '0');
+  if (savedWater > 0 && waterInput) waterInput.value = savedWater;
+  updateWaterVisual(savedWater);
+
+  function updateWaterVisual(liters) {
+    var pct = Math.min(Math.round((liters / WATER_GOAL) * 100), 100);
+    waterBarFill.style.width = pct + '%';
+    if (liters <= 0) {
+      waterStatus.textContent = '';
+    } else if (liters < 1) {
+      waterStatus.innerHTML = '😐 Llevas <strong>' + liters.toFixed(1) + 'L</strong> — ¡necesitas más agua!';
+    } else if (liters < 2) {
+      waterStatus.innerHTML = '🙂 Llevas <strong>' + liters.toFixed(1) + 'L</strong> — ¡vas bien, sigue así!';
+    } else if (liters < WATER_GOAL) {
+      waterStatus.innerHTML = '😊 Llevas <strong>' + liters.toFixed(1) + 'L</strong> — ¡casi llegas a tu meta!';
+    } else {
+      waterStatus.innerHTML = '🎉 ¡<strong>' + liters.toFixed(1) + 'L</strong>! ¡Meta cumplida! Excelente hidratación.';
+    }
+  }
+
+  document.getElementById('btn-agua').addEventListener('click', function() {
+    waterOverlay.style.display = 'flex';
+    waterInput.focus();
+  });
+
+  document.getElementById('panel-agua-close').addEventListener('click', function() {
+    waterOverlay.style.display = 'none';
+  });
+
+  waterOverlay.addEventListener('click', function(e) {
+    if (e.target === waterOverlay) waterOverlay.style.display = 'none';
+  });
+
+  waterInput.addEventListener('input', function() {
+    var val = parseFloat(waterInput.value);
+    if (isNaN(val) || val < 0) val = 0;
+    if (val > 20) { val = 20; waterInput.value = 20; }
+    updateWaterVisual(val);
+  });
+
+  document.getElementById('btn-water-save').addEventListener('click', function() {
+    var val = parseFloat(waterInput.value);
+    if (isNaN(val) || val < 0) val = 0;
+    localStorage.setItem(WATER_KEY, val.toString());
+    updateWaterVisual(val);
+    // Also update daily summary with water
+    var existing = {};
+    try { existing = JSON.parse(localStorage.getItem('mb_daily_' + TODAY_KEY) || '{}'); } catch(e) {}
+    existing.water = val;
+    localStorage.setItem('mb_daily_' + TODAY_KEY, JSON.stringify(existing));
+    waterOverlay.style.display = 'none';
+    showToast('💧 Registro de agua guardado: ' + val.toFixed(1) + 'L');
+  });
+
+  /* ══════════════════════════════════════════════════════════
+     MEAL SELECTOR PANEL
+     ══════════════════════════════════════════════════════════ */
+  var comidasOverlay = document.getElementById('panel-comidas-overlay');
+  var mealTabsContainer = document.getElementById('meal-tabs');
+  var mealSelectorContent = document.getElementById('meal-selector-content');
+  var selectionSummary = document.getElementById('selection-summary');
+  var activeMeal = null;
+  var MEALS_STORAGE_KEY = 'mb_meals_' + TODAY_KEY;
+  var mealSelections = {}; // { desayuno: { proteinas: idx, carbohidratos: idx, grasas: idx } }
+
+  // Load saved daily selections
+  try {
+    var savedMeals = JSON.parse(localStorage.getItem(MEALS_STORAGE_KEY) || '{}');
+    if (savedMeals && typeof savedMeals === 'object') mealSelections = savedMeals;
+  } catch(e) {}
+
+  document.getElementById('btn-comidas').addEventListener('click', function() {
+    if (!ultimoPlan || !ultimoPlan.plan) {
+      showToast('❌ Primero genera un plan para usar esta función', 'error');
+      return;
+    }
+    buildMealTabs();
+    comidasOverlay.style.display = 'flex';
+  });
+
+  document.getElementById('panel-comidas-close').addEventListener('click', function() {
+    comidasOverlay.style.display = 'none';
+  });
+
+  comidasOverlay.addEventListener('click', function(e) {
+    if (e.target === comidasOverlay) comidasOverlay.style.display = 'none';
+  });
+
+  function buildMealTabs() {
+    var plan = ultimoPlan.plan;
+    var comidas = ['desayuno', 'almuerzo', 'comida', 'cena'];
+    mealTabsContainer.innerHTML = '';
+    var first = null;
+
+    for (var i = 0; i < comidas.length; i++) {
+      var c = comidas[i];
+      if (!plan[c]) continue;
+      if (!first) first = c;
+      var btn = document.createElement('button');
+      btn.className = 'u-meal-tab' + (c === first ? ' active' : '');
+      btn.textContent = (MEAL_ICONS[c] || '') + ' ' + (MEAL_LABELS[c] || c);
+      btn.dataset.meal = c;
+      btn.addEventListener('click', function() {
+        var allTabs = mealTabsContainer.querySelectorAll('.u-meal-tab');
+        for (var t = 0; t < allTabs.length; t++) allTabs[t].classList.remove('active');
+        this.classList.add('active');
+        renderMealSelector(this.dataset.meal);
+      });
+      mealTabsContainer.appendChild(btn);
+    }
+
+    if (first) renderMealSelector(first);
+  }
+
+  function renderMealSelector(mealKey) {
+    activeMeal = mealKey;
+    var mealData = ultimoPlan.plan[mealKey];
+    if (!mealData) { mealSelectorContent.innerHTML = ''; return; }
+
+    var isOpciones = mealData.tipo_plan === 'opciones' || mealData.proteinas;
+
+    if (!isOpciones) {
+      mealSelectorContent.innerHTML = '<p style="color:var(--u-text-muted);padding:20px;">Este plan no tiene opciones seleccionables.</p>';
+      selectionSummary.style.display = 'none';
+      return;
+    }
+
+    if (!mealSelections[mealKey]) {
+      mealSelections[mealKey] = { proteinas: -1, carbohidratos: -1, grasas: -1 };
+    }
+
+    var MACRO_LABELS_SEL = { proteinas: '🥩 Proteína', carbohidratos: '🍞 Carbohidratos', grasas: '🥑 Grasas' };
+    var MACRO_COLORS = { proteinas: 'var(--u-accent)', carbohidratos: 'var(--u-green)', grasas: 'var(--u-blue)' };
+    var macros = ['proteinas', 'carbohidratos', 'grasas'];
+    var html = '';
+
+    for (var m = 0; m < macros.length; m++) {
+      var macroKey = macros[m];
+      var macroData = mealData[macroKey];
+      if (!macroData || !macroData.opciones || !macroData.opciones.length) continue;
+
+      var cantObj = Math.round(macroData.cantidad_objetivo || 0);
+      html += '<div class="u-sel-macro-group">';
+      html += '<div class="u-sel-macro-header">' +
+        '<span class="u-sel-macro-label">' + MACRO_LABELS_SEL[macroKey] + '</span>' +
+        '<span class="u-sel-macro-target">' + cantObj + 'g objetivo</span>' +
+      '</div>';
+
+      for (var o = 0; o < macroData.opciones.length; o++) {
+        var op = macroData.opciones[o];
+        var nombre = (op.alimento || '').replace(/_/g, ' ');
+        nombre = nombre.charAt(0).toUpperCase() + nombre.slice(1);
+        var equiv = op.equivalencia ? ' · ' + esc(op.equivalencia) : '';
+        var isSelected = mealSelections[mealKey][macroKey] === o;
+
+        html += '<label class="u-sel-option' + (isSelected ? ' selected' : '') + '">' +
+          '<input type="radio" name="sel-' + mealKey + '-' + macroKey + '" value="' + o + '"' +
+            (isSelected ? ' checked' : '') +
+            ' data-meal="' + mealKey + '" data-macro="' + macroKey + '" />' +
+          '<span class="u-sel-radio" style="border-color:' + MACRO_COLORS[macroKey] + '"></span>' +
+          '<span class="u-sel-option-body">' +
+            '<span class="u-sel-option-name">' + esc(nombre) + equiv + '</span>' +
+            '<span class="u-sel-option-grams">' + Math.round(op.gramos || 0) + 'g</span>' +
+          '</span>' +
+        '</label>';
+      }
+      html += '</div>';
+    }
+
+    /* Vegetables (info only) */
+    var vegs = mealData.vegetales || [];
+    if (vegs.length) {
+      html += '<div class="u-sel-macro-group">';
+      html += '<div class="u-sel-macro-header">' +
+        '<span class="u-sel-macro-label">🥬 Vegetales (incluidos)</span>' +
+        '<span class="u-sel-macro-target">125g</span>' +
+      '</div>';
+      html += '<div class="u-veg-list" style="padding:0 4px 4px;">';
+      for (var v = 0; v < vegs.length; v++) {
+        var vn = (vegs[v].alimento || '').replace(/_/g, ' ');
+        vn = vn.charAt(0).toUpperCase() + vn.slice(1);
+        html += '<span class="u-veg-chip">' + esc(vn) + ' · ' + Math.round(vegs[v].gramos || 0) + 'g</span>';
+      }
+      html += '</div></div>';
+    }
+
+    mealSelectorContent.innerHTML = html;
+
+    // Bind radio change events
+    var radios = mealSelectorContent.querySelectorAll('input[type="radio"]');
+    for (var r = 0; r < radios.length; r++) {
+      radios[r].addEventListener('change', handleOptionSelect);
+    }
+
+    updateSelectionSummary();
+  }
+
+  function handleOptionSelect(e) {
+    var meal = e.target.dataset.meal;
+    var macro = e.target.dataset.macro;
+    var idx = parseInt(e.target.value, 10);
+    if (!mealSelections[meal]) mealSelections[meal] = { proteinas: -1, carbohidratos: -1, grasas: -1 };
+    mealSelections[meal][macro] = idx;
+
+    // Update visual selected state
+    var groupRadios = mealSelectorContent.querySelectorAll('input[name="' + e.target.name + '"]');
+    for (var i = 0; i < groupRadios.length; i++) {
+      groupRadios[i].closest('.u-sel-option').classList.toggle('selected', groupRadios[i].checked);
+    }
+
+    updateSelectionSummary();
+  }
+
+  function updateSelectionSummary() {
+    if (!activeMeal || !ultimoPlan) return;
+    var sel = mealSelections[activeMeal];
+    if (!sel) return;
+
+    var mealData = ultimoPlan.plan[activeMeal];
+    if (!mealData) return;
+
+    var totalKcal = 0, totalProt = 0, totalCarb = 0, totalFat = 0;
+    var hasAny = false;
+    var macros = ['proteinas', 'carbohidratos', 'grasas'];
+
+    for (var m = 0; m < macros.length; m++) {
+      var macroKey = macros[m];
+      var idx = sel[macroKey];
+      if (idx < 0) continue;
+      hasAny = true;
+      var macroData = mealData[macroKey];
+      if (!macroData || !macroData.opciones || !macroData.opciones[idx]) continue;
+      var op = macroData.opciones[idx];
+      var rm = op.macros || {};
+      totalKcal += rm.kcal || 0;
+      totalProt += rm.proteina || 0;
+      totalCarb += rm.carbs || 0;
+      totalFat += rm.grasa || 0;
+    }
+
+    /* Add vegetable macros (always included) */
+    var vegs = mealData.vegetales || [];
+    for (var v = 0; v < vegs.length; v++) {
+      var vm = vegs[v].macros || {};
+      totalKcal += vm.kcal || 0;
+      totalProt += vm.proteina || 0;
+      totalCarb += vm.carbs || 0;
+      totalFat += vm.grasa || 0;
+    }
+
+    if (hasAny) {
+      selectionSummary.style.display = 'block';
+      document.getElementById('sel-kcal').textContent = Math.round(totalKcal);
+      document.getElementById('sel-prot').textContent = Math.round(totalProt) + 'g';
+      document.getElementById('sel-carb').textContent = Math.round(totalCarb) + 'g';
+      document.getElementById('sel-fat').textContent = Math.round(totalFat) + 'g';
+    } else {
+      selectionSummary.style.display = 'none';
+    }
+  }
+
+  /* ── Save daily meal selections ── */
+  function computeDailyTotals() {
+    if (!ultimoPlan || !ultimoPlan.plan) return { kcal: 0, prot: 0, carb: 0, fat: 0 };
+    var comidas = ['desayuno', 'almuerzo', 'comida', 'cena'];
+    var macros = ['proteinas', 'carbohidratos', 'grasas'];
+    var totKcal = 0, totProt = 0, totCarb = 0, totFat = 0;
+
+    for (var i = 0; i < comidas.length; i++) {
+      var c = comidas[i];
+      var sel = mealSelections[c];
+      var mealData = ultimoPlan.plan[c];
+      if (!sel || !mealData) continue;
+
+      for (var m = 0; m < macros.length; m++) {
+        var macroKey = macros[m];
+        var idx = sel[macroKey];
+        if (idx < 0 || idx === undefined) continue;
+        var macroData = mealData[macroKey];
+        if (!macroData || !macroData.opciones || !macroData.opciones[idx]) continue;
+        var rm = macroData.opciones[idx].macros || {};
+        totKcal += rm.kcal || 0;
+        totProt += rm.proteina || 0;
+        totCarb += rm.carbs || 0;
+        totFat += rm.grasa || 0;
+      }
+
+      /* Add vegetable macros for this meal */
+      var vegs = mealData.vegetales || [];
+      for (var v = 0; v < vegs.length; v++) {
+        var vm = vegs[v].macros || {};
+        totKcal += vm.kcal || 0;
+        totProt += vm.proteina || 0;
+        totCarb += vm.carbs || 0;
+        totFat += vm.grasa || 0;
+      }
+    }
+    return { kcal: Math.round(totKcal), prot: Math.round(totProt), carb: Math.round(totCarb), fat: Math.round(totFat) };
+  }
+
+  document.getElementById('btn-comidas-save').addEventListener('click', function() {
+    // Save selections
+    localStorage.setItem(MEALS_STORAGE_KEY, JSON.stringify(mealSelections));
+    // Save daily totals summary
+    var totals = computeDailyTotals();
+    var waterVal = parseFloat(localStorage.getItem(WATER_KEY) || '0');
+    var dailySummary = {
+      kcal: totals.kcal,
+      prot: totals.prot,
+      carb: totals.carb,
+      fat: totals.fat,
+      water: waterVal,
+      selections: mealSelections,
+    };
+    localStorage.setItem('mb_daily_' + TODAY_KEY, JSON.stringify(dailySummary));
+    comidasOverlay.style.display = 'none';
+    updateGoalFromSelections(0);
+    showToast('✅ Selección del día guardada correctamente');
+  });
+
+})();
+</script>
+{% endblock %}

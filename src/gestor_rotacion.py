@@ -6,8 +6,7 @@ from collections import Counter
 from typing import Set, Dict, List
 
 from config.catalogo_alimentos import (
-    CATALOGO_POR_TIPO, CATALOGO_SETS, PROTEINAS_SET, CARBS_SET, GRASAS_SET,
-    categoria_de,
+    CATALOGO_POR_TIPO, categoria_de,
 )
 from utils.logger import logger
 from config.constantes import CARPETA_REGISTROS

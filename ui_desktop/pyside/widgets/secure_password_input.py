@@ -17,7 +17,6 @@ from __future__ import annotations
 import re
 
 from PySide6.QtCore import Qt, Signal
-from PySide6.QtGui import QColor
 from PySide6.QtWidgets import (
     QHBoxLayout,
     QLabel,
@@ -31,7 +30,7 @@ from PySide6.QtWidgets import (
 # ── Etiquetas de fortaleza ───────────────────────────────────────────────────
 
 _STRENGTH_LABELS = ["Débil", "Aceptable", "Fuerte", "Muy fuerte"]
-_STRENGTH_COLORS = ["#F44336", "#FF9800", "#2196F3", "#4CAF50"]
+_STRENGTH_COLORS = ["#FF1744", "#FF9800", "#FFEB3B", "#00FF88"]
 _STRENGTH_WIDTHS = [25, 50, 75, 100]   # % del ancho total de la barra
 
 
@@ -153,7 +152,7 @@ class SecurePasswordInput(QWidget):
             # Etiqueta de nivel
             self._lbl_strength = QLabel("")
             self._lbl_strength.setObjectName("strength_label")
-            self._lbl_strength.setStyleSheet("font-size: 10px; color: #B8B8B8;")
+            self._lbl_strength.setStyleSheet("font-size: 10px; color: #A1A1AA;")
             root.addWidget(self._lbl_strength)
 
     # ------------------------------------------------------------------

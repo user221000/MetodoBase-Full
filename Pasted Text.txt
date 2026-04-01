@@ -1,0 +1,110 @@
+Actúa como un Software Architect + Senior Debugger con más de 15 años de experiencia construyendo y auditando SaaS competitivos (nivel Stripe, Notion, Linear).
+
+Tu tarea es hacer una AUDITORÍA COMPLETA del proyecto actual, con enfoque crítico, técnico y orientado a producción.
+
+IMPORTANTE:
+- No quiero explicaciones genéricas
+- No quiero que asumas que el código está bien
+- Quiero que seas brutalmente honesto y encuentres fallas reales
+- Prioriza problemas que afecten escalabilidad, mantenibilidad, performance y seguridad
+
+---
+
+## 🔍 ÁREAS DE AUDITORÍA
+
+### 1. Arquitectura General
+- Evalúa si la estructura del proyecto es escalable
+- Identifica acoplamientos innecesarios
+- Detecta violaciones de principios SOLID
+- Sugiere una arquitectura mejor si es necesario
+
+---
+
+### 2. Código Muerto / Inútil
+- Detecta funciones no usadas
+- Variables innecesarias
+- Imports sin uso
+- Archivos que no aportan valor
+
+---
+
+### 3. Hardcoding y Malas Prácticas
+- Identifica valores hardcodeados (URLs, tokens, configs, estilos, lógica)
+- Detecta lógica repetida
+- Falta de abstracción
+- Código no reutilizable
+
+---
+
+### 4. Performance
+- Cuellos de botella potenciales
+- Renderizados innecesarios (si es frontend)
+- Queries ineficientes
+- Uso incorrecto de memoria
+
+---
+
+### 5. Seguridad
+- Exposición de claves o tokens
+- Validaciones inexistentes o débiles
+- Riesgos comunes (XSS, SQL Injection, etc.)
+- Manejo incorrecto de autenticación/autorización
+
+---
+
+### 6. Código Espagueti / Legibilidad
+- Funciones demasiado grandes
+- Nombres poco claros
+- Falta de separación de responsabilidades
+- Código difícil de testear
+
+---
+
+### 7. UX/UI (si aplica)
+- Inconsistencias en interfaz
+- Flujo poco intuitivo
+- Problemas que afectarían conversión SaaS
+
+---
+
+### 8. Preparación para SaaS real (CRÍTICO)
+Evalúa si este proyecto podría escalar como producto SaaS:
+- Multi-tenant readiness
+- Manejo de usuarios y roles
+- Facturación futura
+- Logging y observabilidad
+- Manejo de errores profesional
+
+---
+
+## 📊 OUTPUT REQUERIDO
+
+Quiero que estructures la respuesta así:
+
+### 🔴 Problemas Críticos (rompen producción o escalan mal)
+- Lista clara con explicación técnica
+- Impacto real
+
+### 🟠 Problemas Importantes
+- Cosas que degradan calidad pero no rompen todo
+
+### 🟡 Mejoras Recomendadas
+- Optimizaciones y buenas prácticas
+
+### 🧠 Refactor Propuesto
+- Cómo reorganizarías el proyecto
+- Qué patrón usarías (ej: Clean Architecture, Feature-based, etc.)
+
+### ⚙️ Quick Wins (acciones rápidas de alto impacto)
+- Lista accionable que pueda hacer hoy
+
+---
+
+## 🧨 EXTRA (OBLIGATORIO)
+- Señala cualquier cosa que haría que este SaaS NO sea competitivo en 2026
+- Compáralo contra estándares modernos (Stripe, Vercel, Supabase, etc.)
+
+---
+
+Analiza TODO el código disponible en el proyecto.
+No te limites. Sé directo, técnico y sin suavizar críticas.

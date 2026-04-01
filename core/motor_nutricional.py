@@ -2,7 +2,7 @@
 CAPA 1: Motor Nutricional (Katch-McArdle, GET, Macros)
 CAPA 2: Ajuste Calórico Mensual
 """
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from utils.helpers import cargar_plan_anterior_cliente
 
 

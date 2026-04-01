@@ -1,0 +1,819 @@
+================================================================================
+  PROMPT DE CORRECCIÓN — HALLAZGOS MEDIOS M-01 a M-15
+  Proyecto: MetodoBase SaaS (Plataforma de Nutrición para Gimnasios)
+  Fecha: 26 de Marzo, 2026
+  Origen: AUDITORIA_PRODUCCION_2026-03-25.txt — Sección 4
+  Estado actual tests: 1062 passed, 3 skipped, 0 failures
+  Severidad: MEDIA (Fix en primer sprint post-launch, 30 días)
+================================================================================
+
+════════════════════════════════════════════════════════════════════════════════
+PROTOCOLO DE EJECUCIÓN — 4 FASES SECUENCIALES
+════════════════════════════════════════════════════════════════════════════════
+
+Cada fase es ejecutada por un rol senior (15+ años de experiencia en SaaS
+competitivos: Stripe, Linear, Notion, Vercel) con estándares de producción
+absolutos. No hay atajos. No hay deuda técnica nueva.
+
+  ┌─────────────────────────────────────────────────────────────────────────┐
+  │ FASE │ ROL              │ ACCIÓN                                       │
+  ├──────┼──────────────────┼──────────────────────────────────────────────┤
+  │  1   │ ARQUITECTO       │ Lee, analiza, recopila contexto de CADA     │
+  │      │                  │ archivo afectado. Genera plan de ataque      │
+  │      │                  │ con orden de dependencias y reglas.          │
+  ├──────┼──────────────────┼──────────────────────────────────────────────┤
+  │  2   │ IMPLEMENTADOR    │ Ejecuta TODOS los cambios sin límite        │
+  │      │                  │ siguiendo el plan del Arquitecto.            │
+  │      │                  │ Corre pytest después de CADA fix atómico.    │
+  ├──────┼──────────────────┼──────────────────────────────────────────────┤
+  │  3   │ QA               │ Revisa cada cambio del Implementador.       │
+  │      │                  │ Corre suite completa. Verifica edge cases.   │
+  │      │                  │ Genera reporte de hallazgos.                 │
+  ├──────┼──────────────────┼──────────────────────────────────────────────┤
+  │  4   │ IMPLEMENTADOR    │ Aplica ajustes de QA. Re-corre suite.       │
+  │      │                  │ Confirma 0 regresiones, 0 warnings nuevos.  │
+  └──────┴──────────────────┴──────────────────────────────────────────────┘
+
+REGLA ABSOLUTA: Los 1062 tests existentes DEBEN seguir pasando después
+de CADA fix individual. Si un test rompe, se arregla ANTES de continuar.
+
+
+════════════════════════════════════════════════════════════════════════════════
+FASE 1 — ARQUITECTO: ANÁLISIS, CONTEXTO Y PLAN
+════════════════════════════════════════════════════════════════════════════════
+
+Instrucciones para el Arquitecto:
+
+1. LEER cada archivo listado abajo. No asumir — verificar.
+2. MAPEAR dependencias entre fixes (ej: M-02 y M-05 son el mismo tema).
+3. DEFINIR orden de ejecución óptimo para minimizar conflictos.
+4. IDENTIFICAR riesgos de regresión por cada cambio.
+5. DOCUMENTAR patrones existentes para que el Implementador los siga.
+
+────────────────────────────────────────────────────────────────────────────────
+ORDEN DE EJECUCIÓN RECOMENDADO (por dependencias y riesgo)
+────────────────────────────────────────────────────────────────────────────────
+
+  LOTE 1 — Sin dependencias externas, bajo riesgo:
+    M-14  Eliminar código muerto (utils/updater.py)
+    M-06  Limpiar referencias CustomTkinter
+    M-03  Reducir paginación de 500 → 100
+
+  LOTE 2 — Datetime unificado (M-02 + M-05 son el mismo fix):
+    M-02 + M-05  datetime.utcnow() → datetime.now(timezone.utc) en TODO el proyecto
+
+  LOTE 3 — Logging (M-01 + M-08 relacionados):
+    M-01  print() → logger en 6 archivos
+    M-08  exc_info condicionado a DEBUG
+
+  LOTE 4 — Seguridad/Middleware:
+    M-04  Rate limiter forzado en producción
+    M-07  Request ID en respuestas de error
+
+  LOTE 5 — Base de datos:
+    M-09  Índice en fecha_fin_suscripcion
+    M-10  Validación invitación expirada (ya existe — solo fix utcnow)
+
+  LOTE 6 — Configuración:
+    M-12  Trial config a Settings (env vars)
+
+  LOTE 7 — Lógica de negocio:
+    M-11  Generalizar redondeo clínico
+    M-15  Horarios de comida configurables por gym
+
+  LOTE 8 — Integración:
+    M-13  Email para invitaciones de equipo
+
+
+════════════════════════════════════════════════════════════════════════════════
+FASE 2 — IMPLEMENTADOR: ESPECIFICACIÓN DETALLADA POR FIX
+════════════════════════════════════════════════════════════════════════════════
+
+Reglas del Implementador:
+  - Implementar SIN LÍMITE las instrucciones del Arquitecto.
+  - Ejecutar `pytest --tb=short -q` tras CADA fix atómico.
+  - No agregar features no solicitadas. No sobre-diseñar.
+  - Mantener el estilo del código existente (naming, indentation, patterns).
+  - Si un archivo ya tiene logger, usarlo. Si no, crearlo con el patrón:
+      import logging
+      logger = logging.getLogger(__name__)
+  - Toda migración de BD requiere archivo Alembic.
+  - Tests: mínimo 2 por fix (happy path + edge case).
+
+────────────────────────────────────────────────────────────────────────────────
+M-14 | ELIMINAR CÓDIGO MUERTO — utils/updater.py
+────────────────────────────────────────────────────────────────────────────────
+
+  ARCHIVO: utils/updater.py
+  ESTADO: Archivo entero contiene solo un docstring marcado "DEPRECATED / DEAD CODE"
+  
+  ACCIÓN:
+    1. Verificar que NINGÚN import en el proyecto referencia utils.updater:
+       grep -r "updater" --include="*.py" (excluyendo el propio archivo)
+    2. Si no hay imports → eliminar el archivo.
+    3. Si hay imports → reemplazar con un módulo vacío que logguee deprecation warning.
+  
+  VERIFICACIÓN:
+    - pytest debe pasar sin cambios de resultado.
+    - `grep -r "from utils.updater\|import updater" --include="*.py"` debe dar 0 resultados.
+
+────────────────────────────────────────────────────────────────────────────────
+M-06 | LIMPIAR REFERENCIAS A CUSTOMTKINTER
+────────────────────────────────────────────────────────────────────────────────
+
+  ARCHIVOS:
+    utils/helpers.py  — línea 40 docstring: "ventana Tk/CTk"
+    utils/iconos.py   — líneas 6, 219, 222, 241, 247, 254: menciones a CTk/CTkButton
+  
+  ACCIÓN:
+    utils/helpers.py línea 40:
+      ANTES : """Centra una ventana Tk/CTk en la pantalla actual."""
+      DESPUÉS: """Centra una ventana en la pantalla actual."""
+    
+    utils/iconos.py:
+      línea 6:   Eliminar "CTk" de "desktop PySide6 y web CTk"
+                 → "desktop PySide6"
+      línea 219: Eliminar "o CTkButton (web)" 
+                 → "Aplica ícono y tooltip a un QPushButton."
+      línea 222: Eliminar "o CTkButton"
+                 → "btn: Widget de botón (QPushButton)."
+      línea 241: Eliminar referencia a "Web/CTk o fallback"
+                 → "Fallback: emoji en texto del botón"
+      línea 247: Eliminar comentario "# CTkButton"
+      línea 254: Eliminar línea o reescribir sin referencia a CTk
+  
+  VERIFICACIÓN:
+    - `grep -ri "customtkinter\|ctk" --include="*.py"` debe dar 0 resultados
+      en archivos de producción (excluir docs/, tests/).
+
+────────────────────────────────────────────────────────────────────────────────
+M-03 | PAGINACIÓN — REDUCIR MÁXIMO DE 500 A 100
+────────────────────────────────────────────────────────────────────────────────
+
+  ARCHIVO: api/routes/clientes.py — línea 24
+  
+  CÓDIGO ACTUAL:
+    limite: int = Query(100, ge=1, le=500)
+  
+  FIX:
+    limite: int = Query(100, ge=1, le=100)
+  
+  RIESGO: Tests que envíen limite > 100 fallarán. Verificar si algún test
+  usa valores mayores a 100.
+  
+  VERIFICACIÓN:
+    - grep -r "limite=500\|le=500" tests/ → si existe, ajustar test.
+    - Intentar GET /api/clientes?limite=200 → debe devolver error 422.
+  
+  TESTS NUEVOS:
+    1. test_paginacion_maximo_100 — limite=100 funciona
+    2. test_paginacion_excede_100 — limite=101 devuelve 422
+
+────────────────────────────────────────────────────────────────────────────────
+M-02 + M-05 | UNIFICAR TIMEZONE — datetime.utcnow() → datetime.now(timezone.utc)
+────────────────────────────────────────────────────────────────────────────────
+
+  ALCANCE COMPLETO — M-02 y M-05 se resuelven juntos.
+  
+  ARCHIVOS AFECTADOS (verificados con grep):
+  
+  ┌───────────────────────────────────────────────┬────────────────────────────┐
+  │ Archivo                                       │ Líneas con utcnow()        │
+  ├───────────────────────────────────────────────┼────────────────────────────┤
+  │ web/database/repository.py                    │ 47, 194, 221, 249, 300,   │
+  │                                               │ 448, 520                   │
+  │ web/routes/team.py                            │ 210, 508, 572, 652         │
+  │ web/routes/planes.py                          │ 366, 423                   │
+  │ web/routes/stats.py                           │ 34                         │
+  │ web/database/models.py                        │ 197 (propiedad)            │
+  │ web/services/stripe_service.py                │ 306, 321, 375              │
+  │ api/factura_pdf.py                            │ 93, 94                     │
+  │ seed_dashboard_data.py                        │ 195                        │
+  │ conftest.py                                   │ 46 (time.gmtime), 47      │
+  │ core/services/migration_monitor.py            │ 282, 332, 333             │
+  │ src/repositories/plan_repository.py           │ 381                        │
+  │ web/auth.py                                   │ 181, 237 (time.gmtime)     │
+  └───────────────────────────────────────────────┴────────────────────────────┘
+  
+  PATRÓN DE REEMPLAZO:
+  
+    Para datetime.utcnow():
+      ANTES : from datetime import datetime
+              datetime.utcnow()
+      DESPUÉS: from datetime import datetime, timezone
+              datetime.now(timezone.utc)
+    
+    Para time.gmtime():
+      ANTES : time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())
+      DESPUÉS: datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+      (Agregar import si falta: from datetime import datetime, timezone)
+  
+  REGLAS CRÍTICAS:
+    - Verificar que `timezone` esté en el import de `datetime` en CADA archivo.
+    - En models.py línea 197 (propiedad dias_restantes):
+        delta = self.fecha_fin_suscripcion - datetime.now(timezone.utc)
+      CUIDADO: fecha_fin_suscripcion puede ser naive. Si lo es, usar:
+        delta = self.fecha_fin_suscripcion - datetime.utcnow()
+      O convertir: self.fecha_fin_suscripcion.replace(tzinfo=timezone.utc)
+      DECISIÓN: Usar datetime.now(timezone.utc).replace(tzinfo=None) para
+      comparar con datetimes naive almacenados, O migrar todo a timezone-aware.
+      Preferir: datetime.now(timezone.utc).replace(tzinfo=None) para
+      compatibilidad con datos existentes en BD (que son naive).
+      ALTERNATIVA MÁS LIMPIA: Usar datetime.now(timezone.utc) y hacer
+      aware la comparación solo si el campo es aware.
+
+  CONFTEST ESPECIAL (línea 46-47):
+    now_str = time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())
+    now_dt = datetime.utcnow()
+    → Cambiar a:
+    now_dt = datetime.now(timezone.utc)
+    now_str = now_dt.strftime("%Y-%m-%dT%H:%M:%SZ")
+    (Agregar: from datetime import datetime, timezone al inicio si falta)
+  
+  VERIFICACIÓN:
+    - `grep -rn "utcnow()\|time\.gmtime()" --include="*.py"` debe dar 0 resultados
+      en archivos de producción.
+    - pytest debe pasar con 0 DeprecationWarnings por utcnow.
+    - Contar warnings antes y después: la meta es eliminar los 51 DeprecationWarnings.
+
+────────────────────────────────────────────────────────────────────────────────
+M-01 | REEMPLAZAR 80+ print() CON logger
+────────────────────────────────────────────────────────────────────────────────
+
+  ARCHIVOS Y CONTEOS:
+
+  ┌──────────────────────────────┬──────┬────────────────────────────────────┐
+  │ Archivo                      │ Count│ Logger existente?                  │
+  ├──────────────────────────────┼──────┼────────────────────────────────────┤
+  │ main.py                      │  23  │ SÍ (from utils.logger import logger)│
+  │ orchestrator/pipeline.py     │  19  │ NO — crear                         │
+  │ web/database/migrate_legacy.py│  8  │ NO — crear                         │
+  │ api_server.py                │   7  │ NO — crear                         │
+  │ seed_dashboard_data.py       │   7  │ NO — crear                         │
+  │ benchmark.py                 │  20+ │ NO — EXCEPCIÓN (ver abajo)         │
+  └──────────────────────────────┴──────┴────────────────────────────────────┘
+  
+  EXCEPCIÓN — benchmark.py:
+    benchmark.py es una herramienta CLI de benchmarking que usa print() con
+    ANSI colors para output interactivo. Es aceptable mantener print() aquí
+    porque NO es código de servidor en producción. Es una tool de desarrollo.
+    
+    DECISIÓN ARQUITECTÓNICA: NO migrar benchmark.py a logger.
+    Razón: Es un script CLI interactivo que se ejecuta manualmente.
+    El output con colores ANSI es intencional para legibilidad en terminal.
+    Usar logging aquí ensuciaría el output con timestamps innecesarios.
+  
+  PATRÓN DE MIGRACIÓN POR ARCHIVO:
+  
+  main.py (23 prints, logger YA existe):
+    - Líneas 45, 58, 60, 63: Font loading → logger.info() / logger.warning()
+    - Líneas 238-303+: Console mode (CLI fallback) → logger.info() para
+      headers, input() para prompts. NOTA: Los print() de input prompts
+      ("Ingrese...") son aceptables para modo consola interactivo.
+      Solo migrar los banners y mensajes informativos.
+    
+    REGLA: print() que son UI de consola interactiva (prompts de input)
+    pueden quedarse. print() que son mensajes de estado → logger.
+  
+  api_server.py (7 prints, sin logger):
+    - Agregar al inicio:
+        import logging
+        logger = logging.getLogger(__name__)
+    - Líneas 57-63: Banner de inicio del servidor → logger.info()
+      Mantener formato legible:
+        logger.info("MetodoBase API Server v2.0")
+        logger.info("Dashboard : %s", url)
+        logger.info("API Docs  : %s/docs", url)
+        logger.info("Host      : %s:%s", args.host, args.port)
+  
+  seed_dashboard_data.py (7 prints, sin logger):
+    - Agregar logger al inicio.
+    - Líneas 181, 188, 193, 241, 317, 327, 331:
+      - [CLEAN], [INFO], [OK] → logger.info()
+      - [ERROR] → logger.error()
+  
+  web/database/migrate_legacy.py (8 prints, sin logger):
+    - Agregar logger al inicio.
+    - Todas las líneas (197-206) → logger.info()
+  
+  orchestrator/pipeline.py (19 prints, sin logger):
+    - Agregar logger al inicio.
+    - Headers decorativos (═══) → logger.info() sin decoración excesiva.
+    - Stage progress → logger.info("[%d/%d] %s", step, total, description)
+    - Results → logger.info("  → %s", summary)
+  
+  VERIFICACIÓN:
+    - `grep -rn "print(" --include="*.py" main.py api_server.py seed_dashboard_data.py
+       web/database/migrate_legacy.py orchestrator/pipeline.py` → debe dar 0 resultados
+       (excepto print() legítimos para input() prompts en main.py console mode).
+    - pytest debe pasar sin cambios.
+
+────────────────────────────────────────────────────────────────────────────────
+M-08 | exc_info=True CONDICIONADO A DEBUG
+────────────────────────────────────────────────────────────────────────────────
+
+  ARCHIVOS:
+    api/app.py        — línea 123: logging.getLogger("api").error(..., exc_info=True)
+    api/app.py        — línea 157: _health_logger.error(..., exc_info=True)
+    api/routes/pagos.py — línea 163: logger.error("Stripe error: %s", e, exc_info=True)
+    api/routes/pagos.py — línea 279: logger.error("MercadoPago error: %s", e, exc_info=True)
+  
+  FIX — Patrón uniforme:
+    Importar settings una sola vez por archivo:
+      from config.settings import get_settings
+    
+    Reemplazar:
+      logger.error("msg", exc, exc_info=True)
+    Con:
+      logger.error("msg", exc, exc_info=get_settings().DEBUG)
+  
+  api/app.py línea 123:
+    ANTES : logging.getLogger("api").error("Unhandled: %s", exc, exc_info=True)
+    DESPUÉS: logging.getLogger("api").error("Unhandled: %s", exc, exc_info=get_settings().DEBUG)
+  
+  api/app.py línea 157:
+    ANTES : _health_logger.error("Health check DB failed", exc_info=True)
+    DESPUÉS: _health_logger.error("Health check DB failed", exc_info=get_settings().DEBUG)
+  
+  api/routes/pagos.py línea 163:
+    ANTES : logger.error("Stripe error: %s", e, exc_info=True)
+    DESPUÉS: logger.error("Stripe error: %s", e, exc_info=get_settings().DEBUG)
+  
+  api/routes/pagos.py línea 279:
+    ANTES : logger.error("MercadoPago error: %s", e, exc_info=True)
+    DESPUÉS: logger.error("MercadoPago error: %s", e, exc_info=get_settings().DEBUG)
+  
+  VERIFICACIÓN:
+    - En producción (METODOBASE_ENV=production): logs de error sin stack trace.
+    - En desarrollo (default): logs de error CON stack trace.
+    - Tests no afectados (conftest ya pone RATE_LIMIT_ENABLED=false, no ENV).
+
+────────────────────────────────────────────────────────────────────────────────
+M-04 | RATE LIMITER FORZADO EN PRODUCCIÓN
+────────────────────────────────────────────────────────────────────────────────
+
+  ARCHIVO: web/middleware/rate_limiter.py — línea 28
+  
+  CÓDIGO ACTUAL:
+    RATE_LIMIT_ENABLED = os.getenv("RATE_LIMIT_ENABLED", "true").lower() == "true"
+  
+  FIX:
+    _env_enabled = os.getenv("RATE_LIMIT_ENABLED", "true").lower() == "true"
+    _is_production = os.getenv("METODOBASE_ENV", "development") == "production"
+    RATE_LIMIT_ENABLED = True if _is_production else _env_enabled
+    if _is_production and not _env_enabled:
+        logger.warning(
+            "[SECURITY] RATE_LIMIT_ENABLED was set to false in production — OVERRIDDEN to True"
+        )
+  
+  CUIDADO CON TESTS:
+    conftest.py ya pone os.environ["RATE_LIMIT_ENABLED"] = "false" en tests.
+    Esto está BIEN porque los tests no corren con METODOBASE_ENV=production.
+    Verificar que conftest NO setea METODOBASE_ENV=production.
+  
+  VERIFICACIÓN:
+    - Con METODOBASE_ENV=production + RATE_LIMIT_ENABLED=false → rate limiter ACTIVO.
+    - Con METODOBASE_ENV=development + RATE_LIMIT_ENABLED=false → rate limiter DESACTIVADO.
+    - Tests existentes deben pasar (rate limiting deshabilitado vía env var en tests).
+
+────────────────────────────────────────────────────────────────────────────────
+M-07 | REQUEST ID EN RESPUESTAS DE ERROR
+────────────────────────────────────────────────────────────────────────────────
+
+  ARCHIVO: api/app.py — líneas 117-128 (exception handler)
+  
+  CÓDIGO ACTUAL:
+    @app.exception_handler(Exception)
+    async def _global_error(request: Request, exc: Exception):
+        logging.getLogger("api").error("Unhandled: %s", exc, exc_info=True)
+        track_error(exc, request_path=str(request.url.path), extra_context={
+            "method": request.method,
+            "client": request.client.host if request.client else "unknown",
+        })
+        return JSONResponse(
+            status_code=500,
+            content={"detail": "Error interno del servidor"},
+        )
+  
+  FIX:
+    Cambiar el return a:
+        request_id = getattr(request.state, "request_id", None)
+        headers = {}
+        if request_id:
+            headers["X-Request-ID"] = request_id
+        return JSONResponse(
+            status_code=500,
+            content={"detail": "Error interno del servidor", "request_id": request_id},
+            headers=headers,
+        )
+  
+  CONTEXTO: El middleware RequestIDMiddleware ya setea request.state.request_id
+  en cada request. Solo falta propagarlo a las respuestas de error.
+  
+  VERIFICACIÓN:
+    - GET a un endpoint que lance excepción → response contiene header X-Request-ID.
+    - El body del JSON contiene "request_id" para debugging del lado cliente.
+
+────────────────────────────────────────────────────────────────────────────────
+M-09 | ÍNDICE EN fecha_fin_suscripcion
+────────────────────────────────────────────────────────────────────────────────
+
+  ARCHIVO: web/database/models.py — modelo Cliente
+  
+  CÓDIGO ACTUAL (~línea 211):
+    fecha_fin_suscripcion = Column(DateTime, nullable=True)
+  
+  FIX:
+    fecha_fin_suscripcion = Column(DateTime, nullable=True, index=True)
+  
+  MIGRACIÓN ALEMBIC REQUERIDA:
+    alembic revision --autogenerate -m "add_index_fecha_fin_suscripcion"
+    
+    La migración generada debe contener:
+      op.create_index(
+          op.f('ix_clientes_fecha_fin_suscripcion'),
+          'clientes',
+          ['fecha_fin_suscripcion'],
+      )
+  
+  IMPACTO: Mejora consultas de suscripciones expiradas (repository.py:249)
+  donde se filtra por fecha. Sin índice, es full table scan.
+  
+  VERIFICACIÓN:
+    - `alembic upgrade head` ejecuta sin errores.
+    - pytest pasa sin cambios.
+
+────────────────────────────────────────────────────────────────────────────────
+M-10 | VALIDACIÓN DE INVITACIÓN EXPIRADA
+────────────────────────────────────────────────────────────────────────────────
+
+  ARCHIVO: web/routes/team.py
+  
+  ESTADO ACTUAL: El campo invitation_expires YA existe en el modelo Usuario
+  (models.py línea 98). El handler de accept_invitation YA valida expiración
+  en línea 572:
+    if user.invitation_expires and user.invitation_expires < datetime.utcnow():
+  
+  EL FIX REAL ES:
+    1. Cambiar datetime.utcnow() → datetime.now(timezone.utc) (cubierto por M-02+M-05).
+    2. Verificar que la expiración se valida en TODOS los handlers de invitación:
+       - accept_invite (línea 572) — ✓ ya valida
+       - resend_invitation (línea 508) — ✓ ya renueva expires
+       - list_team (línea 652) — ✓ ya calcula is_expired
+    3. Mejorar: Si la invitación está expirada, el error debe indicarlo
+       claramente y sugerir re-envío.
+  
+  VERIFICACIÓN:
+    - M-02+M-05 cubre el fix de utcnow en este archivo.
+    - No se necesita migración adicional (campo ya existe).
+    - Test: crear invitación con expires en el pasado → accept_invite devuelve 400.
+
+────────────────────────────────────────────────────────────────────────────────
+M-12 | TRIAL CONFIG CONFIGURABLE POR ENTORNO
+────────────────────────────────────────────────────────────────────────────────
+
+  ARCHIVO ORIGEN: config/constantes.py — líneas 130-131
+  
+  CÓDIGO ACTUAL:
+    TRIAL_DAYS = 14
+    TRIAL_MAX_CLIENTES = 50
+  
+  FIX — Mover a config/settings.py:
+    En Settings.__init__():
+      self.TRIAL_DAYS: int = int(os.getenv("TRIAL_DAYS", "14"))
+      self.TRIAL_MAX_CLIENTES: int = int(os.getenv("TRIAL_MAX_CLIENTES", "50"))
+  
+    En config/constantes.py:
+      # DEPRECATED — usar get_settings().TRIAL_DAYS / .TRIAL_MAX_CLIENTES
+      # Mantener temporalmente para backwards compatibility
+      from config.settings import get_settings as _get_settings
+      TRIAL_DAYS = _get_settings().TRIAL_DAYS
+      TRIAL_MAX_CLIENTES = _get_settings().TRIAL_MAX_CLIENTES
+    
+    Esto mantiene backward compatibility mientras se migran los consumidores.
+  
+  ALTERNATIVA MÁS SIMPLE (preferida si pocos consumidores):
+    En config/constantes.py — cambiar directo:
+      TRIAL_DAYS = int(os.getenv("TRIAL_DAYS", "14"))
+      TRIAL_MAX_CLIENTES = int(os.getenv("TRIAL_MAX_CLIENTES", "50"))
+    Agregar `import os` si no existe.
+  
+  VERIFICACIÓN:
+    - TRIAL_DAYS=7 como env var → el sistema usa 7 días.
+    - Sin env var → sigue usando 14 (default).
+    - Buscar todos los consumidores: `grep -rn "TRIAL_DAYS\|TRIAL_MAX" --include="*.py"`
+
+────────────────────────────────────────────────────────────────────────────────
+M-11 | GENERALIZAR REDONDEO CLÍNICO
+────────────────────────────────────────────────────────────────────────────────
+
+  ARCHIVO: core/generador_planes.py — función _aplicar_redondeo_clinico_desayuno()
+  
+  FUNCIÓN ACTUAL (líneas 26-69):
+    def _aplicar_redondeo_clinico_desayuno(comida_dict: dict) -> dict:
+        """Aplica redondeo clínico SOLO para desayuno."""
+        ...
+  
+  FIX — Parametrizar el nombre de la comida:
+    1. Renombrar a _aplicar_redondeo_clinico(comida_dict: dict) → dict
+       (eliminar "_desayuno" del nombre).
+    2. La función NO depende de que sea desayuno — el redondeo es por
+       categoría de alimento (proteína, carbs, grasa, verdura), no por
+       tiempo de comida. El nombre "_desayuno" es engañoso.
+    3. Actualizar docstring para reflejar que es genérico.
+    4. Buscar TODOS los call sites: `grep -rn "redondeo_clinico" --include="*.py"`
+       Actualizar cada uno al nuevo nombre.
+  
+  CÓDIGO DESPUÉS:
+    def _aplicar_redondeo_clinico(comida_dict: dict) -> dict:
+        """
+        Aplica redondeo clínico a los alimentos de una comida.
+        
+        Redondea gramos según categoría:
+        - Proteínas: múltiplos de 5g
+        - Carbohidratos: múltiplos de 10g
+        - Grasas: múltiplos de 5g
+        - Vegetales: múltiplos de 10g
+        """
+        ... (misma lógica)
+  
+  VERIFICACIÓN:
+    - Todos los call sites actualizados.
+    - Tests de generador_planes.py pasan.
+    - El redondeo funciona igual que antes (es un rename, no cambio de lógica).
+
+────────────────────────────────────────────────────────────────────────────────
+M-15 | HORARIOS DE COMIDA CONFIGURABLES POR GYM
+────────────────────────────────────────────────────────────────────────────────
+
+  ARCHIVO: config/constantes.py — líneas 139-175
+  
+  CÓDIGO ACTUAL:
+    HORARIOS_COMIDAS = {
+        'desayuno': {'hora_ideal': '07:00', 'rango': '07:00 - 08:30', ...},
+        'almuerzo': {'hora_ideal': '12:30', 'rango': '12:30 - 13:30', ...},
+        'comida':   {'hora_ideal': '15:00', 'rango': '15:00 - 16:00', ...},
+        'cena':     {'hora_ideal': '19:30', 'rango': '19:30 - 20:30', ...},
+    }
+  
+  FIX — 2 niveles:
+  
+  NIVEL 1 (MVP — implementar ahora):
+    1. Agregar campo horarios_comidas (JSON) al modelo GymProfile:
+         horarios_comidas = Column(JSON, nullable=True, default=None)
+    2. Si el gym tiene horarios_comidas en su perfil → usar esos.
+       Si no → fallback a HORARIOS_COMIDAS de constantes (defaults actuales).
+    3. Crear función helper:
+         def get_horarios_comidas(gym_profile: Optional[GymProfile] = None) -> dict:
+             if gym_profile and gym_profile.horarios_comidas:
+                 return gym_profile.horarios_comidas
+             return HORARIOS_COMIDAS  # default de constantes.py
+    4. Ubicar en: config/constantes.py o core/estructura_comida.py
+  
+  NIVEL 2 (futuro — NO implementar ahora):
+    - UI en dashboard para que cada gym edite sus horarios.
+    - API endpoint PATCH /api/gym/horarios.
+  
+  MIGRACIÓN ALEMBIC REQUERIDA:
+    op.add_column('gym_profiles', sa.Column('horarios_comidas', sa.JSON(), nullable=True))
+  
+  VERIFICACIÓN:
+    - Sin horarios en gym_profile → usa defaults de constantes.py (comportamiento actual).
+    - Con horarios en gym_profile → usa los del gym.
+    - Tests de generador_planes.py pasan (no usan horarios directamente en generación).
+
+────────────────────────────────────────────────────────────────────────────────
+M-13 | INTEGRACIÓN DE EMAIL PARA INVITACIONES DE EQUIPO
+────────────────────────────────────────────────────────────────────────────────
+
+  ARCHIVOS:
+    web/routes/team.py            — líneas 144, 233 (TODOs)
+    web/services/email_service.py — YA tiene send_welcome() y _send()
+  
+  ESTADO ACTUAL:
+    - _send_invitation_email() en team.py solo loguea, no envía email.
+    - email_service.py tiene la infraestructura (Resend API) pero no tiene
+      función send_invitation().
+  
+  FIX:
+    1. En web/services/email_service.py, agregar función:
+    
+       def send_team_invitation(
+           email: str,
+           nombre: str,
+           gym_name: str,
+           role: str,
+           invite_url: str,
+       ) -> bool:
+           """Envía email de invitación al equipo del gym."""
+           html = _base_layout(f"""
+               <h2>¡Has sido invitado!</h2>
+               <p>Hola {nombre},</p>
+               <p><strong>{gym_name}</strong> te ha invitado a unirte como
+               <strong>{role}</strong> en MetodoBase.</p>
+               <p><a href="{invite_url}" 
+                  style="background:#22c55e;color:white;padding:12px 24px;
+                         border-radius:8px;text-decoration:none;display:inline-block">
+                  Aceptar Invitación</a></p>
+               <p>Esta invitación expira en 7 días.</p>
+           """)
+           return _send(email, f"Invitación a {gym_name} — MetodoBase", html)
+    
+    2. En web/routes/team.py — actualizar _send_invitation_email():
+    
+       ANTES:
+         # TODO: Integrar con web/services/email_service.py
+         _logger.info("[TEAM] Invitation email would be sent to %s", email)
+       
+       DESPUÉS:
+         from web.services.email_service import send_team_invitation
+         from config.settings import get_settings
+         
+         base_url = get_settings().BASE_URL  # ← requiere agregar BASE_URL a settings
+         invite_url = f"{base_url}/auth/accept-invite?token={token}"
+         sent = send_team_invitation(
+             email=email,
+             nombre=nombre,
+             gym_name=gym_name,
+             role=role,
+             invite_url=invite_url,
+         )
+         if sent:
+             _logger.info("[TEAM] Invitation email sent to %s", email)
+         else:
+             _logger.warning("[TEAM] Could not send invitation email to %s (email service not configured)", email)
+    
+    3. En config/settings.py — agregar BASE_URL:
+       self.BASE_URL: str = os.getenv("BASE_URL", "http://localhost:8000")
+  
+  VERIFICACIÓN:
+    - Si RESEND_API_KEY no está configurado → log warning, no crash.
+    - Si está configurado → email se envía.
+    - Tests: mock send_team_invitation y verificar que se llama con args correctos.
+
+════════════════════════════════════════════════════════════════════════════════
+FASE 3 — QA: CHECKLIST DE VERIFICACIÓN POST-IMPLEMENTACIÓN
+════════════════════════════════════════════════════════════════════════════════
+
+Instrucciones para QA:
+
+El QA debe ejecutar TODAS las verificaciones abajo y reportar hallazgos
+al Implementador. No debe corregir código — solo identificar problemas.
+
+  ┌────────────────────────────────────────────────────────────────────────────┐
+  │ #   │ VERIFICACIÓN                                                        │
+  ├─────┼────────────────────────────────────────────────────────────────────┤
+  │ Q01 │ pytest --tb=short -q → TODOS pasan (≥ 1062 + nuevos)              │
+  │ Q02 │ grep -rn "print(" --include="*.py" en archivos migrados → 0      │
+  │     │ (excepción: benchmark.py y console prompts en main.py)            │
+  │ Q03 │ grep -rn "utcnow()\|time\.gmtime()" --include="*.py" → 0        │
+  │     │ en código de producción (excepción: documentación, comments)      │
+  │ Q04 │ pytest -W error::DeprecationWarning → 0 DeprecationWarnings      │
+  │     │ por utcnow (pueden quedar otros deprecation warnings no           │
+  │     │ relacionados, ej: SQLAlchemy internal, asyncio loop)              │
+  │ Q05 │ grep -ri "customtkinter\|ctk" --include="*.py" en utils/ → 0    │
+  │ Q06 │ Verificar utils/updater.py eliminado o confirmar 0 imports       │
+  │ Q07 │ GET /api/clientes?limite=101 → HTTP 422 (validación)             │
+  │ Q08 │ GET /api/clientes?limite=100 → HTTP 200 (máximo aceptado)        │
+  │ Q09 │ Con METODOBASE_ENV=production + RATE_LIMIT_ENABLED=false:        │
+  │     │   el rate limiter DEBE estar activo (log warning visible)        │
+  │ Q10 │ Error 500 → response tiene header X-Request-ID y body            │
+  │     │   contiene campo "request_id"                                     │
+  │ Q11 │ Con METODOBASE_ENV=production: logs de error NO tienen            │
+  │     │   stack trace (exc_info=False en producción)                      │
+  │ Q12 │ Con METODOBASE_ENV=development: logs de error SÍ tienen           │
+  │     │   stack trace (exc_info=True en desarrollo)                       │
+  │ Q13 │ alembic upgrade head → ejecuta migraciones nuevas sin error      │
+  │ Q14 │ Verificar que no se crearon archivos innecesarios (no .bak,      │
+  │     │   no archivos temporales, no __pycache__ commiteado)             │
+  │ Q15 │ Verificar que el renaming de _aplicar_redondeo_clinico_desayuno  │
+  │     │   no rompió ningún call site                                      │
+  │ Q16 │ Verificar que TRIAL_DAYS y TRIAL_MAX_CLIENTES responden a        │
+  │     │   env vars: TRIAL_DAYS=7 python -c "from config.constantes ..." │
+  │ Q17 │ Contar tests totales: deben ser ≥ 1062 + ~20 nuevos (M tests)   │
+  │ Q18 │ Revisar que cada test nuevo tiene nombre descriptivo y            │
+  │     │   docstring explicando qué verifica                               │
+  │ Q19 │ Verificar que los horarios default siguen funcionando si          │
+  │     │   gym_profile.horarios_comidas es NULL                            │
+  │ Q20 │ Verificar que email invitation degrada gracefully si              │
+  │     │   RESEND_API_KEY no está configurado                              │
+  └─────┴────────────────────────────────────────────────────────────────────┘
+
+
+════════════════════════════════════════════════════════════════════════════════
+FASE 4 — IMPLEMENTADOR: AJUSTES POST-QA
+════════════════════════════════════════════════════════════════════════════════
+
+Instrucciones para el Implementador (ronda de ajustes):
+
+1. TOMAR cada hallazgo de QA y corregirlo.
+2. NO agregar features adicionales — solo correcciones de lo reportado.
+3. Correr pytest después de CADA corrección.
+4. Verificar que el conteo final de:
+   - Tests: ≥ 1062 existentes + tests nuevos, 0 failures
+   - DeprecationWarnings por utcnow: 0
+   - print() en archivos migrados: 0
+   - CustomTkinter references: 0
+
+CRITERIO DE ACEPTACIÓN FINAL:
+  ┌──────────────────────────────────────────────────────────────────────────┐
+  │ ✅ pytest pasa al 100% (0 failures, 0 errors)                          │
+  │ ✅ 0 DeprecationWarnings por datetime.utcnow()                         │
+  │ ✅ 0 print() en código de servidor (benchmark.py excluido)             │
+  │ ✅ 0 referencias a CustomTkinter en código de producción               │
+  │ ✅ utils/updater.py eliminado sin imports rotos                        │
+  │ ✅ Paginación máxima = 100 (no 500)                                    │
+  │ ✅ Rate limiter forzado en producción                                   │
+  │ ✅ X-Request-ID en respuestas de error                                  │
+  │ ✅ exc_info condicionado a DEBUG                                        │
+  │ ✅ Índice en fecha_fin_suscripcion (con migración Alembic)             │
+  │ ✅ Trial config lee de env vars                                         │
+  │ ✅ Redondeo clínico generalizado (no solo "desayuno")                  │
+  │ ✅ Horarios configurables por gym (con fallback a defaults)            │
+  │ ✅ Email de invitación integrado (con degradación graciosa)            │
+  │ ✅ Todas las migraciones Alembic generadas y probadas                  │
+  └──────────────────────────────────────────────────────────────────────────┘
+
+
+════════════════════════════════════════════════════════════════════════════════
+REGLAS ARQUITECTÓNICAS (APLICAN EN TODAS LAS FASES)
+════════════════════════════════════════════════════════════════════════════════
+
+1. ZERO REGRESSION: No romper ningún test existente. Si un test falla,
+   arreglarlo antes de continuar con el siguiente fix.
+
+2. FAIL CLOSED: Cuando hay duda, elegir la opción más segura.
+   Ej: Rate limiter → activo por defecto, forzado en producción.
+
+3. BACKWARD COMPATIBLE: Los cambios de constantes deben mantener los
+   mismos defaults que antes. TRIAL_DAYS=14 como default, no cambiarlo.
+
+4. LOGGING HIERARCHY:
+   - logger.debug()   → Detalle de operación (solo con DEBUG=True)
+   - logger.info()    → Operación normal completada
+   - logger.warning() → Situación anómala pero recuperable
+   - logger.error()   → Error que requiere atención
+
+5. DATETIME CANÓNICO: Usar SIEMPRE datetime.now(timezone.utc).
+   Nunca datetime.utcnow(), nunca time.gmtime(), nunca datetime.now()
+   sin timezone.
+
+6. IMPORT STYLE: from datetime import datetime, timezone
+   No: import datetime → datetime.datetime.now(datetime.timezone.utc)
+
+7. MIGRATIONS: Todo cambio de schema DEBE tener migración Alembic.
+   No usar Base.metadata.create_all() en producción.
+
+8. TESTS: Mínimo 2 tests por fix — uno happy path, uno edge case.
+   Tests de regresión para cada bug corregido.
+
+9. NO SOBRE-DISEÑAR: M-15 es solo el campo en DB + helper function.
+   NO crear UI, NO crear API endpoint, NO crear admin panel.
+   Solo la infraestructura mínima para que sea configurable.
+
+10. GRACEFUL DEGRADATION: Email service no configurado → log warning,
+    no crash. Horarios no configurados → usar defaults. Always have
+    a sensible fallback.
+
+
+════════════════════════════════════════════════════════════════════════════════
+RESUMEN DE ARCHIVOS A MODIFICAR
+════════════════════════════════════════════════════════════════════════════════
+
+  ELIMINAR:
+    utils/updater.py
+
+  MODIFICAR (código):
+    main.py                           — M-01 (print → logger)
+    api_server.py                     — M-01 (print → logger)
+    seed_dashboard_data.py            — M-01 (print → logger), M-02 (utcnow)
+    web/database/migrate_legacy.py    — M-01 (print → logger)
+    orchestrator/pipeline.py          — M-01 (print → logger)
+    api/app.py                        — M-07 (req ID), M-08 (exc_info)
+    api/routes/pagos.py               — M-08 (exc_info)
+    api/routes/clientes.py            — M-03 (paginación)
+    web/middleware/rate_limiter.py     — M-04 (force en prod)
+    web/database/repository.py        — M-02+M-05 (7× utcnow)
+    web/routes/team.py                — M-02+M-05 (4× utcnow), M-13 (email)
+    web/routes/planes.py              — M-02+M-05 (2× utcnow)
+    web/routes/stats.py               — M-02+M-05 (1× utcnow)
+    web/database/models.py            — M-02+M-05 (1× utcnow), M-09 (índice), M-15 (horarios)
+    web/services/stripe_service.py    — M-02+M-05 (3× utcnow)
+    web/services/email_service.py     — M-13 (send_team_invitation)
+    api/factura_pdf.py                — M-02+M-05 (2× utcnow)
+    conftest.py                       — M-02+M-05 (utcnow + gmtime)
+    core/services/migration_monitor.py— M-02+M-05 (3× utcnow)
+    src/repositories/plan_repository.py— M-02+M-05 (1× utcnow)
+    web/auth.py                       — M-02+M-05 (2× gmtime)
+    config/constantes.py              — M-12 (trial env vars), M-15 (horarios helper)
+    config/settings.py                — M-12 (TRIAL settings), M-13 (BASE_URL)
+    core/generador_planes.py          — M-11 (rename redondeo)
+    utils/helpers.py                  — M-06 (limpiar CTk)
+    utils/iconos.py                   — M-06 (limpiar CTk)
+
+  CREAR:
+    web/database/alembic/versions/xxx_add_index_fecha_fin_suscripcion.py  — M-09
+    web/database/alembic/versions/xxx_add_horarios_comidas_gym.py         — M-15
+    tests/test_medium_fixes.py       — Tests para todos los M fixes
+
+  TOTAL: ~28 archivos modificados + 1 eliminado + 3 nuevos

@@ -3,6 +3,8 @@
 
 from PySide6.QtWidgets import QWidget, QVBoxLayout, QLabel, QProgressBar
 
+from design_system.tokens import Colors, Radius
+
 
 class ProgressIndicator(QWidget):
     """
@@ -17,15 +19,11 @@ class ProgressIndicator(QWidget):
         progress.reset()
     """
 
-    COLOR_PRIMARY = "#9B4FB0"
-    COLOR_SUCCESS = "#4CAF50"
-    COLOR_ERROR = "#F44336"
-
     def __init__(self, parent=None):
         super().__init__(parent)
         self.setStyleSheet(
-            "QWidget { background-color: #1E1E1E; border: 1px solid #444444;"
-            " border-radius: 10px; }"
+            f"QWidget {{ background-color: {Colors.BG_CARD}; border: 1px solid {Colors.BORDER_DEFAULT};"
+            f" border-radius: {Radius.LG}px; }}"
         )
 
         layout = QVBoxLayout(self)
@@ -33,7 +31,7 @@ class ProgressIndicator(QWidget):
         layout.setSpacing(6)
 
         self.lbl_estado = QLabel("Preparando flujo de trabajo...")
-        self.lbl_estado.setStyleSheet("color: #CCCCCC; font-size: 12px; background: transparent; border: none;")
+        self.lbl_estado.setStyleSheet(f"color: {Colors.TEXT_SECONDARY}; font-size: 12px; background: transparent; border: none;")
         layout.addWidget(self.lbl_estado)
 
         self.barra = QProgressBar()
@@ -42,14 +40,14 @@ class ProgressIndicator(QWidget):
         self.barra.setTextVisible(False)
         self.barra.setFixedHeight(20)
         self.barra.setStyleSheet(
-            f"QProgressBar {{ background-color: #2A2A2A; border: none; border-radius: 10px; }}"
-            f"QProgressBar::chunk {{ background-color: {self.COLOR_PRIMARY}; border-radius: 10px; }}"
+            f"QProgressBar {{ background-color: {Colors.BG_HOVER}; border: none; border-radius: {Radius.LG}px; }}"
+            f"QProgressBar::chunk {{ background-color: {Colors.PRIMARY}; border-radius: {Radius.LG}px; }}"
         )
         layout.addWidget(self.barra)
 
         self.lbl_pct = QLabel("0%")
         self.lbl_pct.setStyleSheet(
-            f"color: {self.COLOR_PRIMARY}; font-size: 14px; font-weight: bold;"
+            f"color: {Colors.PRIMARY}; font-size: 14px; font-weight: bold;"
             " background: transparent; border: none;"
         )
         layout.addWidget(self.lbl_pct)
@@ -68,31 +66,31 @@ class ProgressIndicator(QWidget):
         """Marca como completado (verde)."""
         self.barra.setValue(100)
         self.barra.setStyleSheet(
-            "QProgressBar { background-color: #2A2A2A; border: none; border-radius: 10px; }"
-            f"QProgressBar::chunk {{ background-color: {self.COLOR_SUCCESS}; border-radius: 10px; }}"
+            f"QProgressBar {{ background-color: {Colors.BG_HOVER}; border: none; border-radius: {Radius.LG}px; }}"
+            f"QProgressBar::chunk {{ background-color: {Colors.SUCCESS}; border-radius: {Radius.LG}px; }}"
         )
-        self.lbl_estado.setStyleSheet(f"color: {self.COLOR_SUCCESS}; font-size: 12px; background: transparent; border: none;")
+        self.lbl_estado.setStyleSheet(f"color: {Colors.SUCCESS}; font-size: 12px; background: transparent; border: none;")
         self.lbl_estado.setText(status)
-        self.lbl_pct.setStyleSheet(f"color: {self.COLOR_SUCCESS}; font-size: 14px; font-weight: bold; background: transparent; border: none;")
+        self.lbl_pct.setStyleSheet(f"color: {Colors.SUCCESS}; font-size: 14px; font-weight: bold; background: transparent; border: none;")
         self.lbl_pct.setText("100%")
 
     def error(self, mensaje: str = "Error en la operación") -> None:
         """Marca con error (rojo)."""
-        self.lbl_estado.setStyleSheet(f"color: {self.COLOR_ERROR}; font-size: 12px; background: transparent; border: none;")
+        self.lbl_estado.setStyleSheet(f"color: {Colors.ERROR}; font-size: 12px; background: transparent; border: none;")
         self.lbl_estado.setText(f"✗ {mensaje}")
-        self.lbl_pct.setStyleSheet(f"color: {self.COLOR_ERROR}; font-size: 14px; font-weight: bold; background: transparent; border: none;")
+        self.lbl_pct.setStyleSheet(f"color: {Colors.ERROR}; font-size: 14px; font-weight: bold; background: transparent; border: none;")
 
     def reset(self) -> None:
         """Reinicia el indicador."""
         self.barra.setValue(0)
         self.barra.setStyleSheet(
-            "QProgressBar { background-color: #2A2A2A; border: none; border-radius: 10px; }"
-            f"QProgressBar::chunk {{ background-color: {self.COLOR_PRIMARY}; border-radius: 10px; }}"
+            f"QProgressBar {{ background-color: {Colors.BG_HOVER}; border: none; border-radius: {Radius.LG}px; }}"
+            f"QProgressBar::chunk {{ background-color: {Colors.PRIMARY}; border-radius: {Radius.LG}px; }}"
         )
-        self.lbl_estado.setStyleSheet("color: #CCCCCC; font-size: 12px; background: transparent; border: none;")
+        self.lbl_estado.setStyleSheet(f"color: {Colors.TEXT_SECONDARY}; font-size: 12px; background: transparent; border: none;")
         self.lbl_estado.setText("Preparando flujo de trabajo...")
         self.lbl_pct.setStyleSheet(
-            f"color: {self.COLOR_PRIMARY}; font-size: 14px; font-weight: bold;"
+            f"color: {Colors.PRIMARY}; font-size: 14px; font-weight: bold;"
             " background: transparent; border: none;"
         )
         self.lbl_pct.setText("0%")

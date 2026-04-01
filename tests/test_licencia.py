@@ -11,8 +11,9 @@ from core.licencia import GestorLicencias
 def _gestor_tmp(tmp_path, monkeypatch) -> GestorLicencias:
     monkeypatch.setattr(GestorLicencias, "ARCHIVO_CONFIG", str(tmp_path / "licencia_config.json"))
     monkeypatch.setattr(GestorLicencias, "ARCHIVO_LICENCIA", str(tmp_path / "licencia.lic"))
-    monkeypatch.setattr(GestorLicencias, "SALT_MASTER", "TEST_SALT")
-    return GestorLicencias()
+    g = GestorLicencias()
+    g.SALT_MASTER = "TEST_SALT"
+    return g
 
 
 def test_emisor_deshabilitado_por_defecto(monkeypatch):

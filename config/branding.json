@@ -1,25 +1,25 @@
 {
-  "nombre_gym": "FitnessGym Real del Valle",
+  "nombre_gym": "",
   "nombre_corto": "Método Base",
-  "tagline": "Método Base by Consultoría Hernández",
+  "tagline": "",
   "colores": {
-    "primario": "#ff0006",
-    "primario_hover": "#B565C6",
-    "secundario": "#ffff00",
-    "secundario_hover": "#E4B85B"
+    "primario": "#FFEB3B",
+    "primario_hover": "#FDD835",
+    "secundario": "#FFD700",
+    "secundario_hover": "#F9A825"
   },
   "contacto": {
-    "telefono": "5217441614117",
-    "email": "oscar_autumn@outlook.com",
+    "telefono": "",
+    "email": "",
     "direccion": "",
-    "direccion_linea1": "C. Valle De San José 1329B",
-    "direccion_linea2": "Fraccionamiento Real del Valle",
-    "direccion_linea3": "45654 Tlajomulco de Zúñiga, Jal.",
-    "whatsapp": "5217441614117"
+    "direccion_linea1": "",
+    "direccion_linea2": "",
+    "direccion_linea3": "",
+    "whatsapp": ""
   },
   "redes_sociales": {
     "facebook": "",
-    "instagram": "@fitnessgym_realdelvalle",
+    "instagram": "",
     "tiktok": ""
   },
   "logo": {
@@ -28,7 +28,9 @@
   },
   "pdf": {
     "mostrar_logo": true,
+    "logo_path": "assets/logo.png",
     "mostrar_contacto": true,
-    "color_encabezado": "#9B4FB0"
-  }
+    "color_encabezado": "#FFEB3B"
+  },
+  "cuota_mensual": 0
 }

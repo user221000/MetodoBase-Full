@@ -9,8 +9,8 @@
 
 #define MyAppName "Método Base"
 #define MyAppVersion "2.0.0"
-#define MyAppPublisher "Consultoría Hernández"
-#define MyAppURL "https://consultoriahernandez.mx"
+#define MyAppPublisher "MetodoBase"
+#define MyAppURL "https://metodobase.com"
 #define MyAppExeName "MetodoBase.exe"
 
 [Setup]

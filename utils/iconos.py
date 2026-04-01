@@ -3,7 +3,7 @@
 utils/iconos.py — Diccionario de iconografía multiplataforma (Agente 5).
 
 Proporciona íconos Unicode (emoji) y equivalentes Qt (QStyle.StandardPixmap)
-para su uso uniforme en botones de ambas plataformas (desktop PySide6 y web CTk).
+para su uso uniforme en botones de la plataforma desktop PySide6.
 
 Uso rápido::
 
@@ -216,10 +216,10 @@ def obtener_icono_qt(nombre: str):
 
 def aplicar_icono_btn(btn, nombre: str, plataforma: str = "desktop") -> None:
     """
-    Aplica ícono y tooltip a un QPushButton (desktop) o CTkButton (web).
+    Aplica ícono y tooltip a un QPushButton.
 
     Args:
-        btn:        Widget de botón (QPushButton o CTkButton).
+        btn:        Widget de botón (QPushButton).
         nombre:     Nombre del ícono (clave en ICONOS_EMOJI / Qt).
         plataforma: "desktop" usa QIcon; cualquier otro usa emoji en texto.
     """
@@ -238,17 +238,17 @@ def aplicar_icono_btn(btn, nombre: str, plataforma: str = "desktop") -> None:
         except ImportError:
             pass
 
-    # Web/CTk o fallback: emoji en el texto del botón
+    # Fallback: emoji en texto del botón
     emoji = obtener_emoji(nombre)
     texto_actual = btn.cget("text") if hasattr(btn, "cget") else (btn.text() or "")
     if emoji and not texto_actual.startswith(emoji):
         nuevo_texto = f"{emoji}  {texto_actual}".strip()
         try:
-            btn.configure(text=nuevo_texto)   # CTkButton
+            btn.configure(text=nuevo_texto)
         except AttributeError:
-            btn.setText(nuevo_texto)          # QPushButton
+            btn.setText(nuevo_texto)
     if tooltip:
         try:
-            btn.setToolTip(tooltip)           # Qt
+            btn.setToolTip(tooltip)
         except AttributeError:
-            pass                              # CTk (no soporta tooltip nativo)
+            pass

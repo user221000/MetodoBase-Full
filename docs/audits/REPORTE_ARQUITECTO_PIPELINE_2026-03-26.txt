@@ -1,0 +1,207 @@
+================================================================================
+REPORTE ARQUITECTO SENIOR — METODOBASE PRODUCCION
+Fecha: 2026-03-26
+Rol: Co-Owner / Arquitecto SaaS (15 años exp.)
+Base: ROADMAP_PRODUCCION_2026-03-26.txt
+================================================================================
+
+1) DIAGNOSTICO DEL ARQUITECTO
+================================================================================
+
+HALLAZGO 01 — MercadoPago webhook usaba dict en memoria [CRITICO] [RESUELTO]
+  Impacto: Pagos perdidos al reiniciar pod. Revenue perdido sin recuperacion.
+  Evidencia: api/routes/pagos.py usaba _sesiones[str(payment_id)] = {...}
+  Mitigacion aplicada: Persistencia en DB (CheckoutSession + Subscription).
+  Estado: FIX APLICADO Y VALIDADO.
+
+HALLAZGO 02 — MP webhook sin verificacion de firma [CRITICO] [RESUELTO]
+  Impacto: Cualquiera podia enviar POST falso y activar suscripciones gratis.
+  Evidencia: hashlib y hmac importados pero nunca usados. Sin x-signature check.
+  Mitigacion aplicada: Verificacion de firma HMAC-SHA256 con MERCADOPAGO_WEBHOOK_SECRET.
+  En produccion rechaza requests sin firma. En dev permite sin firma.
+  Estado: FIX APLICADO Y VALIDADO.
+
+HALLAZGO 03 — MP webhook sin idempotencia [CRITICO] [RESUELTO]
+  Impacto: MercadoPago reenvia webhooks. Segundo intento causaba IntegrityError
+  en columna UNIQUE stripe_session_id → crash 500 → loop infinito de retries.
+  Evidencia: Stripe tenia idempotencia via StripeWebhookEvent, MP no tenia nada.
+  Mitigacion aplicada: Check de payment_id existente antes de insertar.
+  Estado: FIX APLICADO Y VALIDADO.
+
+HALLAZGO 04 — CheckoutSession duplicada entre preference y webhook [ALTO] [RESUELTO]
+  Impacto: crear_preferencia_mp creaba un registro con pref_id. mp_webhook creaba
+  OTRO con payment_id. 2 registros para el mismo pago, uno en "pending" forever.
+  Evidencia: Stripe no tenia este problema porque el webhook usa el mismo session_id.
+  Mitigacion aplicada: mp_webhook ahora busca checkout pendiente del gym y lo
+  actualiza en lugar de crear duplicado.
+  Estado: FIX APLICADO Y VALIDADO.
+
+HALLAZGO 05 — ENABLE_BILLING = False bloqueaba UI pero no API [MEDIO] [RESUELTO]
+  Impacto: Confusion. Billing seguia activo en web pero oculto en desktop.
+  Evidencia: config/constantes.py:253 tenia False. web/routes/billing.py no lo checaba.
+  Mitigacion aplicada: Cambiado a True con comentario aclaratorio.
+  Estado: FIX APLICADO Y VALIDADO.
+
+HALLAZGO 06 — No hay bridge pago → licencia automatica [ALTO] [PENDIENTE]
+  Impacto: Cuando Stripe/MP confirma pago, se activa Subscription pero NO se crea
+  licencia key_v2 automaticamente. El gym queda con suscripcion activa pero
+  sin licencia desktop si la necesita.
+  Evidencia: core/licencia.py solo tiene activacion manual. No hay
+  web/services/licensing_service.py.
+  Mitigacion propuesta: Crear licensing_service.py que genere key_v2 cuando
+  _on_checkout_completed o mp_webhook activan suscripcion.
+  Riesgo: Si el producto es 100% web, no se necesita licencia desktop.
+  Decidir con product owner.
+
+HALLAZGO 07 — Endpoints Stripe duplicados entre pagos.py y billing.py [MEDIO] [PENDIENTE]
+  Impacto: Hay 2 rutas para Stripe webhook: /api/pagos/stripe/webhook y
+  /api/billing/webhook. Ambas hacen lo mismo. Stripe solo manda a una URL.
+  Evidencia: api/routes/pagos.py:167 y web/routes/billing.py:117.
+  Mitigacion propuesta: Deprecar una. Mantener billing.py como canonical.
+  Registrar solo /api/billing/webhook en Stripe Dashboard.
+
+HALLAZGO 08 — Logica de activacion de suscripcion duplicada [MEDIO] [PENDIENTE]
+  Impacto: mp_webhook en pagos.py tiene su propio upsert de Subscription.
+  stripe_service.py tiene _on_checkout_completed que hace lo mismo.
+  Si cambias la logica en uno, hay que cambiar en el otro.
+  Evidencia: api/routes/pagos.py:343-357 vs web/services/stripe_service.py:221.
+  Mitigacion propuesta: Extraer funcion activate_subscription(db, gym_id, plan)
+  compartida en un servicio comun.
+
+HALLAZGO 09 — MERCADOPAGO_WEBHOOK_SECRET no estaba en settings ni .env [BAJO] [RESUELTO]
+  Impacto: Sin la variable no se podia verificar firma.
+  Mitigacion aplicada: Agregado a config/settings.py y .env.example.
+  Estado: FIX APLICADO Y VALIDADO.
+
+HALLAZGO 10 — Falta test de integracion pago → suscripcion [MEDIO] [PENDIENTE]
+  Impacto: No hay test end-to-end que simule: crear preference → webhook MP →
+  verificar que Subscription se activo correctamente. Solo hay tests unitarios.
+  Mitigacion propuesta: Crear tests/test_mp_webhook_integration.py.
+
+HALLAZGO 11 — invoice.payment_failed sin dunning workflow [BAJO] [PENDIENTE]
+  Impacto: Si un pago falla, se marca past_due y se envia email generico.
+  No hay logica de gracia, reintentos, ni degradacion de plan.
+  Mitigacion propuesta: Iter 3. No bloquea produccion.
+
+HALLAZGO 12 — ENABLE_BILLING = True puede mostrar panel desktop sin credenciales [BAJO] [PENDIENTE]
+  Impacto: Si usuario desktop abre el panel de facturacion sin Stripe/MP configurado,
+  puede ver errores. El desktop no deberia tener billing, eso es web.
+  Mitigacion propuesta: Que el panel desktop muestre graceful message si no hay
+  credenciales. O separar ENABLE_BILLING_DESKTOP de ENABLE_BILLING_WEB.
+
+
+2) AJUSTES APLICADOS AL ROADMAP
+================================================================================
+
+ITERACION 0 — PRE-PROD
+  [HECHO] Fix MercadoPago webhook: persistencia DB, firma, idempotencia, dedup.
+  [HECHO] Eliminar almacenamiento en memoria (_sesiones).
+  [HECHO] ENABLE_BILLING activado.
+  [HECHO] MERCADOPAGO_WEBHOOK_SECRET en settings y .env.example.
+  [PENDIENTE] Definir si se necesita bridge pago → licencia desktop.
+  [PENDIENTE] Consolidar endpoints duplicados (pagos.py vs billing.py).
+  [AGREGADO] Extraer funcion activate_subscription compartida.
+
+ITERACION 1 — SEGURIDAD
+  Sin cambios al roadmap. Los fixes de seguridad del roadmap original siguen pendientes.
+
+ITERACION 2 — MULTI-TENANT
+  Sin cambios al roadmap.
+
+ITERACION 3 — OBSERVABILIDAD
+  [AGREGADO] Crear test de integracion MP webhook end-to-end.
+  [AGREGADO] Implementar dunning workflow basico.
+
+ITERACION 4 — CALIDAD
+  Sin cambios al roadmap.
+
+ITERACION 5 — PRODUCTIZACION
+  Sin cambios al roadmap.
+
+
+3) PLAN DE EJECUCION EN 3 SPRINTS
+================================================================================
+
+SPRINT 1: PAGOS Y ESTABILIDAD MINIMA (completado parcialmente)
+  [x] MercadoPago webhook con DB + firma + idempotencia
+  [x] ENABLE_BILLING activado
+  [x] MERCADOPAGO_WEBHOOK_SECRET en settings
+  [ ] Consolidar endpoints duplicados Stripe (pagos.py vs billing.py)
+  [ ] Funcion compartida activate_subscription()
+  [ ] Probar flujo end-to-end con Stripe test mode
+  Criterio de salida: checkout → webhook → Subscription activa verificado 3 veces.
+
+SPRINT 2: SEGURIDAD + MULTI-TENANT
+  [ ] Rate limiting en login
+  [ ] CSP nonce + quitar unsafe-inline
+  [ ] SRI en scripts CDN
+  [ ] Audit logging de auth
+  [ ] CSRF cookie httponly
+  [ ] RLS activado en PostgreSQL
+  [ ] Branding dinamico desde DB
+  Criterio de salida: 0 vulnerabilidades criticas en checklist OWASP aplicable.
+
+SPRINT 3: OBSERVABILIDAD + CALIDAD
+  [ ] Logging estructurado JSON
+  [ ] Request ID en errores
+  [ ] Jobs de limpieza (tokens, eventos Stripe)
+  [ ] Alertas basicas
+  [ ] Test integracion MP webhook
+  [ ] print() → logger + utcnow() → now(UTC)
+  Criterio de salida: deploy a staging sin warnings, metricas activas, tests >95%.
+
+
+4) RIESGOS DE NEGOCIO
+================================================================================
+
+RIESGO 1: Sin Price IDs reales de Stripe no hay revenue.
+  Mitigacion: Crear productos en Stripe Dashboard test mode YA.
+  Copiar Price IDs a .env. Verificar con checkout flow.
+
+RIESGO 2: Webhook mal configurado = pagos sin activacion.
+  Mitigacion: Registrar URLs en Stripe Dashboard y MP Dashboard.
+  Monitorear con Stripe Events log los primeros 7 dias.
+
+RIESGO 3: Sin dunning, un pago fallido = churn silencioso.
+  Mitigacion: Stripe tiene Smart Retries. Activar en Dashboard.
+  Para fase 1 es suficiente.
+
+RIESGO 4: Si licensing desktop no se conecta con pagos web, soporte manual alto.
+  Mitigacion: Decidir si el producto go-live es web-only.
+  Si es web-only, la licencia desktop no aplica.
+
+RIESGO 5: Endpoints duplicados en API pueden confundir integraciones.
+  Mitigacion: Documentar en OpenAPI cual es el canonical.
+  Deprecar /pagos/stripe/* a favor de /billing/*.
+
+
+5) ARCHIVOS MODIFICADOS EN ESTA SESION
+================================================================================
+
+api/routes/pagos.py
+  - mp_webhook(): verificacion de firma HMAC-SHA256
+  - mp_webhook(): idempotencia por payment_id
+  - mp_webhook(): reutiliza CheckoutSession pendiente en lugar de duplicar
+  - mp_webhook(): persistencia DB (ya aplicado en primera pasada)
+
+config/settings.py
+  - Agregado: self.MERCADOPAGO_WEBHOOK_SECRET
+
+config/constantes.py
+  - ENABLE_BILLING = True (era False)
+
+.env.example
+  - Agregado: MERCADOPAGO_WEBHOOK_SECRET=
+
+
+6) VALIDACION
+================================================================================
+
+Tests ejecutados: 1119 passed, 3 skipped, 0 failures
+Tiempo: 16.57s
+Regresiones: 0
+Warnings: 2 (deprecation, no relacionados con cambios)
+
+================================================================================
+FIN DEL REPORTE — LISTO PARA SIGUIENTE ITERACION
+================================================================================

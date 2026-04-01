@@ -1,0 +1,99 @@
+METODOBASE - ROADMAP A PRODUCCION (CO-OWNER VIEW)
+Fecha: 2026-03-26
+
+OBJETIVO
+Llevar MetodoBase a produccion con pagos operativos, compliance basico y un ciclo de
+entregas cortas. Prioridad: revenue + estabilidad.
+
+ESTADO ACTUAL (RESUMEN TECNICO)
+- API FastAPI lista y con middleware de seguridad basico.
+- Pagos Stripe y MercadoPago ya existen a nivel de rutas.
+- Settings de produccion validan variables criticas.
+- Webhooks de Stripe tienen capa de servicio dedicada.
+- Hay roadmap interno y backlog tecnico pendiente.
+
+GAPS CLAVE DETECTADOS
+1) Pagos MercadoPago: el webhook no persiste en DB ni activa licencia.
+2) Pagos Stripe: endpoints listos, pero depende de PRICE IDs reales y webhooks.
+3) Configuracion prod: requiere SECRET_KEY, LICENSE_SALT, DATABASE_URL, STRIPE keys.
+4) Multi-tenant y licencias: faltan piezas para persistir y aislar completo.
+5) Observabilidad: falta logging estructurado y jobs de limpieza.
+
+SIGUIENTE PASO INMEDIATO (PARA BAJAR A PRODUCCION)
+Checklist de 48-72h:
+- Definir proveedor principal de pagos (Stripe o MercadoPago) y activar solo uno.
+- Configurar .env de produccion con STRIPE_* o MERCADOPAGO_* reales.
+- Crear endpoints de webhook publicos y registrar en Stripe/MP.
+- Probar flujo end-to-end: crear sesion, pagar, webhook, activar licencia.
+- Migrar DB a PostgreSQL (si SaaS web) y ejecutar alembic/migraciones.
+- Setear CORS_ORIGINS, BASE_URL, METRICS_API_KEY y activar docs solo si se requiere.
+- Desactivar seed demo y validar health checks.
+
+ITERACIONES PROPUESTAS (ROADMAP)
+
+ITERACION 0 - PRE-PROD (1 semana)
+Objetivo: pagos funcionales y release estable.
+- P0: Completar flujo de pagos end-to-end (Stripe + webhooks + activacion).
+- P0: Fix MercadoPago webhook para persistir en DB y activar licencia.
+- P0: Reemplazar cualquier almacenamiento en memoria por tablas persistentes.
+- P1: Ajustar secrets y validacion de entorno en CI/CD.
+- P1: Runbook de despliegue (Railway/Render) y checklist de release.
+- P1: Activar backups programados y validacion de integridad.
+
+ITERACION 1 - SEGURIDAD CRITICA (1 semana)
+Objetivo: cerrar brechas que bloquean venta B2B.
+- Rate limiting en login.
+- CSP nonce + quitar unsafe-inline.
+- SRI en scripts CDN.
+- Audit logging de auth.
+- CSRF cookie httponly.
+- Metrics protegido con API key.
+- Expiracion de access tokens a 7 dias.
+
+ITERACION 2 - MULTI-TENANT + LICENCIAS (1-2 semanas)
+Objetivo: aislamiento real por gym y licencias persistentes.
+- Activar RLS o set app.current_tenant en DB.
+- Migrar branding a DB (no JSON local).
+- Licencias en DB (no memoria/local files).
+- Gym settings repository (horarios, trial, features).
+- Sincronizar limites de plan con PLANES_LICENCIA.
+
+ITERACION 3 - OBSERVABILIDAD Y ESTABILIDAD (1 semana)
+Objetivo: operar sin sorpresas.
+- Logging estructurado JSON.
+- Request ID en respuestas de error (API y UI).
+- Jobs de limpieza (tokens expirados, eventos Stripe antiguos).
+- Alertas basicas (error spikes, latency p95, pagos fallidos).
+
+ITERACION 4 - CALIDAD Y DEUDA TECNICA (1-2 semanas)
+Objetivo: codebase limpio y reproducible.
+- Reemplazar print() por logger.
+- Eliminar utcnow() deprecado.
+- Reducir bare excepts.
+- Fixtures de tests unicas y estables.
+- Lockfiles de dependencias y build reproducible.
+
+ITERACION 5 - PRODUCTIZACION (2-4 semanas)
+Objetivo: venta competitiva en consultorias y gyms.
+- Portal de licencias y facturacion.
+- Onboarding guiado y flows de renovacion.
+- Dashboards con estados vacios y UX de activacion.
+- Documentacion de cliente final.
+
+CRITERIOS DE SALIDA A PRODUCCION
+- Pagos OK: checkout + webhook + activacion de licencia verificado 3 veces.
+- DB con migraciones aplicadas y backup automatico.
+- Variables de entorno completas en prod (sin defaults).
+- Logs y metricas activos con alertas basicas.
+- Tests criticos pasando (auth, pagos, multi-tenant, generacion de planes).
+
+RIESGOS Y DEPENDENCIAS
+- Sin Price IDs reales de Stripe no hay revenue.
+- Webhook mal configurado = pagos sin activacion.
+- DB multi-tenant incompleto = riesgo de data leak.
+- Licencias sin persistencia = soporte alto y churn.
+
+PROPUESTA COMO CO-OWNER
+Mi recomendacion es ir a produccion SOLO cuando Iteracion 0 este completa.
+Eso destraba ingresos y reduce soporte. Si quieres, puedo ejecutar el plan
+por sprints y dejar todo listo con checklist de release.

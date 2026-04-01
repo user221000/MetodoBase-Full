@@ -27,6 +27,7 @@ from typing import Any
 from core.modelos import ClienteEvaluacion
 from core.motor_nutricional import MotorNutricional
 from core.generador_planes import ConstructorPlanNuevo
+from utils.validadores import RANGO_PESO, RANGO_GRASA
 
 __all__ = [
     "GeneradorPlanesService",
@@ -172,13 +173,13 @@ class GeneradorPlanesService:
                     f"El cliente no tiene el campo requerido '{campo}'."
                 )
 
-        if not (20 <= cliente.peso_kg <= 300):
+        if not (RANGO_PESO[0] <= cliente.peso_kg <= RANGO_PESO[1]):
             raise ValueError(
-                f"peso_kg={cliente.peso_kg} fuera de rango fisiológico [20, 300]."
+                f"peso_kg={cliente.peso_kg} fuera de rango fisiológico [{RANGO_PESO[0]}, {RANGO_PESO[1]}]."
             )
-        if not (2 <= cliente.grasa_corporal_pct <= 60):
+        if not (RANGO_GRASA[0] <= cliente.grasa_corporal_pct <= RANGO_GRASA[1]):
             raise ValueError(
-                f"grasa_corporal_pct={cliente.grasa_corporal_pct} fuera de rango [2, 60]."
+                f"grasa_corporal_pct={cliente.grasa_corporal_pct} fuera de rango [{RANGO_GRASA[0]}, {RANGO_GRASA[1]}]."
             )
 
 

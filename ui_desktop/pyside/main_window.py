@@ -14,12 +14,12 @@ from datetime import datetime
 from PySide6.QtWidgets import (
     QMainWindow, QWidget, QVBoxLayout, QHBoxLayout, QLabel,
     QLineEdit, QComboBox, QPushButton, QPlainTextEdit, QScrollArea,
-    QFrame, QMessageBox, QSizePolicy,
+    QFrame,
 )
-from PySide6.QtCore import Qt, QTimer, Signal, QObject
-from PySide6.QtGui import QKeySequence, QShortcut, QFont
+from PySide6.QtCore import Qt, Signal, QObject
+from PySide6.QtGui import QKeySequence, QShortcut
 
-from utils.helpers import resource_path, abrir_carpeta_pdf
+from utils.helpers import abrir_carpeta_pdf
 from utils.logger import logger
 from config.constantes import (
     FACTORES_ACTIVIDAD, NIVELES_ACTIVIDAD, OBJETIVOS_VALIDOS,
@@ -31,15 +31,16 @@ from config.plantillas_cliente import (
 from core.modelos import ClienteEvaluacion
 from core.motor_nutricional import MotorNutricional
 from core.generador_planes import ConstructorPlanNuevo
-from core.exportador_salida import GeneradorPDFProfesional
+from api.pdf_generator import PDFGenerator
 from core.exportador_multi import ExportadorMultiformato
 from core.branding import branding
 from src.gestor_bd import GestorBDClientes
-from gui.validadores import ValidadorCamposTiempoReal
+from utils.validadores import ValidadorCamposTiempoReal
 
 from ui_desktop.pyside.widgets.toast import mostrar_toast
 from ui_desktop.pyside.widgets.progress_indicator import ProgressIndicator
 from ui_desktop.pyside.widgets.step_flow import StepFlowIndicator
+from design_system.tokens import Colors
 
 
 # ── Puente de señales para thread-safe UI ────────────────────────────────────
@@ -66,27 +67,23 @@ class _Senales(QObject):
 class MainWindow(QMainWindow):
     """Ventana principal Método Base en PySide6."""
 
-    # Paleta WCAG 2.1 AA
-    COLOR_BG           = "#0D0D0D"
-    COLOR_CARD         = "#1A1A1A"
-    COLOR_PRIMARY      = "#9B4FB0"
-    COLOR_PRIMARY_HOVER= "#B565C6"
-    COLOR_SECONDARY    = "#D4A84B"
-    COLOR_BORDER       = "#444444"
-    COLOR_TEXT         = "#F5F5F5"
-    COLOR_TEXT_MUTED   = "#B8B8B8"
-    COLOR_INPUT_BG     = "#2A2A2A"
-    COLOR_SUCCESS      = "#4CAF50"
-    COLOR_ERROR        = "#F44336"
-    COLOR_WARNING      = "#FF9800"
-    COLOR_INFO         = "#2196F3"
+    # Paleta from Design System
+    COLOR_BG           = Colors.BG_DEEP
+    COLOR_CARD         = Colors.BG_CARD
+    COLOR_PRIMARY      = Colors.PRIMARY
+    COLOR_PRIMARY_HOVER= Colors.PRIMARY_HOVER
+    COLOR_SECONDARY    = Colors.ACCENT
+    COLOR_BORDER       = Colors.BORDER_DEFAULT
+    COLOR_TEXT         = Colors.TEXT_PRIMARY
+    COLOR_TEXT_MUTED   = Colors.TEXT_SECONDARY
+    COLOR_INPUT_BG     = Colors.BG_INPUT
+    COLOR_SUCCESS      = Colors.SUCCESS
+    COLOR_ERROR        = Colors.ERROR
+    COLOR_WARNING      = Colors.WARNING
+    COLOR_INFO         = Colors.INFO
 
     def __init__(self):
         super().__init__()
-
-        # Branding configurable
-        self.COLOR_PRIMARY   = branding.get("colores.primario",   self.COLOR_PRIMARY)
-        self.COLOR_SECONDARY = branding.get("colores.secundario", self.COLOR_SECONDARY)
 
         self.setWindowTitle(
             f"{branding.get('nombre_corto', 'MB')} — {branding.get('nombre_gym', 'Método Base')}"
@@ -148,7 +145,7 @@ class MainWindow(QMainWindow):
         main_layout.addWidget(scroll)
 
         container = QWidget()
-        container.setStyleSheet("background: transparent;")
+        container.setObjectName("transparentWidget")
         self._vbox = QVBoxLayout(container)
         self._vbox.setContentsMargins(0, 20, 0, 24)
         self._vbox.setSpacing(8)
@@ -168,7 +165,7 @@ class MainWindow(QMainWindow):
 
     def _crear_header(self) -> None:
         header = QWidget()
-        header.setStyleSheet("background: transparent;")
+        header.setObjectName("transparentWidget")
         h = QVBoxLayout(header)
         h.setAlignment(Qt.AlignCenter)
         h.setSpacing(2)
@@ -211,7 +208,7 @@ class MainWindow(QMainWindow):
 
     def _crear_step_flow(self) -> None:
         wrapper = QWidget()
-        wrapper.setStyleSheet("background: transparent;")
+        wrapper.setObjectName("transparentWidget")
         wl = QHBoxLayout(wrapper)
         wl.setContentsMargins(40, 0, 40, 0)
         self.step_flow = StepFlowIndicator()
@@ -233,7 +230,7 @@ class MainWindow(QMainWindow):
 
         # Header de la sección
         hdr = QWidget()
-        hdr.setStyleSheet("background: transparent;")
+        hdr.setObjectName("transparentWidget")
         hdr_row = QHBoxLayout(hdr)
         hdr_row.setContentsMargins(0, 0, 0, 0)
         hdr_row.setSpacing(8)
@@ -253,7 +250,7 @@ class MainWindow(QMainWindow):
 
         # Contenido (grid de 2 columnas para los fields)
         content = QWidget()
-        content.setStyleSheet("background: transparent;")
+        content.setObjectName("transparentWidget")
         content_layout = QHBoxLayout(content)
         content_layout.setContentsMargins(0, 0, 0, 0)
         content_layout.setSpacing(12)
@@ -290,7 +287,7 @@ class MainWindow(QMainWindow):
 
         # Teléfono + Edad
         row = QWidget()
-        row.setStyleSheet("background: transparent;")
+        row.setObjectName("transparentWidget")
         rl = QHBoxLayout(row)
         rl.setContentsMargins(0, 0, 0, 0)
         rl.setSpacing(12)
@@ -320,7 +317,7 @@ class MainWindow(QMainWindow):
         layout.addWidget(row)
 
         wrapper = QWidget()
-        wrapper.setStyleSheet("background: transparent;")
+        wrapper.setObjectName("transparentWidget")
         wl = QHBoxLayout(wrapper)
         wl.setContentsMargins(40, 0, 40, 0)
         wl.addWidget(card)
@@ -343,7 +340,7 @@ class MainWindow(QMainWindow):
 
         # Peso + Estatura
         row = QWidget()
-        row.setStyleSheet("background: transparent;")
+        row.setObjectName("transparentWidget")
         rl = QHBoxLayout(row)
         rl.setContentsMargins(0, 0, 0, 0)
         rl.setSpacing(12)
@@ -380,7 +377,7 @@ class MainWindow(QMainWindow):
         layout.addWidget(self.lbl_error_grasa)
 
         wrapper = QWidget()
-        wrapper.setStyleSheet("background: transparent;")
+        wrapper.setObjectName("transparentWidget")
         wl = QHBoxLayout(wrapper)
         wl.setContentsMargins(40, 0, 40, 0)
         wl.addWidget(card)
@@ -403,7 +400,7 @@ class MainWindow(QMainWindow):
 
         # Actividad + Objetivo
         row = QWidget()
-        row.setStyleSheet("background: transparent;")
+        row.setObjectName("transparentWidget")
         rl = QHBoxLayout(row)
         rl.setContentsMargins(0, 0, 0, 0)
         rl.setSpacing(12)
@@ -439,7 +436,7 @@ class MainWindow(QMainWindow):
         layout.addWidget(self.lbl_plantilla_contexto)
 
         wrapper = QWidget()
-        wrapper.setStyleSheet("background: transparent;")
+        wrapper.setObjectName("transparentWidget")
         wl = QHBoxLayout(wrapper)
         wl.setContentsMargins(40, 0, 40, 0)
         wl.addWidget(card)
@@ -478,7 +475,7 @@ class MainWindow(QMainWindow):
         layout.addStretch()
 
         wrapper = QWidget()
-        wrapper.setStyleSheet("background: transparent;")
+        wrapper.setObjectName("transparentWidget")
         wl = QHBoxLayout(wrapper)
         wl.setContentsMargins(40, 0, 40, 0)
         wl.addWidget(card)
@@ -502,7 +499,7 @@ class MainWindow(QMainWindow):
 
     def _crear_botones(self) -> None:
         btns_w = QWidget()
-        btns_w.setStyleSheet("background: transparent;")
+        btns_w.setObjectName("transparentWidget")
         bl = QVBoxLayout(btns_w)
         bl.setContentsMargins(40, 20, 40, 4)
         bl.setSpacing(10)
@@ -511,19 +508,13 @@ class MainWindow(QMainWindow):
         self.btn_procesar = QPushButton("INICIAR FLUJO DE PLAN")
         self.btn_procesar.setEnabled(False)
         self.btn_procesar.setMinimumHeight(56)
-        self.btn_procesar.setStyleSheet(
-            f"QPushButton {{ background-color: {self.COLOR_TEXT_MUTED}; color: #F5F5F5;"
-            f" border: none; border-radius: 28px;"
-            " font-size: 16px; font-weight: 800; letter-spacing: 0.3px; }}"
-            f"QPushButton:enabled {{ background-color: {self.COLOR_PRIMARY}; }}"
-            f"QPushButton:enabled:hover {{ background-color: {self.COLOR_PRIMARY_HOVER}; }}"
-        )
+        self.btn_procesar.setObjectName("primaryButton")
         self.btn_procesar.clicked.connect(self._on_procesar_click)
         bl.addWidget(self.btn_procesar)
 
         # Botones secundarios
         row = QWidget()
-        row.setStyleSheet("background: transparent;")
+        row.setObjectName("transparentWidget")
         rl = QHBoxLayout(row)
         rl.setContentsMargins(0, 0, 0, 0)
         rl.setSpacing(8)
@@ -554,7 +545,7 @@ class MainWindow(QMainWindow):
 
     def _crear_progress(self) -> None:
         wrapper = QWidget()
-        wrapper.setStyleSheet("background: transparent;")
+        wrapper.setObjectName("transparentWidget")
         wl = QHBoxLayout(wrapper)
         wl.setContentsMargins(40, 0, 40, 4)
         self.progress = ProgressIndicator()
@@ -583,7 +574,7 @@ class MainWindow(QMainWindow):
         layout.addWidget(self.textbox_log)
 
         wrapper = QWidget()
-        wrapper.setStyleSheet("background: transparent;")
+        wrapper.setObjectName("transparentWidget")
         wl = QHBoxLayout(wrapper)
         wl.setContentsMargins(40, 16, 40, 0)
         wl.addWidget(card)
@@ -611,14 +602,14 @@ class MainWindow(QMainWindow):
     def _set_field_state(self, entry: QLineEdit, lbl: QLabel, ok: bool, msg: str) -> None:
         if ok:
             entry.setStyleSheet(
-                "QLineEdit { border: 1.5px solid #30D158; border-radius: 10px; }"
-                "QLineEdit:focus { border: 2px solid #30D158; }"
+                "QLineEdit { border: 1.5px solid #00FF88; border-radius: 10px; }"
+                "QLineEdit:focus { border: 2px solid #00FF88; }"
             )
             lbl.setText("")
         else:
             entry.setStyleSheet(
-                "QLineEdit { border: 1.5px solid #FF453A; border-radius: 10px; }"
-                "QLineEdit:focus { border: 2px solid #FF453A; }"
+                "QLineEdit { border: 1.5px solid #FF1744; border-radius: 10px; }"
+                "QLineEdit:focus { border: 2px solid #FF1744; }"
             )
             lbl.setText(f"⚠ {msg}")
 
@@ -742,7 +733,6 @@ class MainWindow(QMainWindow):
         self.step_flow.reset()
         self._hide_progress()
         mostrar_toast(self, f"❌ {msg}", tipo="error", duracion=5000)
-        QMessageBox.critical(self, "Error", msg)
 
     def _enable_pdf_buttons(self, enabled: bool) -> None:
         self.btn_whatsapp.setEnabled(enabled)
@@ -927,8 +917,10 @@ class MainWindow(QMainWindow):
                 os.makedirs(carpeta_cli, exist_ok=True)
 
                 ruta_pdf_path = os.path.join(carpeta_cli, f"{nombre_san}_{fecha}_{hora}.pdf")
-                generador = GeneradorPDFProfesional(ruta_pdf_path)
-                ruta_pdf = generador.generar(cliente, plan)
+                from pathlib import Path as _PPath
+                pdf_gen = PDFGenerator()
+                datos_pdf = PDFGenerator.datos_from_cliente(cliente, plan)
+                ruta_pdf = str(pdf_gen.generar_plan(datos_pdf, _PPath(ruta_pdf_path)))
                 if not (ruta_pdf and os.path.exists(ruta_pdf)):
                     ruta_pdf = None
 
@@ -973,33 +965,32 @@ class MainWindow(QMainWindow):
 
     def enviar_por_whatsapp(self) -> None:
         if not self.ultimo_pdf or not os.path.exists(self.ultimo_pdf):
-            QMessageBox.critical(self, "Error", "Primero debes generar el plan.")
+            mostrar_toast(self, "❌ Primero debes generar el plan.", "error")
             return
         telefono = self.entry_telefono.text().strip()
         if not telefono:
-            QMessageBox.warning(
-                self, "Teléfono requerido",
-                "Ingresa el teléfono del cliente para compartir por WhatsApp."
+            mostrar_toast(
+                self, "⚠️ Ingresa el teléfono del cliente para compartir por WhatsApp.",
+                tipo="warning",
             )
             self.entry_telefono.setFocus()
             return
         if not telefono.isdigit():
-            QMessageBox.critical(
-                self, "Teléfono inválido",
-                "El teléfono debe contener solo dígitos, sin espacios ni símbolos."
+            mostrar_toast(
+                self, "❌ El teléfono debe contener solo dígitos, sin espacios ni símbolos.",
+                tipo="error",
             )
             return
         if len(telefono) < 10:
-            QMessageBox.critical(
-                self, "Teléfono inválido",
-                "El teléfono debe tener al menos 10 dígitos."
+            mostrar_toast(
+                self, "❌ El teléfono debe tener al menos 10 dígitos.", tipo="error",
             )
             return
         if not telefono.startswith("52"):
-            QMessageBox.warning(
-                self, "Formato de número",
-                "Para México, el número debe iniciar con 52.\n"
-                f"Número actual: {telefono}\n\nSe intentará enviar de todas formas."
+            mostrar_toast(
+                self,
+                f"⚠️ Para México, el número debe iniciar con 52. Actual: {telefono}",
+                tipo="warning",
             )
         nombre = self.entry_nombre.text().strip()
         msg = (

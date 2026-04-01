@@ -20,7 +20,6 @@ Clases re-exportadas
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Any
 
 from core.motor_nutricional import (
     MotorNutricional,

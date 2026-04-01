@@ -17,7 +17,6 @@ import logging
 import os
 import time
 from datetime import datetime
-from functools import lru_cache
 from pathlib import Path
 from typing import Optional
 
@@ -35,9 +34,16 @@ logger = logging.getLogger(__name__)
 # ── Helpers de acceso a gestor_bd ─────────────────────────────────────────────
 
 def _get_gestor():
-    """Instancia de GestorBDClientes usando la misma lógica de singleton de dependencies.py."""
-    from api.dependencies import get_gestor
-    return get_gestor()
+    """
+    Instancia de GestorBDClientes para código legacy/interno.
+    
+    NOTA: Para endpoints de API, usar web.database.repository con autenticación.
+    Este helper es para tests y scripts internos que no tienen contexto de tenant.
+    """
+    import os
+    from src.gestor_bd import GestorBDClientes
+    db_path = os.getenv("DB_PATH", None)
+    return GestorBDClientes(db_path=db_path)
 
 
 # ── 1. Crear cliente completo ─────────────────────────────────────────────────
@@ -133,7 +139,6 @@ def generar_plan_nutricional(id_cliente: str, plan_numero: int = 1, opciones: Op
 
     # 2. Reconstruir ClienteEvaluacion con macros
     from api.dependencies import build_cliente_from_dict
-    from config.constantes import FACTORES_ACTIVIDAD
     try:
         cliente = build_cliente_from_dict(row)
     except Exception as exc:
@@ -162,12 +167,13 @@ def generar_plan_nutricional(id_cliente: str, plan_numero: int = 1, opciones: Op
     ruta_pdf_str = str(Path(CARPETA_SALIDA) / nombre_pdf)
     try:
         t_pdf = time.perf_counter()
-        from core.exportador_salida import GeneradorPDFProfesional
-        generador = GeneradorPDFProfesional(ruta_pdf_str)
-        ruta_pdf = generador.generar(cliente, plan)
+        from api.pdf_generator import PDFGenerator
+        pdf_gen = PDFGenerator()
+        datos_pdf = PDFGenerator.datos_from_cliente(cliente, plan)
+        ruta_pdf = pdf_gen.generar_plan(datos_pdf, Path(ruta_pdf_str))
         logger.info("[generar_plan] PDF generado en %.2fs → %s", time.perf_counter() - t_pdf, ruta_pdf)
     except Exception as exc:
-        raise PDFGenerationError(f"GeneradorPDFProfesional falló: {exc}") from exc
+        raise PDFGenerationError(f"PDFGenerator falló: {exc}") from exc
 
     # 5. Persistir plan en BD
     gestor = _get_gestor()
@@ -278,8 +284,7 @@ def validar_datos_antropometricos(datos: dict) -> tuple[bool, str]:
         if not (5.0 <= grasa <= 60.0):
             return False, "'grasa_corporal_pct' debe estar entre 5% y 60%"
 
-    NIVELES_VALIDOS = {"nula", "leve", "moderada", "intensa"}
-    OBJETIVOS_VALIDOS = {"deficit", "mantenimiento", "superavit"}
+    from config.constantes import NIVELES_ACTIVIDAD as NIVELES_VALIDOS, OBJETIVOS_VALIDOS
     nivel = str(datos.get("nivel_actividad", "")).lower()
     objetivo = str(datos.get("objetivo", "")).lower()
     if nivel not in NIVELES_VALIDOS:

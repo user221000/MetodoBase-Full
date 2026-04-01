@@ -37,7 +37,7 @@ def abrir_carpeta_pdf(ruta: str | None = None) -> None:
 
 
 def centrar_ventana(ventana, ancho: int, alto: int) -> None:
-    """Centra una ventana Tk/CTk en la pantalla actual."""
+    """Centra una ventana en la pantalla actual."""
     ventana.update_idletasks()
     x = (ventana.winfo_screenwidth() // 2) - (ancho // 2)
     y = (ventana.winfo_screenheight() // 2) - (alto // 2)

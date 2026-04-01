@@ -18,7 +18,7 @@ import threading
 from datetime import datetime
 from typing import Any
 
-from PySide6.QtCore import Qt, QObject, Signal, QTimer
+from PySide6.QtCore import Qt, QObject, Signal
 from PySide6.QtWidgets import (
     QDialog,
     QDoubleSpinBox,
@@ -35,6 +35,7 @@ from PySide6.QtWidgets import (
 )
 
 from core.services.auth_service import SesionActiva
+from design_system.tokens import Colors
 from utils.logger import logger
 
 
@@ -232,6 +233,7 @@ class DialogoGenerarPlan(QDialog):
         btns.addWidget(self._btn_abrir)
 
         self._btn_generar = QPushButton("⚡  Generar plan")
+        self._btn_generar.setObjectName("btnGenerarPlan")
         self._btn_generar.setFixedWidth(160)
         self._btn_generar.clicked.connect(self._iniciar_generacion)
         btns.addWidget(self._btn_generar)
@@ -257,7 +259,7 @@ class DialogoGenerarPlan(QDialog):
             col = QVBoxLayout()
             val_lbl = QLabel(str(valor))
             val_lbl.setStyleSheet(
-                "font-size: 15px; font-weight: 700; color: #F2F2F7; background: transparent;"
+                "font-size: 15px; font-weight: 700; color: #FFFFFF; background: transparent;"
             )
             et_lbl = QLabel(label)
             et_lbl.setObjectName("stat_label")
@@ -339,14 +341,16 @@ class DialogoGenerarPlan(QDialog):
                     ruta_pdf = gen.generar(cliente, plan)
                 else:
                     from core.generador_planes import ConstructorPlanNuevo
-                    from core.exportador_salida import GeneradorPDFProfesional
+                    from api.pdf_generator import PDFGenerator
                     plan = ConstructorPlanNuevo.construir(
                         cliente, plan_numero=1, directorio_planes=CARPETA_PLANES
                     )
                     self._sig.progress.emit(70, "Exportando PDF...")
                     ruta_pdf = self._generar_ruta_pdf(cliente, "PLAN", CARPETA_PLANES)
-                    gen = GeneradorPDFProfesional(ruta_pdf)
-                    ruta_pdf = gen.generar(cliente, plan)
+                    from pathlib import Path as _PPath
+                    pdf_gen = PDFGenerator()
+                    datos_pdf = PDFGenerator.datos_from_cliente(cliente, plan)
+                    ruta_pdf = str(pdf_gen.generar_plan(datos_pdf, _PPath(ruta_pdf)))
             finally:
                 # Restaurar siempre aunque falle
                 self._restaurar_categorias(backup)
@@ -405,7 +409,7 @@ class DialogoGenerarPlan(QDialog):
     def _on_done(self, ruta_pdf: str) -> None:
         self._ruta_pdf = ruta_pdf
         self._barra.setValue(100)
-        self._lbl_progreso.setStyleSheet("color: #30D158; font-size: 12px;")
+        self._lbl_progreso.setStyleSheet(f"color: {Colors.SUCCESS}; font-size: 12px;")
         self._lbl_progreso.setText(f"✓  Plan generado: {os.path.basename(ruta_pdf)}")
         self._btn_generar.setVisible(False)
         self._btn_abrir.setVisible(True)
@@ -415,7 +419,7 @@ class DialogoGenerarPlan(QDialog):
     def _on_error(self, msg: str) -> None:
         self._barra.setValue(0)
         self._barra.setVisible(False)
-        self._lbl_progreso.setStyleSheet("color: #FF453A; font-size: 12px;")
+        self._lbl_progreso.setStyleSheet(f"color: {Colors.ERROR}; font-size: 12px;")
         self._lbl_progreso.setText(f"✗  {msg}")
         self._btn_generar.setEnabled(True)
         self._btn_cancelar.setEnabled(True)

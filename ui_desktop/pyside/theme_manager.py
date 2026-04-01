@@ -2,24 +2,19 @@
 """
 ThemeManager — Sistema modular de temas visuales para Método Base.
 
-Temas disponibles
-─────────────────
-  dark    Oscuro   SmartFit + macOS 2026 (naranja energía, fondo #070707)
-  light   Claro    macOS Sonoma Light    (naranja, fondo blanco/gris)
-  aurora  Aurora   Aura nórdica          (teal eléctrico + violeta, fondo #080C1A)
+Tema activo
+───────────
+  amarillo_neon   Black & Yellow Neon Premium (fondo #0A0A0A, acento #FFEB3B)
 
 Uso rápido
 ──────────
     from ui_desktop.pyside.theme_manager import ThemeManager
 
     # Obtener instancia singleton y aplicar tema
-    ThemeManager.instance().set_theme("aurora")
-
-    # Ciclar al siguiente tema
-    ThemeManager.instance().toggle_next()
+    ThemeManager.instance().set_theme("amarillo_neon")
 
     # Leer tema actual
-    current = ThemeManager.instance().current_theme   # "dark" | "light" | "aurora"
+    current = ThemeManager.instance().current_theme   # "amarillo_neon"
 
     # Reaccionar a cambios
     ThemeManager.instance().theme_changed.connect(my_slot)
@@ -36,7 +31,6 @@ El tema elegido persiste entre sesiones en ~/.metodobase/theme_pref.json.
 from __future__ import annotations
 
 import json
-import os
 from pathlib import Path
 
 from PySide6.QtCore import QObject, QTimer, Signal
@@ -44,29 +38,19 @@ from PySide6.QtWidgets import QApplication, QButtonGroup, QHBoxLayout, QPushButt
 
 # ── Rutas de recursos ──────────────────────────────────────────────────────────
 _BASE_DIR: Path = Path(__file__).parent.parent.parent   # raíz del proyecto
-_STYLES_DIR: Path = _BASE_DIR / "assets" / "styles"     # assets/styles/
 _PREF_FILE: Path = Path.home() / ".metodobase" / "theme_pref.json"
 
-# Mapa nombre → ruta QSS; rutas alternativas para compatibilidad
-_FALLBACK_DARK = _BASE_DIR / "ui_desktop" / "pyside" / "styles" / "dark_theme.qss"
-_VERDE_PREMIUM = _BASE_DIR / "ui_desktop" / "pyside" / "styles" / "verde_premium.qss"
+_AMARILLO_NEON = _BASE_DIR / "ui_desktop" / "pyside" / "styles" / "amarillo_neon.qss"
 
 _THEMES: dict[str, list[Path]] = {
-    "dark":           [_STYLES_DIR / "dark.qss",   _FALLBACK_DARK],
-    "light":          [_STYLES_DIR / "light.qss"],
-    "aurora":         [_STYLES_DIR / "aurora.qss"],
-    "verde_premium":  [_VERDE_PREMIUM],
+    "amarillo_neon":  [_AMARILLO_NEON],
 }
 
-# Etiquetas mostradas en los botones del ThemeSwitcher
 _LABELS: dict[str, str] = {
-    "dark":           "🌙  Oscuro",
-    "light":          "☀️  Claro",
-    "aurora":         "🌌  Aurora",
-    "verde_premium":  "🌿  Verde Premium",
+    "amarillo_neon":  "⚡  Yellow Neon",
 }
 
-_THEME_ORDER = ["verde_premium", "dark", "light", "aurora"]
+_THEME_ORDER = ["amarillo_neon"]
 
 
 # ── ThemeManager ────────────────────────────────────────────────────────────────
@@ -88,7 +72,7 @@ class ThemeManager(QObject):
 
     def __init__(self) -> None:
         super().__init__()
-        self._current: str = "verde_premium"
+        self._current: str = "amarillo_neon"
         self._locked: bool = False          # debounce — evita cambios en ráfaga
         self._load_saved_pref()
 
@@ -103,7 +87,7 @@ class ThemeManager(QObject):
 
     @property
     def current_theme(self) -> str:
-        """Nombre del tema activo: 'dark' | 'light' | 'aurora'."""
+        """Nombre del tema activo: 'amarillo_neon'."""
         return self._current
 
     def set_theme(self, name: str, *, animated: bool = True) -> None:
@@ -112,7 +96,7 @@ class ThemeManager(QObject):
 
         Parameters
         ----------
-        name:      'dark', 'light' o 'aurora'
+        name:      Nombre del tema registrado (ej: 'amarillo_neon')
         animated:  Si es True (defecto) aplica un breve fade en la ventana activa.
         """
         if name not in _THEMES or name == self._current or self._locked:
@@ -137,9 +121,8 @@ class ThemeManager(QObject):
             self._apply_instant(self._current, qss)
 
     def toggle_next(self) -> None:
-        """Cicla al siguiente tema en orden: dark → light → aurora → dark."""
-        idx = _THEME_ORDER.index(self._current) if self._current in _THEME_ORDER else 0
-        self.set_theme(_THEME_ORDER[(idx + 1) % len(_THEME_ORDER)])
+        """No-op — solo hay un tema disponible (amarillo_neon)."""
+        pass
 
     # ── Privados ─────────────────────────────────────────────────────────────
 
@@ -207,14 +190,14 @@ class ThemeManager(QObject):
         self._locked = False
 
     def _load_saved_pref(self) -> None:
-        """Carga la preferencia de tema guardada; usa 'dark' si no existe."""
+        """Carga la preferencia de tema guardada; usa 'amarillo_neon' si no existe."""
         try:
             data = json.loads(_PREF_FILE.read_text(encoding="utf-8"))
-            theme = data.get("theme", "dark")
+            theme = data.get("theme", "amarillo_neon")
             if theme in _THEMES:
                 self._current = theme
         except (OSError, json.JSONDecodeError, KeyError):
-            self._current = "dark"
+            self._current = "amarillo_neon"
 
     def _save_pref(self) -> None:
         """Persiste la preferencia actual en ~/.metodobase/theme_pref.json."""
@@ -232,12 +215,12 @@ class ThemeManager(QObject):
 
 class ThemeSwitcher(QWidget):
     """
-    Widget compacto de selección de tema — tres botones toggle exclusivos.
+    Widget compacto de selección de tema — botón toggle.
 
     Diseño:
-      [🌙 Oscuro]  [☀️ Claro]  [🌌 Aurora]
+      [⚡ Yellow Neon]
 
-    El widget se auto-actualiza cuando el ThemeManager cambia el tema desde
+    Se auto-actualiza cuando el ThemeManager cambia el tema desde
     cualquier otro origen (teclado, arranque, etc.).
 
     Uso

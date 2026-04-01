@@ -440,15 +440,35 @@ class ConstructorPlanConOpciones:
                 seed=seed + meal_idx,
             )
 
-            # Vegetales fijos (cantidad según objetivo)
-            vegetal_gramos = 120
-            if cliente.objetivo and cliente.objetivo.lower() == 'deficit':
-                vegetal_gramos = 150
-            elif cliente.objetivo and cliente.objetivo.lower() == 'superavit':
-                vegetal_gramos = 100
+            # Vegetales: siempre 125g de verduras variadas bajas en calorías
+            VEGETALES_POOL = [
+                'brocoli', 'espinaca', 'calabacita', 'coliflor',
+                'pepino', 'lechuga', 'apio', 'champiñones',
+                'ejotes', 'chayote', 'nopales', 'tomate',
+            ]
+            # Filtrar solo los que existen en la base de alimentos
+            vegetales_disponibles = [
+                v for v in VEGETALES_POOL if v in ALIMENTOS_BASE
+            ]
+            if not vegetales_disponibles:
+                vegetales_disponibles = ['brocoli', 'espinaca', 'calabacita']
 
-            vegetales_opciones = ['brocoli', 'espinaca', 'calabacita', 'coliflor']
-            vegetal_seleccionado = vegetales_opciones[meal_idx % len(vegetales_opciones)]
+            # Seleccionar 3 vegetales variados por comida (rotan por meal_idx)
+            rng_veg = random.Random(seed + meal_idx + 500)
+            rotados = vegetales_disponibles[:]
+            rng_veg.shuffle(rotados)
+            seleccion_veg = rotados[:3]
+
+            # Distribuir 125g entre los vegetales seleccionados
+            gramos_por_vegetal = [45, 40, 40]  # total = 125g
+            vegetales_lista = []
+            for vi, veg_nombre in enumerate(seleccion_veg):
+                g = gramos_por_vegetal[vi] if vi < len(gramos_por_vegetal) else 40
+                vegetales_lista.append({
+                    'alimento': veg_nombre,
+                    'gramos': g,
+                    'macros': generador.calcular_macros_reales(veg_nombre, g),
+                })
 
             plan[nombre_comida] = {
                 'kcal_objetivo': macros_comida['kcal'],
@@ -465,15 +485,7 @@ class ConstructorPlanConOpciones:
                     'cantidad_objetivo': macros_comida['grasa'],
                     'opciones': opciones_grasas,
                 },
-                'vegetales': [
-                    {
-                        'alimento': vegetal_seleccionado,
-                        'gramos': vegetal_gramos,
-                        'macros': generador.calcular_macros_reales(
-                            vegetal_seleccionado, vegetal_gramos
-                        ),
-                    }
-                ],
+                'vegetales': vegetales_lista,
             }
 
         # Metadata

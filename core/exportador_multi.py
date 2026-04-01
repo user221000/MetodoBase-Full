@@ -254,7 +254,7 @@ class ExportadorMultiformato:
                         try:
                             fecha_obj = datetime.fromisoformat(fecha_gen.replace('Z', '+00:00'))
                             fecha_str = fecha_obj.strftime('%d/%m/%Y')
-                        except:
+                        except (ValueError, TypeError):
                             fecha_str = str(fecha_gen)[:10]
                     else:
                         fecha_str = 'Sin fecha'
@@ -287,7 +287,7 @@ class ExportadorMultiformato:
                             try:
                                 fecha_obj = datetime.fromisoformat(fecha_gen.replace('Z', '+00:00'))
                                 fecha_str = fecha_obj.strftime('%d/%m/%Y')
-                            except:
+                            except (ValueError, TypeError):
                                 fecha_str = str(fecha_gen)[:10]
                         else:
                             fecha_str = 'Sin fecha'

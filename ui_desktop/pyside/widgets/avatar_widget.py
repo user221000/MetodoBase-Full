@@ -7,13 +7,13 @@ from PySide6.QtCore import Qt
 from PySide6.QtGui import QPainter, QPixmap, QColor, QFont, QBrush
 
 _AVATAR_COLORS = [
-    "#667eea",  # morado
-    "#48dbfb",  # cyan
-    "#ff6b9d",  # rosa
-    "#feca57",  # amarillo
-    "#10b981",  # verde
-    "#a855f7",  # violeta
-    "#4a90e2",  # azul
+    "#FFEB3B",  # amarillo primario
+    "#FFD700",  # dorado
+    "#FFF176",  # amarillo claro
+    "#FF9800",  # naranja (warning)
+    "#00FF88",  # verde (success)
+    "#FF1744",  # rojo (danger)
+    "#A0A0A0",  # gris neutro
 ]
 
 

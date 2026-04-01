@@ -24,7 +24,6 @@ from PySide6.QtWidgets import (
     QDialog,
     QDoubleSpinBox,
     QFormLayout,
-    QFrame,
     QHBoxLayout,
     QLabel,
     QPushButton,
@@ -36,16 +35,16 @@ from PySide6.QtWidgets import (
 )
 
 from core.services.auth_service import SesionActiva
+from design_system.tokens import Colors
 from utils.logger import logger
 
 
-# ── Constantes de actividad ────────────────────────────────────────────────────
+# ── Constantes de actividad (alineadas con config.constantes.FACTORES_ACTIVIDAD) ─
 _NIVELES_ACTIVIDAD: list[tuple[str, str]] = [
-    ("sedentario",       "Sedentario — sin ejercicio formal"),
-    ("ligero",           "Ligero — 1-2 días/semana"),
-    ("moderado",         "Moderado — 3-4 días/semana"),
-    ("activo",           "Activo — 5-6 días/semana"),
-    ("muy_activo",       "Muy activo — doble sesión o trabajo físico"),
+    ("nula",      "Sedentario — sin ejercicio formal"),
+    ("leve",      "Leve — 1-2 días/semana"),
+    ("moderada",  "Moderada — 3-4 días/semana"),
+    ("intensa",   "Intensa — 5+ días/semana"),
 ]
 
 _OBJETIVOS: list[tuple[str, str]] = [
@@ -189,6 +188,7 @@ class PanelPerfilDetalle(QDialog):
         btn_omitir.clicked.connect(self._omitir)
 
         btn_guardar = QPushButton("Guardar y continuar →")
+        btn_guardar.setObjectName("primaryButton")
         btn_guardar.clicked.connect(self._guardar)
 
         btns.addWidget(btn_omitir)
@@ -257,5 +257,5 @@ class PanelPerfilDetalle(QDialog):
 def _lbl_form(texto: str) -> QLabel:
     lbl = QLabel(texto)
     lbl.setObjectName("subheadline")
-    lbl.setStyleSheet("color: #8E8E93; font-size: 12px; background: transparent;")
+    lbl.setStyleSheet(f"color: {Colors.TEXT_HINT}; font-size: 12px; background: transparent;")
     return lbl

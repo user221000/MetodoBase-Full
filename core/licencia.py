@@ -12,8 +12,12 @@ import calendar
 import hashlib
 import hmac
 import json
+import logging
 import os
+import sqlite3
 import sys
+import urllib.error
+import urllib.request
 import uuid
 from datetime import datetime, timedelta
 from pathlib import Path
@@ -26,7 +30,13 @@ try:
 except ImportError:
     pass
 
-from config.constantes import APP_DATA_DIR, CARPETA_CONFIG
+from config.constantes import APP_DATA_DIR, CARPETA_CONFIG, PLANES_LICENCIA, VERSION
+
+_logger = logging.getLogger(__name__)
+
+
+class LicenciaExcedidaError(Exception):
+    """El número de clientes activos supera el límite de la licencia."""
 
 
 class GestorLicencias:
@@ -42,7 +52,6 @@ class GestorLicencias:
 
     ARCHIVO_LICENCIA = os.path.join(APP_DATA_DIR, "licencia.lic")
     ARCHIVO_CONFIG = os.path.join(CARPETA_CONFIG, "licencia_config.json")
-    SALT_MASTER: str = os.environ.get("METODO_BASE_SALT", "METODO_BASE_2026_CH")
     PERIODOS_VALIDOS_MESES = (3, 6, 9, 12)
     PLANES_COMERCIALES = {
         "semestral": {"periodo_meses": 6, "duracion_dias": 180, "label": "Plan Semestral"},
@@ -50,6 +59,8 @@ class GestorLicencias:
     }
 
     def __init__(self) -> None:
+        from config.settings import get_settings
+        self.SALT_MASTER = get_settings().LICENSE_SALT
         self.ruta_licencia = Path(self.ARCHIVO_LICENCIA)
         self.ruta_config = Path(self.ARCHIVO_CONFIG)
         self.ruta_config.parent.mkdir(parents=True, exist_ok=True)
@@ -252,7 +263,7 @@ class GestorLicencias:
             "fecha_expiracion": fecha_expiracion.isoformat(),
             "email_contacto": email_contacto,
             "telefono_contacto": telefono_contacto,
-            "version_software": "1.0.0",
+            "version_software": VERSION,
             "activa": True,
             "sello": sello,
         }
@@ -303,7 +314,7 @@ class GestorLicencias:
             "duracion_dias": duracion_dias,
             "email_contacto": email_contacto,
             "telefono_contacto": telefono_contacto,
-            "version_software": "1.0.0",
+            "version_software": VERSION,
             "activa": True,
         }
 
@@ -498,6 +509,174 @@ class GestorLicencias:
             return True, "Licencia desactivada exitosamente"
         except Exception as exc:
             return False, f"Error desactivando licencia: {exc}"
+
+    # ------------------------------------------------------------------
+    # Validación online con caché SQLite (24 h)
+    # ------------------------------------------------------------------
+
+    _CACHE_DB = os.path.join(APP_DATA_DIR, "licencia_cache.db")
+    _API_BASE = "https://api.metodobase.app/v1/licencias"
+    _CACHE_TTL_SECONDS = 86400  # 24 h
+
+    def _get_cache_conn(self) -> sqlite3.Connection:
+        conn = sqlite3.connect(self._CACHE_DB)
+        conn.execute(
+            "CREATE TABLE IF NOT EXISTS cache_validacion ("
+            "  hardware_id TEXT PRIMARY KEY,"
+            "  valida INTEGER NOT NULL,"
+            "  mensaje TEXT NOT NULL,"
+            "  ts REAL NOT NULL"
+            ")"
+        )
+        conn.commit()
+        return conn
+
+    def validar_licencia_online(self, clave: str) -> Tuple[bool, str]:
+        """Valida la licencia contra el servidor.
+
+        Cachea el resultado en SQLite local por 24 h para funcionar offline.
+        Nunca loguea la clave.
+        """
+        hw_id = self._obtener_id_instalacion()
+
+        # Intentar caché
+        try:
+            conn = self._get_cache_conn()
+            row = conn.execute(
+                "SELECT valida, mensaje, ts FROM cache_validacion WHERE hardware_id = ?",
+                (hw_id,),
+            ).fetchone()
+            if row and (datetime.now().timestamp() - row[2]) < self._CACHE_TTL_SECONDS:
+                conn.close()
+                return bool(row[0]), row[1]
+            conn.close()
+        except Exception:
+            pass
+
+        # Llamada al servidor
+        payload = json.dumps({"hardware_id": hw_id}).encode("utf-8")
+        req = urllib.request.Request(
+            f"{self._API_BASE}/validar",
+            data=payload,
+            headers={"Content-Type": "application/json"},
+            method="POST",
+        )
+        try:
+            with urllib.request.urlopen(req, timeout=10) as resp:
+                body = json.loads(resp.read().decode("utf-8"))
+            valida = bool(body.get("valida", False))
+            mensaje = str(body.get("mensaje", ""))
+        except (urllib.error.URLError, OSError, json.JSONDecodeError) as exc:
+            _logger.warning("[LIC-ONLINE] Sin conexión o error: %s", exc)
+            # Si no hay caché, asumir válida (modo offline tolerante)
+            if row:
+                return bool(row[0]), row[1]
+            return True, "Sin conexión — validación offline"
+
+        # Guardar en caché
+        try:
+            conn = self._get_cache_conn()
+            conn.execute(
+                "INSERT OR REPLACE INTO cache_validacion (hardware_id, valida, mensaje, ts) "
+                "VALUES (?, ?, ?, ?)",
+                (hw_id, int(valida), mensaje, datetime.now().timestamp()),
+            )
+            conn.commit()
+            conn.close()
+        except Exception:
+            pass
+
+        return valida, mensaje
+
+    # ------------------------------------------------------------------
+    # Modelo por volumen (max_clientes)
+    # ------------------------------------------------------------------
+
+    def obtener_max_clientes(self) -> int:
+        """Devuelve el límite de clientes activos según la licencia.
+
+        0 = ilimitado. Busca en el campo ``max_clientes`` del archivo de licencia,
+        o infiere desde ``PLANES_LICENCIA`` si hay un ``plan_licencia`` guardado.
+        """
+        lic = self.obtener_info_licencia()
+        if not lic:
+            return 0
+
+        # Campo explícito
+        if "max_clientes" in lic:
+            return int(lic["max_clientes"])
+
+        # Inferir desde plan de licencia
+        tipo = str(lic.get("tipo", "") or lic.get("plan_licencia", "")).lower()
+        plan_info = PLANES_LICENCIA.get(tipo)
+        if plan_info:
+            return int(plan_info["max_clientes"])
+
+        return 0  # sin límite por defecto
+
+    def verificar_limite_clientes(self, clientes_activos: int) -> None:
+        """Lanza ``LicenciaExcedidaError`` si se excede el límite."""
+        maximo = self.obtener_max_clientes()
+        if maximo > 0 and clientes_activos >= maximo:
+            raise LicenciaExcedidaError(
+                f"Límite de {maximo} clientes alcanzado. "
+                "Actualiza tu plan para agregar más clientes."
+            )
+
+    # ------------------------------------------------------------------
+    # Trial 14 días / 3 clientes
+    # ------------------------------------------------------------------
+
+    def es_trial(self) -> bool:
+        """Retorna True si la licencia actual es de tipo trial."""
+        lic = self.obtener_info_licencia()
+        return bool(lic and str(lic.get("tipo", "")).lower() == "trial")
+
+    def validar_trial(self) -> Tuple[bool, int]:
+        """Valida trial: (vigente, dias_restantes). Trial = 14 días, 3 clientes."""
+        lic = self.obtener_info_licencia()
+        if not lic or str(lic.get("tipo", "")).lower() != "trial":
+            return False, 0
+        try:
+            fecha_exp = datetime.fromisoformat(str(lic["fecha_expiracion"]))
+        except (KeyError, ValueError):
+            return False, 0
+        dias = (fecha_exp - datetime.now()).days
+        return dias >= 0, max(0, dias)
+
+    def obtener_max_clientes_trial(self) -> int:
+        """Límite de clientes para trials (siempre 3)."""
+        return 3
+
+    # ------------------------------------------------------------------
+    # Revocación remota
+    # ------------------------------------------------------------------
+
+    def verificar_revocacion_remota(self) -> bool:
+        """Consulta el servidor para verificar si la licencia fue revocada.
+
+        Returns:
+            True si la licencia fue revocada (y se desactivó localmente).
+            False si sigue activa o no hay conexión.
+        """
+        hw_id = self._obtener_id_instalacion()
+        req = urllib.request.Request(
+            f"{self._API_BASE}/estado/{hw_id}",
+            headers={"Content-Type": "application/json"},
+            method="GET",
+        )
+        try:
+            with urllib.request.urlopen(req, timeout=10) as resp:
+                body = json.loads(resp.read().decode("utf-8"))
+            estado = str(body.get("estado", "")).lower()
+            if estado == "revocada":
+                _logger.warning("[LIC] Licencia revocada remotamente para hw_id=%s", hw_id)
+                self.desactivar_licencia()
+                return True
+        except (urllib.error.URLError, OSError, json.JSONDecodeError):
+            # Sin conexión — no revocar
+            pass
+        return False
 
     def obtener_info_licencia(self) -> Optional[Dict]:
         """Devuelve los datos crudos de la licencia, o None."""

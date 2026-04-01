@@ -2,9 +2,7 @@
 import random
 import hashlib
 
-from config.constantes import LEGUMINOSAS
 from config.catalogo_alimentos import CATALOGO_POR_TIPO, PROTEINAS, CARBS, GRASAS, FRUTAS
-from src.alimentos_base import CATEGORIAS
 
 
 def generar_seed(cliente, semana: int = 1, gym_id: str = "default") -> int:
@@ -235,13 +233,6 @@ class SelectorAlimentos:
         
         lista = seleccion_map.get(tipo, proteinas)
         return lista if lista else ['pechuga_de_pollo'] if tipo == 'proteina' else []
-    
-    @staticmethod
-    def seleccionar(tipo: str) -> str:
-        """Selecciona primer alimento del tipo (deprecated, use seleccionar_lista)."""
-        lista = CATALOGO_POR_TIPO.get(tipo, PROTEINAS)
-        return lista[0] if lista else 'pechuga_de_pollo'
-
 
 # ---------------------------------------------------------------------------
 # Helpers internos

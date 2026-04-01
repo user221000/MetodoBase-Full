@@ -31,6 +31,10 @@ try:
 except ImportError:
     pass
 
+import logging
+
+logger = logging.getLogger(__name__)
+
 
 def main() -> None:
     parser = argparse.ArgumentParser(description="MetodoBase API Server")
@@ -54,13 +58,11 @@ def main() -> None:
 
     url = f"http://{args.host}:{args.port}"
 
-    print(f"\n{'='*52}")
-    print(f"  MetodoBase API Server v2.0")
-    print(f"  Dashboard : {url}")
-    print(f"  API Docs  : {url}/docs")
-    print(f"  Host      : {args.host}:{args.port}")
-    print(f"{'='*52}\n")
-    print("  Presiona Ctrl+C para detener el servidor\n")
+    logger.info("MetodoBase API Server v2.0")
+    logger.info("Dashboard : %s", url)
+    logger.info("API Docs  : %s/docs", url)
+    logger.info("Host      : %s:%s", args.host, args.port)
+    logger.info("Presiona Ctrl+C para detener el servidor")
 
     if not args.no_browser:
         def _open() -> None:

@@ -3,6 +3,8 @@ import os
 import sys
 from pathlib import Path
 
+VERSION = "2.0.0"
+
 
 def resource_path(relative_path: str) -> str:
     """Resuelve rutas portables para PyInstaller y desarrollo."""
@@ -20,7 +22,7 @@ def resource_path(relative_path: str) -> str:
 LEAN_PROTEINS = {
     "pechuga_de_pollo",
     "pescado_blanco",
-    "atun",  # TODO: verificar nombre — no existe en ALIMENTOS_BASE
+    "atun",  # alias → atun_en_agua
     "claras_huevo",
     "pavo",
     "pavo_molido_93",
@@ -33,7 +35,7 @@ LEAN_PROTEINS = {
 FATTY_PROTEINS = {
     "salmon",
     "huevo",
-    "carne_molida",  # TODO: verificar nombre — no existe en ALIMENTOS_BASE
+    "carne_molida",  # alias → carne_molida_res
     "carne_magra_res",
     "sardina",
     "queso_panela",
@@ -81,6 +83,77 @@ OBJETIVOS_VALIDOS = {'deficit', 'mantenimiento', 'superavit'}
 
 NIVELES_ACTIVIDAD = {'nula', 'leve', 'moderada', 'intensa'}
 
+# ============================================================================
+# PLANES DE LICENCIA (sincronizar con Stripe Products)
+# ============================================================================
+
+PLANES_LICENCIA = {
+    "free": {
+        "precio_mxn": 0,
+        "max_clientes": 10,
+        "max_sesiones": 1,
+        "max_planes_diarios": 1,
+        "max_registros_diarios": 5,
+        "max_planes_por_cliente_dia": 1,
+        "multi_usuario": False,
+        "preferencias_alimentos": False,
+        "gestion_suscripciones": False,
+        "progresion_clientes": False,
+        "stripe_price_id": None,
+        "features": ["pdf_export"],
+        "descripcion": "Para empezar",
+    },
+    "standard": {
+        "precio_mxn": 159,
+        "max_clientes": 25,
+        "max_sesiones": 2,
+        "max_planes_diarios": 1,
+        "max_registros_diarios": 25,
+        "max_planes_por_cliente_dia": 1,
+        "multi_usuario": False,
+        "preferencias_alimentos": False,
+        "gestion_suscripciones": False,
+        "progresion_clientes": False,
+        "stripe_price_id": os.environ.get("STRIPE_PRICE_STANDARD", ""),
+        "features": ["pdf_export", "excel_export", "api_access"],
+        "descripcion": "Para nutriólogos independientes",
+    },
+    "gym_comercial": {
+        "precio_mxn": 479,
+        "max_clientes": 75,
+        "max_sesiones": 4,
+        "max_planes_diarios": 3,
+        "max_registros_diarios": 0,
+        "max_planes_por_cliente_dia": 3,
+        "multi_usuario": False,
+        "preferencias_alimentos": True,
+        "gestion_suscripciones": True,
+        "progresion_clientes": False,
+        "stripe_price_id": os.environ.get("STRIPE_PRICE_GYM_COMERCIAL", ""),
+        "features": ["pdf_export", "excel_export", "api_access", "custom_branding", "templates", "food_preferences", "client_subscriptions"],
+        "descripcion": "Para gimnasios en crecimiento",
+    },
+    "clinica": {
+        "precio_mxn": 979,
+        "max_clientes": 0,  # 0 = unlimited
+        "max_sesiones": 0,  # 0 = unlimited
+        "max_planes_diarios": 0,  # 0 = unlimited
+        "max_registros_diarios": 0,  # 0 = unlimited
+        "max_planes_por_cliente_dia": 0,  # 0 = unlimited
+        "multi_usuario": True,
+        "preferencias_alimentos": True,
+        "gestion_suscripciones": True,
+        "progresion_clientes": True,
+        "stripe_price_id": os.environ.get("STRIPE_PRICE_CLINICA", ""),
+        "features": ["pdf_export", "excel_export", "api_access", "custom_branding", "templates", "multi_user", "priority_support", "food_preferences", "client_subscriptions", "client_progression"],
+        "descripcion": "Sin límites, para clínicas y equipos grandes",
+    },
+}
+
+# Trial configuration
+TRIAL_DAYS = int(os.getenv("TRIAL_DAYS", "14"))
+TRIAL_MAX_CLIENTES = int(os.getenv("TRIAL_MAX_CLIENTES", "50"))  # Durante trial tienen límites de Starter
+
 # Modo estricto: Si True, desviación > 5% invalida el plan; si False, solo warning
 MODO_ESTRICTO = True
 
@@ -115,6 +188,13 @@ HORARIOS_COMIDAS = {
         'flexibilidad': '±30-60 min'
     }
 }
+
+
+def get_horarios_comidas(gym_profile=None) -> dict:
+    """Return meal schedules: gym-specific if set, otherwise defaults."""
+    if gym_profile and getattr(gym_profile, "horarios_comidas", None):
+        return gym_profile.horarios_comidas
+    return HORARIOS_COMIDAS
 
 
 # ============================================================================
@@ -167,9 +247,12 @@ EXPLICACION_OBJETIVOS = {
 # RUTAS DE DATOS DE LA APP
 # ============================================================================
 
-_appdata_root = os.getenv("APPDATA")
-if _appdata_root:
-    APP_DATA_DIR = Path(_appdata_root) / "MetodoBase"
+# METODOBASE_DATA_DIR permite override total (para Docker/Railway)
+_data_override = os.getenv("METODOBASE_DATA_DIR")
+if _data_override:
+    APP_DATA_DIR = Path(_data_override)
+elif os.getenv("APPDATA"):
+    APP_DATA_DIR = Path(os.getenv("APPDATA")) / "MetodoBase"
 elif sys.platform == "win32":
     APP_DATA_DIR = Path.home() / "AppData" / "Roaming" / "MetodoBase"
 else:
@@ -229,8 +312,8 @@ MINIMOS_POR_ALIMENTO = {
     'tortilla_harina': 30,
     'cereal_integral': 30,
     'granola': 20,
-    'atun': 80,  # TODO: verificar nombre
-    'carne_molida': 80,  # TODO: verificar nombre
+    'atun': 80,
+    'carne_molida': 80,
     'pavo': 80,
     'cerdo_lomo': 80,
     'camarones': 80,
@@ -282,8 +365,8 @@ LIMITES_DUROS_ALIMENTOS = {
     'yogurt_griego_light': 200,
     'yogurt_natural':      200,
     'proteina_suero':       40,
-    'atun':                200,  # TODO: verificar nombre
-    'carne_molida':        200,  # TODO: verificar nombre
+    'atun':                200,
+    'carne_molida':        200,
     'pavo':                250,
     'cerdo_lomo':          200,
     'camarones':           200,
@@ -375,7 +458,7 @@ FRECUENCIA_MAXIMA_SEMANAL: dict[str, int] = {
     'almendras':           5,
     'camarones':           3,
     'sardina':             3,
-    'atun':                3,  # TODO: verificar nombre
+    'atun':                3,
     'semillas_chia':       5,
     'semillas_girasol':    5,
     'cacahuates':          5,
@@ -414,7 +497,7 @@ FRECUENCIA_MAXIMA_SEMANAL: dict[str, int] = {
 PROTEINAS_ESTRUCTURALES = {
     'pechuga_de_pollo', 'carne_magra_res', 'pescado_blanco', 'salmon',
     'atun', 'pavo', 'cerdo_lomo', 'camarones',
-    'pavo_molido_93', 'lomo_cerdo',  # TODO: atun — verificar nombre
+    'pavo_molido_93', 'lomo_cerdo',
 }
 
 PROTEINAS_MIXTAS = {
@@ -449,3 +532,46 @@ LIMITES_PORCENTUALES_KCAL = {
     'grasas_puras': 0.30,
     'leguminosas': 0.35,
 }
+
+
+# ============================================================================
+# PAGINATION DEFAULTS
+# ============================================================================
+
+DEFAULT_PAGE_SIZE = 100
+MAX_PAGE_SIZE = 500
+DEFAULT_PAGE_SIZE_PLANES = 50
+MAX_PAGE_SIZE_PLANES = 200
+
+
+# ============================================================================
+# STATS PERIOD DURATIONS (days)
+# ============================================================================
+
+PERIODO_SEMANA_DIAS = 7
+PERIODO_MES_DIAS = 30
+PERIODO_ANIO_DIAS = 365
+
+
+# ============================================================================
+# BUSINESS RULE DURATIONS
+# ============================================================================
+
+LICENSE_EXPIRY_DAYS = 365
+INVITATION_EXPIRY_DAYS = 7
+
+
+# ============================================================================
+# UPLOAD LIMITS
+# ============================================================================
+
+UPLOAD_ALLOWED_IMAGE_EXTENSIONS = frozenset({".png", ".jpg", ".jpeg", ".webp"})
+UPLOAD_MAX_LOGO_SIZE_BYTES = 2 * 1024 * 1024  # 2 MB
+
+
+# ============================================================================
+# ERROR MESSAGES (centralized for i18n readiness)
+# ============================================================================
+
+ERR_CLIENTE_NO_ENCONTRADO = "Cliente no encontrado"
+ERR_PAGOS_NO_CONFIGURADOS = "Pagos no configurados"

@@ -6,7 +6,6 @@ Ejecutar con:
     python -m pytest tests/test_rotacion.py -v
 """
 
-import os
 import pytest
 
 from src.gestor_rotacion import RotacionInteligenteAlimentos

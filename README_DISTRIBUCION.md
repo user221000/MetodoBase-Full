@@ -175,4 +175,55 @@ El resultado se genera en `Output/setup_metodobase.exe`.
 
 ---
 
+## Firma de código
+
+### Windows — Certificado EV con signtool.exe
+
+```powershell
+# Requisitos: certificado EV en token USB (SafeNet) + Windows SDK
+# 1. Firmar el ejecutable principal
+signtool sign /fd SHA256 /tr http://timestamp.digicert.com /td SHA256 ^
+  /a "dist\MetodoBase\MetodoBase.exe"
+
+# 2. Firmar el instalador generado por Inno Setup
+signtool sign /fd SHA256 /tr http://timestamp.digicert.com /td SHA256 ^
+  /a "Output\MetodoBaseSetup_v2.0.0.exe"
+
+# 3. Verificar firma
+signtool verify /pa "dist\MetodoBase\MetodoBase.exe"
+```
+
+### macOS — Notarización con Apple
+
+```bash
+# Requisitos: Xcode CLI tools, Developer ID Application certificate
+# 1. Firmar el .app bundle
+codesign --deep --force --verify --verbose \
+  --sign "Developer ID Application: CONSULTORIA HERNANDEZ" \
+  dist/MetodoBase.app
+
+# 2. Crear .dmg
+create-dmg \
+  --volname "Método Base" \
+  --window-pos 200 120 \
+  --window-size 600 400 \
+  --icon-size 100 \
+  --icon "MetodoBase.app" 150 190 \
+  --app-drop-link 450 185 \
+  "Output/MetodoBase_v2.0.0.dmg" \
+  "dist/MetodoBase.app"
+
+# 3. Notarizar
+xcrun notarytool submit Output/MetodoBase_v2.0.0.dmg \
+  --apple-id "developer@consultoriahernandez.mx" \
+  --team-id "XXXXXXXXXX" \
+  --password "@keychain:AC_PASSWORD" \
+  --wait
+
+# 4. Grapar el ticket
+xcrun stapler staple Output/MetodoBase_v2.0.0.dmg
+```
+
+---
+
 *Método Base v2.0.0 — Generado el 16/03/2026 — Consultoría Hernández*

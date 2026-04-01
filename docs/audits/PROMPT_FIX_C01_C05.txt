@@ -1,0 +1,482 @@
+================================================================================
+  PROMPT DE IMPLEMENTACIÓN — Fixes C-01 a C-05
+  Referencia: AUDITORIA_PRODUCCION_2026-03-25.txt
+  Scope: 5 errores críticos que bloquean el deploy a producción
+================================================================================
+
+CONTEXTO DEL PROYECTO:
+MetodoBase es un SaaS de nutrición para gimnasios en Guadalajara.
+Stack: FastAPI + SQLAlchemy + Alembic + Jinja2 + PySide6 (desktop).
+Tests actuales: 1030 passed, 3 skipped.
+Todos los cambios DEBEN mantener los tests pasando.
+
+================================================================================
+INSTRUCCIÓN GENERAL:
+Implementa las 5 soluciones descritas abajo. Trabaja archivo por archivo,
+valida que no rompas imports existentes, y al final corre los tests.
+Usa el agente "Implementador - MetodoBase" si está disponible.
+================================================================================
+
+
+────────────────────────────────────────────────────────────────────────────────
+FIX C-01: BRANDING DINÁMICO PER-GYM (Eliminar branding.json hardcodeado)
+────────────────────────────────────────────────────────────────────────────────
+
+PROBLEMA:
+  config/branding.json contiene datos personales del desarrollador que
+  TODOS los clientes gym verían:
+    - nombre_gym: "FitnessGym Real del Valle"
+    - telefono: "5217441614117"
+    - email: "oscar_autumn@outlook.com"
+    - direccion: "C. Valle De San José 1329B..."
+    - whatsapp: "5217441614117"
+    - cuota_mensual: 800
+
+SOLUCIÓN REQUERIDA:
+
+  PASO 1) Crear modelo GymBranding en web/database/models.py:
+    Agregar debajo de la clase Usuario existente:
+
+    class GymBranding(Base):
+        """Configuración de branding personalizada por gimnasio."""
+        __tablename__ = "gym_branding"
+
+        id = Column(String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
+        gym_id = Column(String(36), ForeignKey("usuarios.id", ondelete="CASCADE"), nullable=False, unique=True, index=True)
+        nombre_gym = Column(String(255), nullable=False, default="")
+        nombre_corto = Column(String(100), nullable=False, default="Método Base")
+        tagline = Column(String(255), nullable=False, default="")
+        telefono = Column(String(30), nullable=False, default="")
+        email = Column(String(255), nullable=False, default="")
+        whatsapp = Column(String(30), nullable=False, default="")
+        direccion_linea1 = Column(String(255), nullable=False, default="")
+        direccion_linea2 = Column(String(255), nullable=False, default="")
+        direccion_linea3 = Column(String(255), nullable=False, default="")
+        instagram = Column(String(100), nullable=False, default="")
+        facebook = Column(String(255), nullable=False, default="")
+        tiktok = Column(String(100), nullable=False, default="")
+        cuota_mensual = Column(Float, nullable=False, default=0.0)
+        logo_path = Column(String(500), nullable=False, default="assets/logo.png")
+        color_primario = Column(String(7), nullable=False, default="#FFEB3B")
+        color_secundario = Column(String(7), nullable=False, default="#FFD700")
+
+        gym = relationship("Usuario", backref="branding_config")
+
+  PASO 2) Crear migración Alembic:
+    Ejecutar: alembic revision --autogenerate -m "add_gym_branding_table"
+    Luego:    alembic upgrade head
+
+  PASO 3) Limpiar config/branding.json — reemplazar contenido por template genérico:
+    Cambiar el contenido actual a valores vacíos (es el fallback para desktop):
+    {
+      "nombre_gym": "",
+      "nombre_corto": "Método Base",
+      "tagline": "",
+      "colores": {
+        "primario": "#FFEB3B",
+        "primario_hover": "#FDD835",
+        "secundario": "#FFD700",
+        "secundario_hover": "#F9A825"
+      },
+      "contacto": {
+        "telefono": "",
+        "email": "",
+        "direccion": "",
+        "direccion_linea1": "",
+        "direccion_linea2": "",
+        "direccion_linea3": "",
+        "whatsapp": ""
+      },
+      "redes_sociales": {
+        "facebook": "",
+        "instagram": "",
+        "tiktok": ""
+      },
+      "logo": {
+        "path": "assets/logo.png",
+        "mostrar_watermark": true
+      },
+      "pdf": {
+        "mostrar_logo": true,
+        "logo_path": "assets/logo.png",
+        "mostrar_contacto": true,
+        "color_encabezado": "#FFEB3B"
+      },
+      "cuota_mensual": 0
+    }
+
+  PASO 4) Crear helper para cargar branding desde DB en web:
+    Crear archivo web/services/branding_service.py:
+
+    """Servicio para cargar branding dinámico per-gym desde la base de datos."""
+    from typing import Optional
+    from sqlalchemy.orm import Session
+    from web.database.models import GymBranding
+
+    def get_gym_branding(db: Session, gym_id: str) -> dict:
+        """Retorna branding del gym como dict. Usa defaults si no existe."""
+        row = db.query(GymBranding).filter(GymBranding.gym_id == gym_id).first()
+        if not row:
+            return {
+                "nombre_gym": "",
+                "nombre_corto": "Método Base",
+                "tagline": "",
+                "contacto": {"telefono": "", "email": "", "whatsapp": "",
+                             "direccion_linea1": "", "direccion_linea2": "",
+                             "direccion_linea3": ""},
+                "redes_sociales": {"instagram": "", "facebook": "", "tiktok": ""},
+                "cuota_mensual": 0.0,
+                "color_primario": "#FFEB3B",
+            }
+        return {
+            "nombre_gym": row.nombre_gym,
+            "nombre_corto": row.nombre_corto,
+            "tagline": row.tagline,
+            "contacto": {
+                "telefono": row.telefono,
+                "email": row.email,
+                "whatsapp": row.whatsapp,
+                "direccion_linea1": row.direccion_linea1,
+                "direccion_linea2": row.direccion_linea2,
+                "direccion_linea3": row.direccion_linea3,
+            },
+            "redes_sociales": {
+                "instagram": row.instagram,
+                "facebook": row.facebook,
+                "tiktok": row.tiktok,
+            },
+            "cuota_mensual": row.cuota_mensual,
+            "color_primario": row.color_primario,
+        }
+
+  NOTAS:
+    - NO romper el desktop app: core/branding.py sigue leyendo branding.json
+      para el caso desktop (unchanged). El servicio nuevo es solo para web.
+    - Los 30+ usos de branding.get() en core/ y ui_desktop/ NO se tocan.
+      Solo se afectan templates web y servicios web.
+
+
+────────────────────────────────────────────────────────────────────────────────
+FIX C-02: ELIMINAR DATOS PERSONALES DE TEMPLATES HTML
+────────────────────────────────────────────────────────────────────────────────
+
+PROBLEMA:
+  Datos personales del desarrollador visibles en producción:
+  1. web/pages/landing.html línea 219:
+     "Consultoría Hernández — Oscar_Autumn@outlook.com"
+  2. web/templates/suscripciones.html líneas 203 y 208:
+     WhatsApp hardcodeado "5217441614117"
+  3. api/factura_pdf.py línea ~161:
+     "Consultoría Hernández — Oscar_Autumn@outlook.com"
+
+SOLUCIÓN REQUERIDA:
+
+  ARCHIVO 1: web/pages/landing.html (línea 219)
+  CAMBIAR:
+    <p style="color:#55556A;">Consultoría Hernández — Oscar_Autumn@outlook.com</p>
+  POR:
+    <p style="color:#55556A;">Método Base — Software de Planes Nutricionales</p>
+
+  NOTA: landing.html es página estática (no usa Jinja2, no tiene contexto
+  de gym_id). Se reemplaza por texto genérico de la marca del producto.
+
+  ARCHIVO 2: web/templates/suscripciones.html (líneas 203 y 208)
+  Hay DOS ocurrencias del WhatsApp hardcodeado. En ambas:
+  CAMBIAR:
+    href="https://wa.me/5217441614117?text=...
+  POR (usando variable Jinja2 que se inyecta desde el route handler):
+    href="https://wa.me/{{ branding.contacto.whatsapp | default('') }}?text=...
+
+  Para que funcione, el route handler que renderiza suscripciones.html
+  debe pasar la variable `branding` al template context. Buscar el handler
+  en web/main_web.py o web/routes/ que renderiza "suscripciones.html"
+  y agregar el branding del gym logueado al contexto del template.
+
+  ARCHIVO 3: api/factura_pdf.py (~línea 161)
+  CAMBIAR:
+    "Este recibo es un comprobante de pago digital. "
+    "Consultoría Hernández — Oscar_Autumn@outlook.com",
+  POR:
+    "Este recibo es un comprobante de pago digital generado por Método Base.",
+
+  NOTA: En el futuro (C-01 completado), el footer de factura debería usar
+  branding del gym. Por ahora, se reemplaza por texto genérico del producto.
+
+
+────────────────────────────────────────────────────────────────────────────────
+FIX C-03: STRIPE PRICE IDs — MOVER DE PLACEHOLDERS A ENV VARS
+────────────────────────────────────────────────────────────────────────────────
+
+PROBLEMA:
+  config/constantes.py (líneas 103-127) tiene Stripe Price IDs falsos:
+    "price_starter_monthly_29"
+    "price_profesional_monthly_59"
+    "price_clinica_monthly_129"
+  Estos no son IDs reales de Stripe. Los webhooks no matchearán.
+
+SOLUCIÓN REQUERIDA:
+
+  PASO 1) En config/constantes.py, cambiar los stripe_price_id a leer de env:
+  CAMBIAR las entradas de PLANES_LICENCIA así:
+
+    "starter": {
+        ...
+        "stripe_price_id": os.environ.get("STRIPE_PRICE_STARTER", ""),
+        ...
+    },
+    "profesional": {
+        ...
+        "stripe_price_id": os.environ.get("STRIPE_PRICE_PROFESIONAL", ""),
+        ...
+    },
+    "clinica": {
+        ...
+        "stripe_price_id": os.environ.get("STRIPE_PRICE_CLINICA", ""),
+        ...
+    },
+
+  NOTA: El import `os` ya existe en config/constantes.py (línea 2).
+
+  PASO 2) Agregar las variables al archivo .env.example:
+  Buscar la sección de Stripe existente y añadir:
+    # Stripe Price IDs (obtener del Stripe Dashboard > Products)
+    STRIPE_PRICE_STARTER=
+    STRIPE_PRICE_PROFESIONAL=
+    STRIPE_PRICE_CLINICA=
+
+  PASO 3) Agregar validación de arranque en config/settings.py:
+  Dentro del __init__ de la clase Settings, agregar después de la
+  sección de Stripe existente:
+
+    # ── Stripe Price IDs ──────────────────────────────────────────
+    self.STRIPE_PRICE_STARTER: str = os.getenv("STRIPE_PRICE_STARTER", "")
+    self.STRIPE_PRICE_PROFESIONAL: str = os.getenv("STRIPE_PRICE_PROFESIONAL", "")
+    self.STRIPE_PRICE_CLINICA: str = os.getenv("STRIPE_PRICE_CLINICA", "")
+
+  PASO 4) En api/routes/pagos.py, actualmente la creación de sesión Stripe
+  usa price_data en línea (líneas ~118-133) con precio inline, NO usa el
+  stripe_price_id del plan. Esto está OK para empezar — el price_data
+  crea un precio ad-hoc. PERO debería también soportar price IDs reales
+  cuando están disponibles.
+
+  Modificar la lógica en crear_sesion_stripe(): Si info["stripe_price_id"]
+  tiene valor, usar "price": info["stripe_price_id"] en lugar de price_data.
+  Si no, mantener el price_data actual como fallback.
+
+  Ej:
+    if info.get("stripe_price_id"):
+        line_items = [{"price": info["stripe_price_id"], "quantity": 1}]
+    else:
+        line_items = [{
+            "price_data": { ... el código actual ... },
+            "quantity": 1,
+        }]
+
+
+────────────────────────────────────────────────────────────────────────────────
+FIX C-04: COMPLETAR WEBHOOK DE MERCADOPAGO
+────────────────────────────────────────────────────────────────────────────────
+
+PROBLEMA:
+  api/routes/pagos.py líneas 253-265 — El webhook de MercadoPago recibe
+  la notificación de pago pero tiene un "# TODO" y no hace nada:
+
+  Código actual:
+    @router.post("/pagos/mp/webhook", include_in_schema=False)
+    async def mp_webhook(request: Request):
+        body = await request.json()
+        topic = body.get("type", "")
+        if topic == "payment":
+            payment_id = body.get("data", {}).get("id")
+            logger.info("MercadoPago notificación payment_id=%s", payment_id)
+            # TODO: Verificar pago con SDK y auto-crear licencia.
+        return {"status": "ok"}
+
+SOLUCIÓN REQUERIDA:
+
+  Reemplazar el contenido del handler mp_webhook con la implementación real:
+
+    @router.post("/pagos/mp/webhook", include_in_schema=False)
+    async def mp_webhook(request: Request):
+        """Recibe notificaciones IPN de MercadoPago y activa licencia."""
+        body = await request.json()
+        topic = body.get("type", "")
+
+        if topic != "payment":
+            return {"status": "ignored"}
+
+        payment_id = body.get("data", {}).get("id")
+        if not payment_id:
+            logger.warning("MP webhook sin payment_id")
+            return {"status": "no_payment_id"}
+
+        logger.info("MercadoPago notificación payment_id=%s", payment_id)
+
+        try:
+            sdk = _get_mp_sdk()
+            payment_response = sdk.payment().get(payment_id)
+
+            if payment_response["status"] != 200:
+                logger.error("MP: No se pudo obtener pago %s: status=%s",
+                             payment_id, payment_response["status"])
+                return {"status": "error"}
+
+            payment_data = payment_response["response"]
+            status = payment_data.get("status")
+
+            if status != "approved":
+                logger.info("MP pago %s no aprobado: status=%s", payment_id, status)
+                return {"status": "not_approved"}
+
+            # Extraer metadata del pago
+            metadata = payment_data.get("metadata", {})
+            plan = metadata.get("plan", "starter")
+            gym_id = metadata.get("gym_id", "")
+            email = payment_data.get("payer", {}).get("email", "")
+
+            if not gym_id:
+                logger.error("MP pago %s aprobado pero sin gym_id en metadata", payment_id)
+                return {"status": "missing_gym_id"}
+
+            # Registrar pago en sesiones (temporal, mover a DB)
+            _sesiones[str(payment_id)] = {
+                "plan": plan,
+                "email": email,
+                "gym_id": gym_id,
+                "status": "paid",
+                "provider": "mercadopago",
+                "created": datetime.now(timezone.utc).isoformat(),
+            }
+
+            logger.info("MP pago aprobado: payment_id=%s, plan=%s, gym=%s",
+                         payment_id, plan, gym_id)
+            return {"status": "ok"}
+
+        except ImportError:
+            logger.error("SDK de MercadoPago no instalado")
+            return {"status": "sdk_missing"}
+        except Exception as e:
+            logger.error("Error procesando webhook MP: %s", e)
+            return {"status": "error"}
+
+  IMPORTANTE:
+  - La función _get_mp_sdk() ya existe en el mismo archivo (línea ~38).
+  - _sesiones ya existe como dict en el mismo archivo (línea ~69).
+  - Los imports de datetime, timezone ya existen.
+  - NO agregar return codes HTTP de error en webhooks — MercadoPago
+    reintenta si recibe 4xx/5xx, mejor retornar 200 con status descriptivo.
+
+  TAMBIÉN: Cuando se cree la sesión de MercadoPago (endpoint crear_sesion_mp),
+  asegurarse de pasar gym_id y plan en metadata:
+
+  En la función crear_sesion_mp (~línea 220), buscar donde se crea
+  la preferencia de MercadoPago y agregar en el body de preference:
+    "metadata": {
+        "plan": req.plan,
+        "gym_id": gym_id,
+    },
+
+
+────────────────────────────────────────────────────────────────────────────────
+FIX C-05: ASEGURAR SECRETOS — FAIL-HARD EN PRODUCCIÓN
+────────────────────────────────────────────────────────────────────────────────
+
+PROBLEMA:
+  config/settings.py — El método _require_in_prod() permite que SECRET_KEY
+  y LICENSE_SALT tengan defaults inseguros en desarrollo, pero necesitamos
+  verificar que en producción REALMENTE falle si no están configurados.
+
+  Valores default actuales:
+    SECRET_KEY  → "metodobase_dev_secret_2026_localhost_only"
+    LICENSE_SALT → "METODO_BASE_2026_CH"
+
+  Si alguien deploya con METODOBASE_ENV=production pero olvida configurar
+  WEB_SECRET_KEY, el sistema arranca con un secreto predecible.
+
+SOLUCIÓN REQUERIDA:
+
+  PASO 1) Verificar/reforzar _require_in_prod() en config/settings.py.
+  Buscar el método _require_in_prod y confirmar que lanza excepción si:
+    - self.is_production es True
+    - La env var no existe o está vacía
+
+  Si no existe actualmente, agregarlo al final de la clase Settings:
+
+    def _require_in_prod(self, env_var: str, dev_default: str = "") -> str:
+        """Lee env var. En producción, FALLA si no está configurada."""
+        value = os.getenv(env_var, "")
+        if value:
+            return value
+        if self.is_production:
+            raise RuntimeError(
+                f"FATAL: Variable de entorno '{env_var}' es OBLIGATORIA en producción. "
+                f"Configúrala antes de iniciar el servidor."
+            )
+        return dev_default
+
+  PASO 2) Agregar validación explícita post-init para producción.
+  Al final del __init__ de Settings, agregar:
+
+    # ── Validación de producción ──────────────────────────────────
+    if self.is_production:
+        missing = []
+        if not os.getenv("WEB_SECRET_KEY"):
+            missing.append("WEB_SECRET_KEY")
+        if not os.getenv("METODO_BASE_SALT"):
+            missing.append("METODO_BASE_SALT")
+        if not os.getenv("DATABASE_URL") and not self.DB_PATH:
+            missing.append("DATABASE_URL")
+        if missing:
+            raise RuntimeError(
+                f"FATAL: Variables obligatorias en producción no configuradas: "
+                f"{', '.join(missing)}. El servidor NO puede arrancar."
+            )
+
+  PASO 3) Agregar validación de calidad de SECRET_KEY.
+  En la sección de AUTH del __init__, después de asignar self.SECRET_KEY:
+
+    if self.is_production and len(self.SECRET_KEY) < 32:
+        raise RuntimeError(
+            "FATAL: WEB_SECRET_KEY debe tener al menos 32 caracteres en producción."
+        )
+
+  PASO 4) Documentar en .env.example con instrucciones claras:
+  Agregar un bloque visible al principio del archivo .env.example:
+
+    # ═══════════════════════════════════════════════════════════════
+    # OBLIGATORIAS EN PRODUCCIÓN (el servidor NO arranca sin estas)
+    # ═══════════════════════════════════════════════════════════════
+    # Generar con: python -c "import secrets; print(secrets.token_urlsafe(64))"
+    WEB_SECRET_KEY=
+    # Generar con: python -c "import secrets; print(secrets.token_hex(32))"
+    METODO_BASE_SALT=
+    # PostgreSQL connection string
+    DATABASE_URL=
+
+
+================================================================================
+VERIFICACIÓN POST-IMPLEMENTACIÓN:
+================================================================================
+
+  1) Ejecutar todos los tests:
+     python -m pytest --tb=short -q
+     → Esperado: 1030+ passed (puede ser más si se agregan tests nuevos)
+
+  2) Verificar que en modo desarrollo todo siga funcionando:
+     METODOBASE_ENV=development python -c "from config.settings import get_settings; s = get_settings(); print('OK:', s.SECRET_KEY[:20])"
+
+  3) Verificar que en modo producción SIN env vars falla:
+     METODOBASE_ENV=production python -c "from config.settings import get_settings; s = get_settings()"
+     → Esperado: RuntimeError con mensaje claro
+
+  4) Verificar branding.json limpio no rompe desktop:
+     python -c "from core.branding import branding; print(branding.get('nombre_gym', 'vacío'))"
+     → Esperado: "" (string vacío)
+
+  5) Grep para confirmar que no quedan datos personales:
+     grep -rn "oscar_autumn\|5217441614117\|Real del Valle" --include="*.py" --include="*.html" --include="*.json" config/ web/ api/ core/
+     → Esperado: 0 resultados
+
+================================================================================
+FIN DEL PROMPT
+================================================================================

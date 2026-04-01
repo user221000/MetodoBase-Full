@@ -16,11 +16,10 @@ Reglas de seguridad aplicadas:
 from __future__ import annotations
 
 import re
-import uuid
 from dataclasses import dataclass, field
 from typing import Optional
 
-from core.services.password_hasher import PasswordHasher, PasswordPolicy
+from core.services.password_hasher import PasswordHasher
 from src.gestor_usuarios import GestorUsuarios, RegistroUsuario
 from utils.logger import logger
 

@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" fill="none">
+  <!-- Top arrow (right-pointing, at top) -->
+  <path d="M72 18 A30 30 0 0 0 20 38" stroke="#e8e8e8" stroke-width="7" stroke-linecap="round" fill="none"/>
+  <polygon points="72,8 82,20 72,28" fill="#e8e8e8"/>
+  <!-- Bottom arrow (left-pointing, at bottom) -->
+  <path d="M28 82 A30 30 0 0 0 80 62" stroke="#e8e8e8" stroke-width="7" stroke-linecap="round" fill="none"/>
+  <polygon points="28,92 18,80 28,72" fill="#e8e8e8"/>
+  <!-- Dollar sign S curve -->
+  <path d="M50 28v44" stroke="#e8e8e8" stroke-width="7" stroke-linecap="round"/>
+  <path d="M38 40c0-6 5.4-10 12-10s12 4 12 10c0 8-12 8-12 12 0 0 0 0 0 0" stroke="#e8e8e8" stroke-width="6" stroke-linecap="round" fill="none"/>
+  <path d="M62 60c0 6-5.4 10-12 10s-12-4-12-10" stroke="#e8e8e8" stroke-width="6" stroke-linecap="round" fill="none"/>
+</svg>

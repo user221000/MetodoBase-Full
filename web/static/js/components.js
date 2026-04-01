@@ -17,10 +17,16 @@ const Toast = (() => {
 
     const toast = document.createElement('div');
     toast.className = `toast ${type}`;
-    toast.innerHTML = `
-      <span class="toast-icon">${icons[type] || '📌'}</span>
-      <span>${message}</span>
-    `;
+    
+    const iconSpan = document.createElement('span');
+    iconSpan.className = 'toast-icon';
+    iconSpan.textContent = icons[type] || '📌';
+    
+    const msgSpan = document.createElement('span');
+    msgSpan.textContent = message;
+    
+    toast.appendChild(iconSpan);
+    toast.appendChild(msgSpan);
 
     container.appendChild(toast);
 
@@ -119,33 +125,13 @@ function setActiveSidebarLink() {
   });
 }
 
-// ── Avatar color from name ─────────────────────────────────────────────────
-
-const AVATAR_COLORS = [
-  'linear-gradient(135deg,#667eea,#764ba2)',
-  'linear-gradient(135deg,#ff6b9d,#ee5a24)',
-  'linear-gradient(135deg,#48dbfb,#0abde3)',
-  'linear-gradient(135deg,#feca57,#ff9f43)',
-  'linear-gradient(135deg,#2ed573,#1e90ff)',
-  'linear-gradient(135deg,#a29bfe,#fd79a8)',
-];
-
-function nameToInitials(name = '') {
-  return name.trim().split(/\s+/).slice(0, 2).map(w => w[0]?.toUpperCase()).join('');
-}
-
-function nameToColor(name = '') {
-  let hash = 0;
-  for (const c of name) hash = (hash * 31 + c.charCodeAt(0)) & 0xffff;
-  return AVATAR_COLORS[hash % AVATAR_COLORS.length];
-}
+// ── Avatar ──────────────────────────────────────────────────────────────────
 
 function buildAvatar(name, size = '') {
-  const div = document.createElement('div');
-  div.className = `avatar ${size}`;
-  div.style.background = nameToColor(name);
-  div.textContent = nameToInitials(name) || '?';
-  return div;
+  const wrapper = document.createElement('div');
+  wrapper.className = size ? `avatar avatar-${size}` : 'avatar';
+  wrapper.innerHTML = '<svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 12c2.7 0 4.8-2.2 4.8-4.8S14.7 2.4 12 2.4 7.2 4.5 7.2 7.2 9.3 12 12 12zm0 2.4c-3.2 0-9.6 1.6-9.6 4.8v2.4h19.2v-2.4c0-3.2-6.4-4.8-9.6-4.8z"/></svg>';
+  return wrapper;
 }
 
 // ── Objetivo badge  ────────────────────────────────────────────────────────
@@ -181,7 +167,26 @@ function formatKcal(n) {
   return n ? `${Math.round(n).toLocaleString('es-MX')} kcal` : '—';
 }
 
-// ── Expose globally ────────────────────────────────────────────────────────
+// ── Debounce utility ────────────────────────────────────────────────────────
+
+function debounce(fn, ms = 300) {
+  let t;
+  return (...a) => { clearTimeout(t); t = setTimeout(() => fn(...a), ms); };
+}
+
+// ── Escape HTML ──────────────────────────────────────────────────────────────
+
+function esc(str) {
+  return String(str ?? '')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#x27;')
+    .replace(/`/g, '&#x60;');
+}
+
+// ── Expose globally ──────────────────────────────────────────────────────────
 window.Toast              = Toast;
 window.Loading            = Loading;
 window.animateCounter     = animateCounter;
@@ -190,7 +195,7 @@ window.counterObserver    = counterObserver;
 window.setActiveSidebarLink = setActiveSidebarLink;
 window.buildAvatar        = buildAvatar;
 window.buildBadge         = buildBadge;
-window.nameToInitials     = nameToInitials;
-window.nameToColor        = nameToColor;
 window.formatDate         = formatDate;
 window.formatKcal         = formatKcal;
+window.debounce           = debounce;
+window.esc                = esc;

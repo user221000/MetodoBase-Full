@@ -1,136 +1,131 @@
 <!DOCTYPE html>
-<html lang="es" class="dark">
+<html lang="es">
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>{% block title %}MetodoBase{% endblock %} — Méθodo Base</title>
+  <meta name="csrf-token" content="{{ csrf_token(request) }}">
+  <title>{% block title %}MetodoBase{% endblock %} — Método Base</title>
 
-  <!-- Fuentes -->
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" crossorigin="anonymous" />
 
-  <!-- Tailwind CDN -->
-  <script src="https://cdn.tailwindcss.com"></script>
-  <script>
-    tailwind.config = {
-      darkMode: 'class',
-      theme: {
-        extend: {
-          colors: {
-            'bg-primary':   '#0a0a0f',
-            'bg-secondary': '#1a1a24',
-            'accent':       '#667eea',
-            'accent-pink':  '#ff6b9d',
-            'accent-yellow':'#feca57',
-          },
-          fontFamily: { sans: ['Inter', 'system-ui', 'sans-serif'] },
-        }
-      }
-    };
-  </script>
+  <link rel="stylesheet" href="/static/css/styles.css?v={{ static_version }}" />
 
-  <!-- Chart.js -->
-  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
-
-  <!-- Estilos propios -->
-  <link rel="stylesheet" href="/static/css/styles.css" />
+  <!-- Minimal overrides (avatar consistency) -->
+  <style nonce="{{ request.state.csp_nonce }}">
+    .avatar, .feed-avatar {
+      border-color: var(--accent-purple);
+    }
+    .avatar svg, .feed-avatar svg {
+      fill: var(--accent-purple);
+    }
+  </style>
 
   {% block head %}{% endblock %}
 </head>
 <body>
 
 <!-- ── Auth Guard ─────────────────────────────────────────── -->
-<script>
-  (function() {
-    const token = localStorage.getItem('mb_token');
-    if (!token) { window.location.replace('/'); }
-  })();
-</script>
+<script nonce="{{ request.state.csp_nonce }}" src="/static/js/auth-guard.js?v={{ static_version }}"></script>
 
 <!-- ── Sidebar ────────────────────────────────────────────── -->
 <aside class="sidebar" id="main-sidebar">
   <div class="sidebar-logo">
-    <a href="/dashboard" class="flex items-center gap-2">
-      <span class="logo-dot"></span>
-      <span class="logo-text">Méθodo Base</span>
+    <a href="/dashboard" class="sidebar-logo-link">
+      <div class="sidebar-logo-icon">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#1A1400" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M12 2L2 7l10 5 10-5-10-5z"/>
+          <path d="M2 17l10 5 10-5"/>
+          <path d="M2 12l10 5 10-5"/>
+        </svg>
+      </div>
+      <div>
+        <span class="logo-text">Método Base</span>
+        <p class="logo-subtitle">PLATAFORMA NUTRICIONAL</p>
+      </div>
     </a>
-    <p style="font-size:0.7rem;color:var(--text-muted);margin-top:4px;">
-      Sistema Nutricional v2.0
-    </p>
   </div>
 
   <nav class="sidebar-nav">
 
-    <span class="nav-section-label">Principal</span>
+    <span class="nav-section-label">General</span>
 
     <a href="/dashboard" class="nav-item" data-page="dashboard">
       <svg class="nav-icon" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8">
         <path stroke-linecap="round" stroke-linejoin="round"
-              d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3
-                 m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" />
+              d="M4 5a1 1 0 011-1h4a1 1 0 011 1v5a1 1 0 01-1 1H5a1 1 0 01-1-1V5zm10 0a1 1 0 011-1h4a1 1 0 011 1v2a1 1 0 01-1 1h-4a1 1 0 01-1-1V5zm0 7a1 1 0 011-1h4a1 1 0 011 1v5a1 1 0 01-1 1h-4a1 1 0 01-1-1v-5zM4 14a1 1 0 011-1h4a1 1 0 011 1v5a1 1 0 01-1 1H5a1 1 0 01-1-1v-5z"/>
       </svg>
       Dashboard
     </a>
 
+    <span class="nav-section-label mt-4">Gestión</span>
+
     <a href="/clientes" class="nav-item" data-page="clientes">
       <svg class="nav-icon" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8">
         <path stroke-linecap="round" stroke-linejoin="round"
-              d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857
-                 M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857
-                 m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z" />
+              d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z" />
       </svg>
       Clientes
+      <span class="nav-badge" id="sb-total-clientes"></span>
     </a>
 
-    <a href="/generar-plan" class="nav-item" data-page="generar-plan">
+    <!-- Generar Plan: oculto del sidebar (accesible vía Dashboard y rutas directas) -->
+
+    <a href="/planes" class="nav-item" data-page="planes">
       <svg class="nav-icon" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8">
         <path stroke-linecap="round" stroke-linejoin="round"
-              d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2
-                 M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2
-                 m-3 7h3m-3 4h3m-6-4h.01M9 16h.01" />
+              d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
       </svg>
-      Generar Plan
+      Historial Planes
     </a>
 
-    <span class="nav-section-label" style="margin-top:16px">Sistema</span>
-
-    <a href="/docs" target="_blank" class="nav-item">
+    <a href="/suscripciones" class="nav-item" data-page="suscripciones">
       <svg class="nav-icon" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8">
         <path stroke-linecap="round" stroke-linejoin="round"
-              d="M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4" />
+              d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z"/>
       </svg>
-      API Docs
+      Suscripción
+    </a>
+
+    <a href="/configuracion" class="nav-item" data-page="configuracion">
+      <svg class="nav-icon" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8">
+        <path stroke-linecap="round" stroke-linejoin="round"
+              d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.066 2.573c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.573 1.066c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.066-2.573c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"/>
+        <path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/>
+      </svg>
+      Configuración
     </a>
 
   </nav>
 
-  <!-- Sidebar footer con info de usuario y logout -->
+  <!-- Quick action removed — accessible via Dashboard CTA and /generar-plan route -->
+
+  <!-- Sidebar footer -->
   <div class="sidebar-footer">
-    <div style="padding:10px 12px;">
-      <div style="display:flex;align-items:center;gap:10px;margin-bottom:8px;">
-        <div class="avatar" id="sb-avatar"
-             style="background:linear-gradient(135deg,#feca57,#ff9f43);
-                    width:34px;height:34px;font-size:.7rem;color:#0a0a0f;font-weight:700;">
-          MB
+    <div class="sidebar-footer-inner">
+      <div class="sidebar-user-row">
+        <div class="avatar avatar-sm" id="sb-avatar">
+          <svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 12c2.7 0 4.8-2.2 4.8-4.8S14.7 2.4 12 2.4 7.2 4.5 7.2 7.2 9.3 12 12 12zm0 2.4c-3.2 0-9.6 1.6-9.6 4.8v2.4h19.2v-2.4c0-3.2-6.4-4.8-9.6-4.8z"/></svg>
         </div>
-        <div style="min-width:0;flex:1;">
-          <p style="font-size:.82rem;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;"
-             id="sb-nombre">Cargando...</p>
-          <p style="font-size:.68rem;color:var(--text-muted);" id="sb-tipo">—</p>
+        <div class="sidebar-user-info">
+          <p class="sidebar-user-name" id="sb-nombre">Cargando...</p>
+          <p class="sidebar-user-role" id="sb-tipo">—</p>
         </div>
       </div>
-      <button onclick="cerrarSesion()"
-              style="width:100%;padding:7px;border-radius:7px;border:1px solid rgba(255,71,87,.3);
-                     background:rgba(255,71,87,.08);color:#ff4757;font-size:.8rem;font-weight:600;
-                     cursor:pointer;transition:all .2s;"
-              onmouseover="this.style.background='rgba(255,71,87,.18)'"
-              onmouseout="this.style.background='rgba(255,71,87,.08)'">
-        ← Cerrar sesión
+      <button class="btn-logout" data-action="logout" id="btn-logout">
+        <svg class="btn-logout-icon" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"/>
+        </svg>
+        Cerrar sesión
       </button>
     </div>
   </div>
 </aside>
+
+<!-- ── Mobile hamburger ───────────────────────────────────── -->
+<button class="mobile-menu-btn" id="btn-hamburger" aria-label="Abrir menú">☰</button>
+<div class="sidebar-overlay" id="sidebar-overlay"></div>
 
 <!-- ── Main ───────────────────────────────────────────────── -->
 <main class="main-content">
@@ -141,43 +136,97 @@
 <div id="toast-container"></div>
 
 <!-- Scripts globales -->
-<script src="/static/js/api.js"></script>
-<script src="/static/js/components.js"></script>
-<script src="/static/js/charts.js"></script>
-<script src="/static/js/main.js"></script>
+<script nonce="{{ request.state.csp_nonce }}" src="/static/js/api.js?v={{ static_version }}"></script>
+<script nonce="{{ request.state.csp_nonce }}" src="/static/js/buttons.js?v={{ static_version }}"></script>
+<script nonce="{{ request.state.csp_nonce }}" src="/static/js/components.js?v={{ static_version }}"></script>
+<script nonce="{{ request.state.csp_nonce }}" src="/static/js/insights.js?v={{ static_version }}"></script>
+<script nonce="{{ request.state.csp_nonce }}" src="/static/js/main.js?v={{ static_version }}"></script>
 
-<script>
-  // ── Inicializar sidebar con datos del usuario ──
+<script nonce="{{ request.state.csp_nonce }}">
+  // Override avatar system — consistent SVG icon across all pages
   (function() {
-    const nombre = localStorage.getItem('mb_nombre') || '—';
+    var SVG = '<svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 12c2.7 0 4.8-2.2 4.8-4.8S14.7 2.4 12 2.4 7.2 4.5 7.2 7.2 9.3 12 12 12zm0 2.4c-3.2 0-9.6 1.6-9.6 4.8v2.4h19.2v-2.4c0-3.2-6.4-4.8-9.6-4.8z"/></svg>';
+    window.buildAvatar = function(name, size) {
+      var w = document.createElement('div');
+      w.className = size ? 'avatar avatar-' + size : 'avatar';
+      w.innerHTML = SVG;
+      return w;
+    };
+    // Patch any avatar/feed-avatar rendered by cached JS
+    function patchAvatars() {
+      document.querySelectorAll('.feed-avatar, .avatar').forEach(function(el) {
+        if (!el.querySelector('svg') && el.tagName !== 'IMG') {
+          el.textContent = '';
+          el.innerHTML = SVG;
+        }
+      });
+    }
+    if (document.readyState === 'loading') {
+      document.addEventListener('DOMContentLoaded', function() { setTimeout(patchAvatars, 1200); });
+    } else {
+      setTimeout(patchAvatars, 1200);
+    }
+    new MutationObserver(function(mutations) {
+      mutations.forEach(function(m) {
+        m.addedNodes.forEach(function(n) {
+          if (n.nodeType === 1) {
+            var targets = [];
+            if (n.classList && (n.classList.contains('feed-avatar') || n.classList.contains('avatar'))) targets.push(n);
+            if (n.querySelectorAll) n.querySelectorAll('.feed-avatar, .avatar').forEach(function(el) { targets.push(el); });
+            targets.forEach(function(el) {
+              if (!el.querySelector('svg') && el.tagName !== 'IMG') {
+                el.textContent = '';
+                el.innerHTML = SVG;
+              }
+            });
+          }
+        });
+      });
+    }).observe(document.documentElement, { childList: true, subtree: true });
+  })();
+</script>
+
+<script nonce="{{ request.state.csp_nonce }}">
+  (function() {
+    const nombre = localStorage.getItem('mb_nombre') || '';
     const tipo   = localStorage.getItem('mb_tipo')   || '—';
     const el_nombre = document.getElementById('sb-nombre');
     const el_tipo   = document.getElementById('sb-tipo');
     const el_avatar = document.getElementById('sb-avatar');
-    if (el_nombre) el_nombre.textContent = nombre;
-    if (el_tipo)   el_tipo.textContent = tipo === 'gym' ? 'Socio Comercial' : 'Usuario Individual';
-    if (el_avatar) {
-      el_avatar.textContent = nombre.substring(0,2).toUpperCase();
-      if (tipo === 'gym') {
-        el_avatar.style.background = 'linear-gradient(135deg,#667eea,#764ba2)';
-        el_avatar.style.color = '#fff';
-      }
-    }
-
-    // Marcar nav item activo
-    const path = window.location.pathname.replace('/', '') || 'dashboard';
-    document.querySelectorAll('.nav-item[data-page]').forEach(a => {
-      if (a.dataset.page === path) a.classList.add('active');
-    });
+    if (el_nombre) el_nombre.textContent = nombre || 'Mi cuenta';
+    if (el_tipo)   el_tipo.textContent = tipo === 'gym' ? 'Gym · Plan Activo' : 'Usuario';
+    // Avatar is now an icon, no initials needed
   })();
 
-  function cerrarSesion() {
-    localStorage.removeItem('mb_token');
-    localStorage.removeItem('mb_tipo');
-    localStorage.removeItem('mb_nombre');
-    localStorage.removeItem('mb_email');
-    window.location.href = '/';
-  }
+  // Hamburger menu
+  (function() {
+    const btn = document.getElementById('btn-hamburger');
+    const sidebar = document.getElementById('main-sidebar');
+    const overlay = document.getElementById('sidebar-overlay');
+    if (btn && sidebar && overlay) {
+      btn.addEventListener('click', () => {
+        sidebar.classList.toggle('open');
+        overlay.classList.toggle('active');
+      });
+      overlay.addEventListener('click', () => {
+        sidebar.classList.remove('open');
+        overlay.classList.remove('active');
+      });
+    }
+  })();
+
+  // Sidebar client count
+  (function() {
+    const token = localStorage.getItem('mb_token');
+    if (!token) return;
+    const badge = document.getElementById('sb-total-clientes');
+    if (!badge) return;
+    fetch('/api/clientes?limite=1', {
+      headers: { 'Authorization': 'Bearer ' + token }
+    }).then(r => r.ok ? r.json() : null)
+      .then(d => { if (d && d.total != null) badge.textContent = d.total; })
+      .catch(() => {});
+  })();
 </script>
 
 {% block scripts %}{% endblock %}

@@ -7,11 +7,10 @@ Formato de token:
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Optional
 
 from cryptography.fernet import Fernet, InvalidToken
 
-from core.services.key_manager import KeyManager, KeyInfo
+from core.services.key_manager import KeyManager
 
 
 @dataclass(frozen=True)

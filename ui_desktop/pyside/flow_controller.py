@@ -26,15 +26,14 @@ Uso mínimo:
 """
 from __future__ import annotations
 
-import sys
 from typing import TYPE_CHECKING
 
 from PySide6.QtCore import Qt
-from PySide6.QtWidgets import QApplication, QDialog, QWidget
+from PySide6.QtWidgets import QDialog, QWidget
 
-from core.services.auth_service import AuthService, SesionActiva, crear_auth_service
-from ui_desktop.pyside.ventana_login_unificada import (
-    VentanaLoginUnificada,
+from core.services.auth_service import AuthService, SesionActiva
+from ui_desktop.pyside.login_premium import (
+    VentanaLoginPremium as VentanaLoginUnificada,
     ResultadoLogin,
 )
 from utils.logger import logger

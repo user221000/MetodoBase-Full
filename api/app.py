@@ -3,15 +3,31 @@ import os
 import logging
 from pathlib import Path
 
-from fastapi import FastAPI, Request
+from fastapi import FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import JSONResponse, FileResponse
+from fastapi.middleware.gzip import GZipMiddleware
+from fastapi.responses import JSONResponse
 from fastapi.staticfiles import StaticFiles
 
 from api.exceptions import MetodoBaseException
+from web.middleware import (
+    SecurityHeadersMiddleware,
+    RequestIDMiddleware,
+    CSRFMiddleware,
+    RateLimiterMiddleware,
+    MetricsMiddleware,
+    TenantMiddleware,
+    get_metrics_summary,
+    check_metrics_alerts,
+    track_error,
+    get_error_alerter,
+)
 from api.routes import clientes as clientes_routes
 from api.routes import stats as stats_routes
 from api.routes import planes as planes_routes
+from api.routes import licencias as licencias_routes
+from api.routes import pagos as pagos_routes
+from web.routes import pages as web_pages
 
 logging.basicConfig(
     level=logging.INFO,
@@ -19,29 +35,112 @@ logging.basicConfig(
 )
 
 _BASE_DIR = Path(__file__).parent.parent
-STATIC_DIR = _BASE_DIR / "static"
-PAGES_DIR = STATIC_DIR / "pages"
+_STATIC_DIR = _BASE_DIR / "static"
+_WEB_STATIC_DIR = _BASE_DIR / "web" / "static"
 
 
 def create_app() -> FastAPI:
+    # Docs deshabilitados en producción salvo override explícito
+    try:
+        from config.settings import get_settings
+        _s = get_settings()
+        _docs = "/docs" if _s.DOCS_ENABLED else None
+        _redoc = "/redoc" if _s.DOCS_ENABLED else None
+    except Exception:
+        _docs, _redoc = "/docs", "/redoc"
+        _s = None
+
+    # ── Sentry: inicializar antes de crear la app ────────────────────────────
+    if _s:
+        from web.observability.sentry_setup import init_sentry
+        init_sentry(
+            dsn=_s.SENTRY_DSN,
+            environment=_s.SENTRY_ENVIRONMENT,
+            traces_rate=_s.SENTRY_TRACES_SAMPLE_RATE,
+            profiles_rate=_s.SENTRY_PROFILES_SAMPLE_RATE,
+        )
+
+    # ── Auth: inicializar antes de cualquier endpoint que use tokens ────────
+    from web.auth import init_auth
+    init_auth()
+
+    # ── DB: inicializar engine + session factory ──────────────────────────────
+    from web.database.engine import init_db
+    init_db()
+
+    from config.constantes import VERSION
+
     app = FastAPI(
         title="MetodoBase API",
         description="API para gestión de planes nutricionales en gimnasios",
-        version="2.0.0",
-        docs_url="/docs",
-        redoc_url="/redoc",
+        version=VERSION,
+        docs_url=_docs,
+        redoc_url=_redoc,
     )
 
     # ── CORS ─────────────────────────────────────────────────────────────────
-    # Por defecto solo permite localhost durante el MVP; configurable via .env
-    allowed = os.getenv("ALLOWED_ORIGINS", "*").split(",")
+    try:
+        from config.settings import get_settings
+        _settings = get_settings()
+        allowed = _settings.CORS_ORIGINS
+    except Exception:
+        allowed = os.getenv("ALLOWED_ORIGINS", "http://localhost:8000,http://localhost:8001").split(",")
     app.add_middleware(
         CORSMiddleware,
         allow_origins=allowed,
-        allow_credentials=False,
+        allow_credentials=True,
         allow_methods=["GET", "POST", "PUT", "DELETE"],
-        allow_headers=["Content-Type"],
+        allow_headers=["Authorization", "Content-Type"],
     )
+
+    # ── Security Headers ─────────────────────────────────────────────────────
+    app.add_middleware(SecurityHeadersMiddleware)
+    app.add_middleware(RequestIDMiddleware)
+    app.add_middleware(GZipMiddleware, minimum_size=500)
+    
+    # ── CSRF Protection ────────────────────────────────────────────────────
+    try:
+        _secret = _settings.SECRET_KEY if _s else "dev-csrf-key"
+    except Exception:
+        _secret = "dev-csrf-key"
+    app.add_middleware(
+        CSRFMiddleware,
+        secret_key=_secret,
+        exempt_paths=["/api/"],
+        cookie_secure=_s.is_production if _s else False,
+    )
+
+    # ── Rate Limiting ────────────────────────────────────────────────────────
+    _rl_cls = RateLimiterMiddleware
+    if _s and _s.REDIS_URL:
+        try:
+            from web.rate_limiter_redis import RedisRateLimitMiddleware
+            _rl_cls = RedisRateLimitMiddleware
+        except ImportError:
+            pass
+    app.add_middleware(
+        _rl_cls,
+        requests_per_minute=60,
+        burst_size=10,
+        exclude_paths=["/health", "/health/ready", "/health/circuits", "/docs", "/redoc", "/openapi.json", "/static/"],
+    )
+    
+    # ── Metrics ──────────────────────────────────────────────────────────────
+    app.add_middleware(
+        MetricsMiddleware,
+        exclude_paths=["/metrics", "/health", "/health/ready"],
+    )
+    
+    # ── Tenant Context ───────────────────────────────────────────────────────
+    app.add_middleware(
+        TenantMiddleware,
+        exclude_paths=[
+            "/health", "/health/ready", "/docs", "/redoc", "/openapi.json",
+            "/static/", "/metrics", "/alerts",
+        ],
+    )
+
+    # Nota: Sentry Context se setea via dependency (with_sentry_context) después de auth
 
     # ── Global error handlers ─────────────────────────────────────────────────
     @app.exception_handler(MetodoBaseException)
@@ -53,32 +152,146 @@ def create_app() -> FastAPI:
 
     @app.exception_handler(Exception)
     async def _global_error(request: Request, exc: Exception):
-        logging.getLogger("api").error("Unhandled: %s", exc, exc_info=True)
+        from config.settings import get_settings
+        logging.getLogger("api").error("Unhandled: %s", exc, exc_info=get_settings().DEBUG)
+        # Track error for alerting
+        track_error(exc, request_path=str(request.url.path), extra_context={
+            "method": request.method,
+            "client": request.client.host if request.client else "unknown",
+        })
+        request_id = getattr(request.state, "request_id", None)
+        headers = {"X-Request-ID": request_id} if request_id else {}
+        body: dict = {"detail": "Error interno del servidor"}
+        if request_id:
+            body["request_id"] = request_id
+        return JSONResponse(status_code=500, content=body, headers=headers)
+
+    # ── Health Check ──────────────────────────────────────────────────────────
+    _health_logger = logging.getLogger("api.health")
+
+    @app.get("/health", tags=["System"])
+    async def health_check():
+        """
+        Health check endpoint para monitoreo.
+        Verifica: BD, versión. No expone detalles internos.
+        """
+        from datetime import datetime, timezone
+        from sqlalchemy import text
+        
+        is_healthy = True
+        checks = {}
+        
+        # Check BD SQLAlchemy
+        try:
+            from web.database.engine import get_engine
+            engine = get_engine()
+            with engine.connect() as conn:
+                conn.execute(text("SELECT 1"))
+            checks["database"] = {"status": "ok"}
+        except Exception:
+            from config.settings import get_settings as _gs
+            _health_logger.error("Health check DB failed", exc_info=_gs().DEBUG)
+            checks["database"] = {"status": "error"}
+            is_healthy = False
+        
+        checks["version"] = VERSION
+        
+        status_str = "healthy" if is_healthy else "degraded"
+        http_code = 200 if is_healthy else 503
+        
         return JSONResponse(
-            status_code=500,
-            content={"detail": "Error interno del servidor"},
+            status_code=http_code,
+            content={
+                "status": status_str,
+                "timestamp": datetime.now(timezone.utc).isoformat(),
+                "checks": checks,
+            },
         )
+    
+    @app.get("/health/ready", tags=["System"])
+    async def readiness_check():
+        """Readiness probe para Kubernetes/Railway."""
+        from sqlalchemy import text
+        try:
+            from web.database.engine import get_engine
+            engine = get_engine()
+            with engine.connect() as conn:
+                conn.execute(text("SELECT 1"))
+            return {"ready": True}
+        except Exception:
+            return JSONResponse(status_code=503, content={"ready": False})
+
+    # ── Metrics (protected by API key) ────────────────────────────────────────
+    from fastapi import Depends
+    import hmac as _hmac
+    
+    _METRICS_API_KEY = os.getenv("METRICS_API_KEY", "")
+    
+    async def _verify_metrics_key(request: Request):
+        """Verifica API key para endpoints de métricas/alertas."""
+        key = request.headers.get("X-Metrics-Key", "")
+        if not key or not _METRICS_API_KEY or not _hmac.compare_digest(key, _METRICS_API_KEY):
+            raise HTTPException(status_code=403, detail="Forbidden")
+    
+    @app.get("/metrics", tags=["System"], dependencies=[Depends(_verify_metrics_key)])
+    async def metrics_endpoint():
+        """
+        Métricas de latencia y rendimiento. Requiere X-Metrics-Key header.
+        """
+        summary = get_metrics_summary()
+        summary["alerts"] = check_metrics_alerts()
+        return summary
+    
+    @app.get("/alerts", tags=["System"], dependencies=[Depends(_verify_metrics_key)])
+    async def alerts_endpoint():
+        """
+        Estado del sistema de alertas. Requiere X-Metrics-Key header.
+        """
+        alerter = get_error_alerter()
+        return {
+            "status": alerter.get_status(),
+            "metrics_alerts": check_metrics_alerts(),
+            "recent_alerts": alerter.get_alert_history(limit=10),
+        }
+
+    @app.get("/health/circuits", tags=["System"], dependencies=[Depends(_verify_metrics_key)])
+    async def circuit_status():
+        """
+        Estado de los circuit breakers. Requiere X-Metrics-Key header.
+        """
+        from web.services.resilience import get_all_circuit_status
+        return {"circuits": get_all_circuit_status()}
 
     # ── Static files ──────────────────────────────────────────────────────────
-    if STATIC_DIR.exists():
-        app.mount("/static", StaticFiles(directory=str(STATIC_DIR)), name="static")
+    # Prefer web/static for the web app assets; fallback to root static if present.
+    static_dir = _WEB_STATIC_DIR if _WEB_STATIC_DIR.exists() else _STATIC_DIR
+    if static_dir.exists():
+        app.mount("/static", StaticFiles(directory=str(static_dir)), name="static")
 
     # ── API routes ────────────────────────────────────────────────────────────
     app.include_router(clientes_routes.router, prefix="/api")
     app.include_router(stats_routes.router, prefix="/api")
     app.include_router(planes_routes.router, prefix="/api")
+    app.include_router(licencias_routes.router, prefix="/api")
+    app.include_router(pagos_routes.router, prefix="/api")
 
-    # ── Page routes (sirven los HTML) ─────────────────────────────────────────
-    @app.get("/", response_class=FileResponse, include_in_schema=False)
-    async def index():
-        return FileResponse(str(PAGES_DIR / "dashboard.html"))
+    # ── Gym profile + food catalog (used by clientes page) ────────────────────
+    from web.routes import gym_profile as gym_profile_routes
+    app.include_router(gym_profile_routes.router, prefix="/api")
 
-    @app.get("/nuevo-cliente", response_class=FileResponse, include_in_schema=False)
-    async def nuevo_cliente():
-        return FileResponse(str(PAGES_DIR / "nuevo-cliente.html"))
+    # ── Billing routes (subscription, config, payments) ───────────────────────
+    from web.routes import billing as billing_routes
+    app.include_router(billing_routes.router, prefix="/api")
+    
+    # ── Auth routes (login, registro, refresh, logout, me) ────────────────────
+    from web.routes.auth import router as web_auth_router
+    app.include_router(web_auth_router, prefix="/api")
 
-    @app.get("/generar-plan/{id_cliente}", response_class=FileResponse, include_in_schema=False)
-    async def generar_plan_page(id_cliente: str):
-        return FileResponse(str(PAGES_DIR / "generar-plan.html"))
+    # ── Planes history routes (web) ───────────────────────────────────────────
+    from web.routes import planes as web_planes_routes
+    app.include_router(web_planes_routes.router, prefix="/api")
+
+    # ── Web page routes ───────────────────────────────────────────────────────
+    app.include_router(web_pages.router)
 
     return app

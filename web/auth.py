@@ -1,10 +1,12 @@
 """
 web/auth.py — Sistema de autenticación para MetodoBase Web
 
-- Usuarios almacenados en SQLite local (sin cifrado, orientado a localhost)
+- Usuarios almacenados en PostgreSQL via SQLAlchemy (producción/Railway)
 - Contraseñas con bcrypt (passlib)
 - Tokens: HMAC-SHA256 firmados (sin dependencias externas)
 - Roles: 'gym' | 'usuario' | 'admin'
+
+SECURITY: bcrypt es OBLIGATORIO. NO hay fallback inseguro.
 """
 from __future__ import annotations
 
@@ -12,115 +14,169 @@ import base64
 import hashlib
 import hmac
 import json
+import logging
 import os
-import sqlite3
 import time
 import uuid
-from pathlib import Path
+from datetime import datetime, timezone
 from typing import Optional
+
+_logger = logging.getLogger(__name__)
+
+# ── Password Hashing — bcrypt OBLIGATORIO ────────────────────────────────────
+# Intentamos importar bcrypt (nativo) o passlib.hash.bcrypt
+# Si ninguno está disponible, FALLAMOS (no hay fallback inseguro)
+
+_BCRYPT_AVAILABLE = False
+_hash_pw = None
+_verify_pw = None
 
 try:
     import bcrypt as _bcrypt_lib
-    def _hash_pw(pw: str) -> str:
+    
+    def _hash_pw_bcrypt(pw: str) -> str:
         return _bcrypt_lib.hashpw(pw.encode("utf-8"), _bcrypt_lib.gensalt()).decode("utf-8")
-    def _verify_pw(pw: str, hashed: str) -> bool:
+    
+    def _verify_pw_bcrypt(pw: str, hashed: str) -> bool:
         try:
             return _bcrypt_lib.checkpw(pw.encode("utf-8"), hashed.encode("utf-8"))
         except Exception:
             return False
+    
+    _hash_pw = _hash_pw_bcrypt
+    _verify_pw = _verify_pw_bcrypt
+    _BCRYPT_AVAILABLE = True
+    _logger.info("[AUTH] Using native bcrypt for password hashing")
+    
 except ImportError:
     try:
         from passlib.hash import bcrypt as _pl_bcrypt
-        def _hash_pw(pw: str) -> str:
+        
+        def _hash_pw_passlib(pw: str) -> str:
             return _pl_bcrypt.hash(pw)
-        def _verify_pw(pw: str, hashed: str) -> bool:
-            return _pl_bcrypt.verify(pw, hashed)
-    except Exception:
-        import hashlib as _hl
-        # Fallback sin bcrypt — solo para entornos sin dependencias
-        def _hash_pw(pw: str) -> str:
-            salt = os.urandom(16).hex()
-            h = _hl.sha256(f"{salt}{pw}".encode()).hexdigest()
-            return f"sha256${salt}${h}"
-        def _verify_pw(pw: str, hashed: str) -> bool:
-            if hashed.startswith("sha256$"):
-                _, salt, h = hashed.split("$")
-                return _hl.sha256(f"{salt}{pw}".encode()).hexdigest() == h
-            return False
-
-# ── Configuración ──────────────────────────────────────────────────────────
-
-SECRET_KEY = os.getenv(
-    "WEB_SECRET_KEY",
-    "metodobase_dev_secret_2026_CHANGE_IN_PROD"
-)
-TOKEN_EXPIRE_HOURS = int(os.getenv("WEB_TOKEN_EXPIRE_HOURS", "24"))
+        
+        def _verify_pw_passlib(pw: str, hashed: str) -> bool:
+            try:
+                return _pl_bcrypt.verify(pw, hashed)
+            except Exception:
+                return False
+        
+        _hash_pw = _hash_pw_passlib
+        _verify_pw = _verify_pw_passlib
+        _BCRYPT_AVAILABLE = True
+        _logger.info("[AUTH] Using passlib bcrypt for password hashing")
+        
+    except ImportError:
+        _BCRYPT_AVAILABLE = False
 
 
-def _get_db_path() -> Path:
-    try:
-        from config.constantes import CARPETA_REGISTROS
-        return Path(CARPETA_REGISTROS) / "web_usuarios.db"
-    except Exception:
-        return Path.home() / ".local" / "share" / "MetodoBase" / "web_usuarios.db"
+def _ensure_bcrypt_available() -> None:
+    """Falla inmediatamente si bcrypt no está disponible."""
+    if not _BCRYPT_AVAILABLE:
+        raise RuntimeError(
+            "❌ SECURITY ERROR: bcrypt no está disponible.\n"
+            "   Instala con: pip install bcrypt\n"
+            "   O: pip install passlib[bcrypt]\n"
+            "   NO se permite autenticación sin bcrypt."
+        )
 
 
-def _conn() -> sqlite3.Connection:
-    db = _get_db_path()
-    db.parent.mkdir(parents=True, exist_ok=True)
-    conn = sqlite3.connect(str(db))
-    conn.row_factory = sqlite3.Row
-    conn.execute("PRAGMA journal_mode=WAL")
-    conn.execute("PRAGMA foreign_keys=ON")
-    return conn
+def hash_password(password: str) -> str:
+    """Hash password con bcrypt. Falla si bcrypt no disponible."""
+    _ensure_bcrypt_available()
+    return _hash_pw(password)
+
+
+def verify_password(password: str, hashed: str) -> bool:
+    """Verifica password contra hash bcrypt. Falla si bcrypt no disponible."""
+    _ensure_bcrypt_available()
+    return _verify_pw(password, hashed)
+
+# ── Configuración (delegada a config/settings.py) ─────────────────────────
+
+def _get_secret_key() -> str:
+    from web.settings import get_settings
+    return get_settings().SECRET_KEY
+
+def _get_access_expire_minutes() -> int:
+    from web.settings import get_settings
+    return get_settings().ACCESS_TOKEN_EXPIRE_MINUTES
+
+def _get_refresh_expire_days() -> int:
+    from web.settings import get_settings
+    return get_settings().REFRESH_TOKEN_EXPIRE_DAYS
+
+# Acceso lazy — se evalúa al primer uso, no al import
+SECRET_KEY: str = ""  # se inicializa en init_auth()
+ACCESS_TOKEN_EXPIRE_MINUTES: int = 15
+REFRESH_TOKEN_EXPIRE_DAYS: int = 7
+
+
+def _get_session():
+    """Get a SQLAlchemy session from the shared engine."""
+    from web.database.engine import SessionLocal
+    return SessionLocal()
+
+
+def _get_models():
+    """Lazy import to avoid circular imports."""
+    from web.database.models import Usuario, RefreshToken
+    return Usuario, RefreshToken
 
 
 # ── Esquema ────────────────────────────────────────────────────────────────
 
 def _crear_tablas() -> None:
-    with _conn() as conn:
-        conn.execute("""
-            CREATE TABLE IF NOT EXISTS web_usuarios (
-                id             TEXT PRIMARY KEY,
-                email          TEXT NOT NULL UNIQUE COLLATE NOCASE,
-                password_hash  TEXT NOT NULL,
-                nombre         TEXT NOT NULL,
-                apellido       TEXT NOT NULL DEFAULT '',
-                tipo           TEXT NOT NULL DEFAULT 'usuario'
-                               CHECK(tipo IN ('gym','usuario','admin')),
-                activo         INTEGER NOT NULL DEFAULT 1,
-                fecha_registro TEXT NOT NULL
-            )
-        """)
-        conn.execute(
-            "CREATE UNIQUE INDEX IF NOT EXISTS idx_wb_email ON web_usuarios(email)"
-        )
-        conn.commit()
+    """No-op: Alembic migrations handle schema creation."""
+    pass
 
 
 def _seed_demo_users() -> None:
-    """Crea usuarios demo si la tabla está vacía."""
-    with _conn() as conn:
-        count = conn.execute("SELECT COUNT(*) FROM web_usuarios").fetchone()[0]
+    """Crea usuarios demo si la tabla está vacía y METODOBASE_SEED_DEMO=1."""
+    from web.settings import get_settings
+    if get_settings().is_production:
+        return  # Never seed in production
+    if os.getenv("METODOBASE_SEED_DEMO", "") != "1":
+        return
+    Usuario, _ = _get_models()
+    session = _get_session()
+    try:
+        count = session.query(Usuario).count()
         if count == 0:
-            now = time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())
+            import secrets as _secrets
+            demo_pw = _secrets.token_urlsafe(16)
+            _logger.debug("Demo seed completed (password not logged for security)")
+            now = datetime.now(timezone.utc)
             demos = [
-                (str(uuid.uuid4()), "gym@test.com",     _hash_pw("test123"), "Mi Gimnasio", "", "gym",     now),
-                (str(uuid.uuid4()), "usuario@test.com", _hash_pw("test123"), "Juan",        "Pérez", "usuario", now),
+                Usuario(id=str(uuid.uuid4()), email="gym@test.com", password_hash=hash_password(demo_pw),
+                        nombre="Mi Gimnasio", apellido="", tipo="gym", activo=True, fecha_registro=now),
+                Usuario(id=str(uuid.uuid4()), email="usuario@test.com", password_hash=hash_password(demo_pw),
+                        nombre="Juan", apellido="Pérez", tipo="usuario", activo=True, fecha_registro=now),
             ]
-            conn.executemany(
-                "INSERT INTO web_usuarios(id,email,password_hash,nombre,apellido,tipo,fecha_registro) VALUES(?,?,?,?,?,?,?)",
-                demos,
-            )
-            conn.commit()
+            session.add_all(demos)
+            session.commit()
+    except Exception:
+        session.rollback()
+        raise
+    finally:
+        session.close()
 
 
 # ── API pública ────────────────────────────────────────────────────────────
 
 def init_auth() -> None:
     """Inicializa BD de autenticación y siembra usuarios demo."""
+    global SECRET_KEY, ACCESS_TOKEN_EXPIRE_MINUTES, REFRESH_TOKEN_EXPIRE_DAYS
+    SECRET_KEY = _get_secret_key()
+    ACCESS_TOKEN_EXPIRE_MINUTES = _get_access_expire_minutes()
+    REFRESH_TOKEN_EXPIRE_DAYS = _get_refresh_expire_days()
     _crear_tablas()
-    _seed_demo_users()
+    try:
+        _seed_demo_users()
+        _cleanup_expired_refresh_tokens()
+    except Exception as e:
+        # Tables might not exist yet on first deploy (before Alembic runs)
+        _logger.warning("[AUTH] Skipping seed/cleanup at startup: %s", e)
 
 
 def crear_usuario(
@@ -143,24 +199,38 @@ def crear_usuario(
     email = email.strip().lower()
     if not email or "@" not in email:
         raise ValueError("Email inválido.")
-    if len(password) < 6:
-        raise ValueError("La contraseña debe tener al menos 6 caracteres.")
+    if len(password) < 12:
+        raise ValueError("La contraseña debe tener al menos 12 caracteres.")
 
-    with _conn() as conn:
-        existe = conn.execute(
-            "SELECT 1 FROM web_usuarios WHERE email=?", (email,)
-        ).fetchone()
+    Usuario, _ = _get_models()
+    session = _get_session()
+    try:
+        existe = session.query(Usuario).filter(Usuario.email == email).first()
         if existe:
             raise ValueError("El email ya está registrado.")
 
         uid = str(uuid.uuid4())
-        now = time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())
-        conn.execute(
-            "INSERT INTO web_usuarios(id,email,password_hash,nombre,apellido,tipo,fecha_registro) "
-            "VALUES(?,?,?,?,?,?,?)",
-            (uid, email, _hash_pw(password), nombre.strip(), apellido.strip(), tipo, now),
+        now = datetime.now(timezone.utc)
+        user = Usuario(
+            id=uid,
+            email=email,
+            password_hash=hash_password(password),
+            nombre=nombre.strip(),
+            apellido=apellido.strip(),
+            tipo=tipo,
+            activo=True,
+            fecha_registro=now,
         )
-        conn.commit()
+        session.add(user)
+        session.commit()
+    except ValueError:
+        session.rollback()
+        raise
+    except Exception:
+        session.rollback()
+        raise
+    finally:
+        session.close()
 
     return {"id": uid, "email": email, "nombre": nombre.strip(), "tipo": tipo}
 
@@ -169,39 +239,55 @@ def verificar_credenciales(
     email: str,
     password: str,
     tipo_requerido: Optional[str] = None,
+    ip: Optional[str] = None,
 ) -> Optional[dict]:
     """
     Verifica email + password.
 
     Args:
         tipo_requerido: si se indica, el usuario debe tener ese tipo (o 'admin').
+        ip: Dirección IP del cliente (para audit logging).
 
     Returns:
         dict con datos del usuario, o None si las credenciales son inválidas.
     """
     email = email.strip().lower()
-    with _conn() as conn:
-        row = conn.execute(
-            "SELECT * FROM web_usuarios WHERE email=? AND activo=1", (email,)
-        ).fetchone()
+    _ip = ip or "unknown"
+    Usuario, _ = _get_models()
+    session = _get_session()
+    try:
+        row = session.query(Usuario).filter(
+            Usuario.email == email,
+            Usuario.activo == True,
+        ).first()
 
-    if not row:
-        return None
+        if not row:
+            _logger.warning("[AUTH] Login fallido (no existe): email=%s ip=%s", email, _ip)
+            return None
 
-    # Verificación constante en tiempo para mitigar timing attacks
-    if not _verify_pw(password, row["password_hash"]):
-        return None
+        if not verify_password(password, row.password_hash):
+            _logger.warning("[AUTH] Login fallido (password): email=%s ip=%s", email, _ip)
+            return None
 
-    if tipo_requerido and row["tipo"] not in (tipo_requerido, "admin"):
-        return None
+        if tipo_requerido and row.tipo not in (tipo_requerido, "admin"):
+            _logger.warning("[AUTH] Login fallido (tipo): email=%s tipo_req=%s ip=%s", email, tipo_requerido, _ip)
+            return None
 
-    return {
-        "id":       row["id"],
-        "email":    row["email"],
-        "nombre":   row["nombre"],
-        "apellido": row["apellido"],
-        "tipo":     row["tipo"],
-    }
+        tipo = row.tipo
+        role = "owner" if tipo == "gym" else "viewer"
+
+        _logger.info("[AUTH] Login exitoso: email=%s tipo=%s ip=%s", email, tipo, _ip)
+
+        return {
+            "id":       row.id,
+            "email":    row.email,
+            "nombre":   row.nombre,
+            "apellido": row.apellido,
+            "tipo":     tipo,
+            "role":     role,
+        }
+    finally:
+        session.close()
 
 
 # ── Tokens HMAC ────────────────────────────────────────────────────────────
@@ -214,16 +300,8 @@ def _sign(payload_b64: str) -> str:
     ).hexdigest()
 
 
-def crear_token(usuario: dict, horas: Optional[int] = None) -> str:
+def _make_token(payload: dict) -> str:
     """Genera token HMAC-SHA256: base64(payload).signature"""
-    exp = time.time() + (horas or TOKEN_EXPIRE_HOURS) * 3600
-    payload = {
-        "id":     usuario["id"],
-        "email":  usuario["email"],
-        "nombre": usuario["nombre"],
-        "tipo":   usuario["tipo"],
-        "exp":    exp,
-    }
     payload_b64 = base64.urlsafe_b64encode(
         json.dumps(payload, separators=(",", ":")).encode()
     ).decode().rstrip("=")
@@ -231,13 +309,8 @@ def crear_token(usuario: dict, horas: Optional[int] = None) -> str:
     return f"{payload_b64}.{sig}"
 
 
-def verificar_token(token: str) -> Optional[dict]:
-    """
-    Verifica y decodifica token firmado.
-
-    Returns:
-        dict con payload (id, email, nombre, tipo, exp) o None si inválido/expirado.
-    """
+def _decode_token(token: str) -> Optional[dict]:
+    """Decodifica y verifica firma. No valida expiración ni tipo."""
     if not token:
         return None
     try:
@@ -246,14 +319,278 @@ def verificar_token(token: str) -> Optional[dict]:
             return None
         payload_b64, sig = parts
         expected = _sign(payload_b64)
-        # Comparación en tiempo constante
         if not hmac.compare_digest(sig, expected):
             return None
-        # Restaurar padding base64
         padded = payload_b64 + "=" * (4 - len(payload_b64) % 4)
-        payload = json.loads(base64.urlsafe_b64decode(padded))
-        if payload.get("exp", 0) < time.time():
-            return None  # Expirado
-        return payload
+        return json.loads(base64.urlsafe_b64decode(padded))
     except Exception:
         return None
+
+
+def crear_access_token(usuario: dict, remember_me: bool = False) -> str:
+    """Genera access token. 15 min normal, 7 días si remember_me."""
+    if remember_me:
+        from web.settings import get_settings
+        _s = get_settings()
+        exp = time.time() + _s.REMEMBER_ME_ACCESS_DAYS * 86400
+    else:
+        exp = time.time() + ACCESS_TOKEN_EXPIRE_MINUTES * 60
+    
+    # Extraer role para incluir en token
+    role = usuario.get("role")
+    if role is None:
+        # Legacy: tipo='gym' → role='owner'
+        if usuario.get("tipo") == "gym":
+            role = "owner"
+        else:
+            role = "viewer"
+    
+    payload = {
+        "id":     usuario["id"],
+        "email":  usuario["email"],
+        "nombre": usuario["nombre"],
+        "tipo":   usuario["tipo"],
+        "role":   role,
+        "team_gym_id": usuario.get("team_gym_id"),  # Para multi-tenant
+        "exp":    exp,
+        "type":   "access",
+    }
+    return _make_token(payload)
+
+
+def crear_refresh_token(usuario: dict, remember_me: bool = False) -> str:
+    """Genera refresh token. 7 días normal, 30 días si remember_me."""
+    jti = str(uuid.uuid4())
+    if remember_me:
+        from web.settings import get_settings
+        _s = get_settings()
+        exp = time.time() + _s.REMEMBER_ME_REFRESH_DAYS * 86400
+    else:
+        exp = time.time() + REFRESH_TOKEN_EXPIRE_DAYS * 86400
+    now = time.time()
+
+    # Extraer role para incluir en token
+    role = usuario.get("role")
+    if role is None:
+        if usuario.get("tipo") == "gym":
+            role = "owner"
+        else:
+            role = "viewer"
+
+    payload = {
+        "id":    usuario["id"],
+        "email": usuario["email"],
+        "tipo":  usuario["tipo"],
+        "role":  role,
+        "team_gym_id": usuario.get("team_gym_id"),
+        "exp":   exp,
+        "type":  "refresh",
+        "jti":   jti,
+    }
+
+    # Guardar en BD para poder revocar
+    _, RefreshToken = _get_models()
+    session = _get_session()
+    try:
+        rt = RefreshToken(jti=jti, user_id=usuario["id"], expires_at=exp, created_at=now)
+        session.add(rt)
+        session.commit()
+    except Exception:
+        session.rollback()
+        raise
+    finally:
+        session.close()
+
+    return _make_token(payload)
+
+
+def crear_token_pair(usuario: dict, remember_me: bool = False) -> dict:
+    """
+    Genera par de tokens.
+    
+    Normal: access 15 min + refresh 7 días.
+    Remember Me: access 30 días + refresh 90 días.
+    """
+    return {
+        "access_token": crear_access_token(usuario, remember_me),
+        "refresh_token": crear_refresh_token(usuario, remember_me),
+    }
+
+
+def verificar_token(token: str) -> Optional[dict]:
+    """
+    Verifica access token. Rechaza refresh tokens, tokens sin type, y expirados.
+
+    Returns:
+        dict con payload (id, email, nombre, tipo, exp) o None si inválido.
+    """
+    payload = _decode_token(token)
+    if not payload:
+        return None
+    token_type = payload.get("type")
+    if token_type is None:
+        _logger.warning("[AUTH] Token sin type recibido sub=%s", payload.get("id", "?"))
+        return None
+    if token_type != "access":
+        return None
+    if payload.get("exp", 0) < time.time():
+        return None
+    return payload
+
+
+def verificar_refresh_token(token: str) -> Optional[dict]:
+    """
+    Verifica refresh token: firma, expiración, tipo y no-revocado en BD.
+
+    Returns:
+        dict con payload o None si inválido/revocado.
+    """
+    payload = _decode_token(token)
+    if not payload:
+        return None
+    if payload.get("type") != "refresh":
+        return None
+    if payload.get("exp", 0) < time.time():
+        return None
+
+    jti = payload.get("jti")
+    if not jti:
+        return None
+
+    # Verificar que no esté revocado
+    _, RefreshToken = _get_models()
+    session = _get_session()
+    try:
+        rt = session.query(RefreshToken).filter(RefreshToken.jti == jti).first()
+        if not rt or rt.revoked:
+            return None
+    finally:
+        session.close()
+
+    return payload
+
+
+def rotar_refresh_token(old_token: str) -> Optional[dict]:
+    """
+    Rota un refresh token: revoca el viejo, emite par nuevo.
+
+    Si el token ya fue revocado (reuse detection), revoca TODOS los
+    refresh tokens del usuario como medida de seguridad.
+
+    Returns:
+        dict con {access_token, refresh_token} o None si inválido.
+    """
+    payload = _decode_token(old_token)
+    if not payload or payload.get("type") != "refresh":
+        return None
+    if payload.get("exp", 0) < time.time():
+        return None
+
+    jti = payload.get("jti")
+    user_id = payload.get("id")
+    if not jti or not user_id:
+        return None
+
+    with_conn_session = _get_session()
+    _, RefreshToken = _get_models()
+    try:
+        # Atomic UPDATE: revoke token only if not already revoked
+        result = with_conn_session.query(RefreshToken).filter(
+            RefreshToken.jti == jti,
+            RefreshToken.revoked == False,
+        ).update({"revoked": True})
+        with_conn_session.commit()
+
+        if result == 0:
+            # Token already revoked — possible reuse attack
+            # Revoke ALL tokens for this user as security measure
+            with_conn_session.query(RefreshToken).filter(
+                RefreshToken.user_id == user_id,
+            ).update({"revoked": True})
+            with_conn_session.commit()
+            _logger.warning("REUSE DETECTION: token jti=%s user=%s — all tokens revoked", jti, user_id)
+            return None
+    except Exception:
+        with_conn_session.rollback()
+        raise
+    finally:
+        with_conn_session.close()
+
+    # Obtener datos frescos del usuario desde BD
+    usuario = _get_user_by_id(user_id)
+    if not usuario:
+        return None
+
+    return crear_token_pair(usuario)
+
+
+def revocar_refresh_tokens_usuario(user_id: str) -> None:
+    """Revoca todos los refresh tokens de un usuario (logout, cambio pw)."""
+    _, RefreshToken = _get_models()
+    session = _get_session()
+    try:
+        session.query(RefreshToken).filter(
+            RefreshToken.user_id == user_id,
+        ).update({"revoked": True})
+        session.commit()
+    except Exception:
+        session.rollback()
+        raise
+    finally:
+        session.close()
+
+
+def _get_user_by_id(user_id: str) -> Optional[dict]:
+    """Obtiene usuario desde BD por ID."""
+    Usuario, _ = _get_models()
+    session = _get_session()
+    try:
+        row = session.query(Usuario).filter(
+            Usuario.id == user_id,
+            Usuario.activo == True,
+        ).first()
+
+        if not row:
+            return None
+
+        tipo = row.tipo
+        role = "owner" if tipo == "gym" else "viewer"
+
+        return {
+            "id":       row.id,
+            "email":    row.email,
+            "nombre":   row.nombre,
+            "apellido": row.apellido,
+            "tipo":     tipo,
+            "role":     role,
+        }
+    finally:
+        session.close()
+
+
+def _cleanup_expired_refresh_tokens() -> int:
+    """Elimina refresh tokens expirados y revocados de la BD. Retorna count."""
+    _, RefreshToken = _get_models()
+    session = _get_session()
+    try:
+        from sqlalchemy import or_
+        count = session.query(RefreshToken).filter(
+            or_(
+                RefreshToken.expires_at < time.time(),
+                RefreshToken.revoked == True,
+            )
+        ).delete(synchronize_session=False)
+        session.commit()
+        if count > 0:
+            _logger.info("[AUTH] Cleaned %d expired/revoked tokens", count)
+        return count
+    except Exception:
+        session.rollback()
+        raise
+    finally:
+        session.close()
+
+
+def cleanup_expired_tokens() -> int:
+    """Public API: elimina refresh tokens expirados y revocados. Retorna count."""
+    return _cleanup_expired_refresh_tokens()

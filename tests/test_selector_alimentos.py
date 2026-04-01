@@ -29,7 +29,7 @@ from core.services.selector_alimentos_service import (
     SelectorAlimentosService,
     obtener_alimentos_por_comida,
 )
-from core.services.alimentos_alias import es_alias, ALIAS_MAPA
+from core.services.alimentos_alias import es_alias
 
 
 # ---------------------------------------------------------------------------

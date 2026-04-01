@@ -19,8 +19,6 @@ from core.selector_alimentos import (
     SelectorAlimentos,
     generar_seed,
     generar_seed_bloques,
-    obtener_lista_rotada,
-    aplicar_penalizacion_semana,
 )
 from core.services.alimentos_alias import resolver_lista
 from core.modelos import ClienteEvaluacion

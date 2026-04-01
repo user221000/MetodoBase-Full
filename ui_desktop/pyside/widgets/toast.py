@@ -3,14 +3,15 @@
 
 from PySide6.QtWidgets import QLabel, QWidget
 from PySide6.QtCore import Qt, QTimer, QPropertyAnimation, QEasingCurve, QPoint
-from PySide6.QtGui import QColor
+
+from design_system.tokens import Colors
 
 
 _COLORES = {
-    "success": ("#1B5E20", "#4CAF50"),   # fondo, texto
-    "error":   ("#B71C1C", "#FF7043"),
-    "warning": ("#E65100", "#FFB300"),
-    "info":    ("#0D47A1", "#42A5F5"),
+    "success": (Colors.SUCCESS_BG, Colors.SUCCESS_LIGHT),   # fondo, texto
+    "error":   (Colors.ERROR_BG, Colors.ERROR_LIGHT),
+    "warning": (Colors.WARNING_BG, Colors.WARNING_LIGHT),
+    "info":    (Colors.INFO_BG, Colors.INFO_LIGHT),
 }
 
 
@@ -52,6 +53,8 @@ class ToastWidget(QLabel):
         self.setGeometry(pw - self.width() - margin, margin + 60, self.width(), self.height())
 
     def _fadeout(self) -> None:
+        if self._anim:
+            self._anim.stop()
         self._anim2 = QPropertyAnimation(self, b"pos")
         self._anim2.setDuration(220)
         self._anim2.setStartValue(self.pos())

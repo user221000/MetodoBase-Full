@@ -1,11 +1,11 @@
 """Generación de PDF profesional y exportación de planes a JSON."""
+import logging
 import os
 import json
 import textwrap
 from datetime import datetime
 
 from reportlab.lib.pagesizes import LETTER, letter
-from reportlab.lib.units import cm
 from reportlab.pdfgen import canvas
 from reportlab.lib import colors
 from reportlab.lib.utils import ImageReader
@@ -13,16 +13,17 @@ from reportlab.pdfbase import pdfmetrics
 from reportlab.pdfbase.ttfonts import TTFont
 
 from utils.helpers import resource_path
-from config.constantes import CARPETA_SALIDA, CARPETA_PLANES
-from src.alimentos_base import ALIMENTOS_BASE
+from config.constantes import CARPETA_PLANES
 from core.branding import branding
+
+logger = logging.getLogger(__name__)
 
 # Registrar fuente Inter_18pt-BoldItalic para PDF (portabilidad total)
 _font_inter_bolditalic = resource_path("fonts/Inter_18pt-BoldItalic.ttf")
 if os.path.exists(_font_inter_bolditalic):
     pdfmetrics.registerFont(TTFont("Inter-BoldItalic", _font_inter_bolditalic))
 else:
-    print(f"[WARNING] Font not found: {_font_inter_bolditalic}")
+    logger.warning("Font not found: %s", _font_inter_bolditalic)
 
 
 # ============================================================================
@@ -44,7 +45,7 @@ class GeneradorPDFProfesional:
                 try:
                     logo = ImageReader(str(logo_file))
                 except Exception as e:
-                    print(f"[ERROR] No se pudo cargar el logo para el PDF: {e}")
+                    logger.error("No se pudo cargar el logo para el PDF: %s", e)
                     logo = None
 
         page_width, page_height = letter
@@ -78,10 +79,10 @@ class GeneradorPDFProfesional:
         c.drawString(LEFT_MARGIN, y_pos, f"📷 {branding.get('redes_sociales.instagram', '')}")
         y_pos -= 14
 
-        # --- GYM LOGO RIGHT ---
+        # --- GYM LOGO RIGHT (standard: 3.0cm × 2.2cm ≈ 85 × 62 pts) ---
         if logo:
-            logo_width = 70
-            logo_height = 35
+            logo_width = 85
+            logo_height = 62
             logo_x = page_width - logo_width - LEFT_MARGIN
             logo_y = header_top - 25
             try:
@@ -91,7 +92,7 @@ class GeneradorPDFProfesional:
                     preserveAspectRatio=True, mask='auto'
                 )
             except Exception as e:
-                print(f"[ERROR] drawImage logo: {e}")
+                logger.error("drawImage logo: %s", e)
             if tagline:
                 c.setFont("Helvetica", 7)
                 c.setFillColor(colors.gray)
@@ -259,7 +260,7 @@ class GeneradorPDFProfesional:
             return self.ruta_salida
 
         except Exception as e:
-            print(f"Error generando PDF: {e}")
+            logger.error("Error generando PDF: %s", e, exc_info=True)
             return None
 
 
@@ -306,26 +307,26 @@ class GeneradorSalida:
                 continue
             
             if not isinstance(comida, dict):
-                print(f"⚠️ GeneradorSalida.a_dict(): {nombre_comida} no es dict, es {type(comida)}")
+                logger.warning("GeneradorSalida.a_dict(): %s no es dict, es %s", nombre_comida, type(comida))
                 continue
             
             if 'kcal_objetivo' not in comida:
-                print(f"❌ GeneradorSalida.a_dict() CRÍTICO: {nombre_comida} FALTA 'kcal_objetivo'")
+                logger.error("GeneradorSalida.a_dict() CRÍTICO: %s FALTA 'kcal_objetivo'", nombre_comida)
                 continue
             
             try:
                 kcal_obj = float(comida['kcal_objetivo'])
                 if kcal_obj <= 0:
-                    print(f"✗ GeneradorSalida.a_dict(): {nombre_comida}['kcal_objetivo']={kcal_obj} inválido")
+                    logger.warning("GeneradorSalida.a_dict(): %s['kcal_objetivo']=%s inválido", nombre_comida, kcal_obj)
                     continue
             except (TypeError, ValueError):
-                print(f"✗ GeneradorSalida.a_dict(): {nombre_comida}['kcal_objetivo'] no es número")
+                logger.warning("GeneradorSalida.a_dict(): %s['kcal_objetivo'] no es número", nombre_comida)
                 continue
             
             campos_requeridos = {'kcal_real', 'desviacion_pct', 'macros_objetivo', 'alimentos'}
             campos_faltantes = campos_requeridos - set(comida.keys())
             if campos_faltantes:
-                print(f"⚠️ {nombre_comida} falta campos: {campos_faltantes}")
+                logger.warning("%s falta campos: %s", nombre_comida, campos_faltantes)
             
             resultado['plan'][nombre_comida] = {
                 'kcal_objetivo': round(comida.get('kcal_objetivo', 0), 1),
@@ -347,7 +348,7 @@ class GeneradorSalida:
         
         comidas_faltantes = comidas_requeridas - comidas_procesadas
         if comidas_faltantes:
-            print(f"⚠️ GeneradorSalida.a_dict(): Faltan comidas en resultado: {comidas_faltantes}")
+            logger.warning("GeneradorSalida.a_dict(): Faltan comidas en resultado: %s", comidas_faltantes)
         
         if 'metadata_mes_anterior' in plan:
             resultado['metadata_mes_anterior'] = plan['metadata_mes_anterior']

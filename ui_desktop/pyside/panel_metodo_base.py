@@ -30,7 +30,6 @@ from PySide6.QtWidgets import (
 )
 
 from core.services.auth_service import SesionActiva
-from ui_desktop.pyside.theme_manager import ThemeSwitcher
 
 
 # ── Textos de actividad ────────────────────────────────────────────────────────
@@ -81,25 +80,14 @@ class PanelMetodoBase(QDialog):
 
         # ── Barra superior ────────────────────────────────────────────────
         topbar = QFrame()
-        topbar.setObjectName("card")
-        topbar.setStyleSheet(
-            "QFrame#card { border-radius: 0; border-bottom: 1px solid #232323;"
-            "border-left: none; border-right: none; border-top: none; }"
-        )
+        topbar.setObjectName("topbarFrame")
         topbar_lay = QHBoxLayout(topbar)
         topbar_lay.setContentsMargins(28, 18, 28, 18)
 
         brand = QLabel("● Método Base")
-        brand.setStyleSheet(
-            "color: #FF6F0F; font-size: 14px; font-weight: 700; background: transparent;"
-        )
+        brand.setObjectName("sidebarLogo")
         topbar_lay.addWidget(brand)
         topbar_lay.addStretch()
-
-        # Selector de tema visual (dark / light / aurora)
-        theme_sw = ThemeSwitcher(parent=topbar)
-        topbar_lay.addWidget(theme_sw)
-        topbar_lay.addSpacerItem(QSpacerItem(16, 0, QSizePolicy.Fixed))
 
         # Rol badge
         rol_text = {"admin": "ADMIN", "gym": "GYM", "usuario": "USUARIO"}.get(
@@ -184,10 +172,6 @@ class PanelMetodoBase(QDialog):
         btn_food = QPushButton("🥗  Configurar mis alimentos")
         btn_food.setObjectName("btn_choice_card")
         btn_food.setFixedHeight(64)
-        btn_food.setStyleSheet(
-            "QPushButton#btn_choice_card { font-size: 14px; min-height: 64px;"
-            "text-align: left; padding-left: 20px; }"
-        )
         btn_food.clicked.connect(self.abrir_preferencias)
         food_lay.addWidget(btn_food)
         lay.addWidget(food_card)
@@ -200,6 +184,7 @@ class PanelMetodoBase(QDialog):
         lay.addSpacerItem(QSpacerItem(0, 12, QSizePolicy.Minimum, QSizePolicy.Fixed))
 
         btn_plan = QPushButton("⚡  Generar mi plan nutricional")
+        btn_plan.setObjectName("primaryButton")
         btn_plan.setFixedHeight(52)
         btn_plan.clicked.connect(self.generar_plan)
         lay.addWidget(btn_plan)

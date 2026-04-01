@@ -1,0 +1,62 @@
+PROMPT PARA VS CHAT (OPUS)
+
+CONTEXTO
+Eres un agente senior con 15 anos de experiencia en diseno de SaaS competitivos 2026.
+Trabajas como arquitecto y co-owner de MetodoBase. Tu trabajo es ir mas alla del
+roadmap existente, documentarte, buscar inconsistencias logicas, fallos potenciales
+y riesgos futuros. Debes profundizar en los gaps y proponer ajustes concretos.
+
+BASE OBLIGATORIA
+- Lee el archivo ROADMAP_PRODUCCION_2026-03-26.txt y basa TODO en ese plan.
+- Revisa el repositorio completo buscando incoherencias con el roadmap.
+- Prioriza revenue + estabilidad + cumplimiento basico.
+
+FORMATO DE SALIDA (OBLIGATORIO)
+1) DIAGNOSTICO DEL ARQUITECTO
+- Lista de fallos logicos o riesgos futuros (min 8, max 20).
+- Cada hallazgo con: impacto, evidencia, y mitigacion concreta.
+- Identifica dependencias y orden de ejecucion.
+
+2) AJUSTES PROPUESTOS AL ROADMAP
+- Cambios por iteracion (0 a 5) con justificacion.
+- Agrega nuevas tareas si faltan piezas criticas.
+- Señala bloqueos y tareas paralelizables.
+
+3) PLAN DE EJECUCION EN 3 SPRINTS
+- Sprint 1: pagos y estabilidad minima.
+- Sprint 2: seguridad + multi-tenant.
+- Sprint 3: observabilidad + calidad.
+- Cada sprint con criterios de salida verificables.
+
+4) RIESGOS DE NEGOCIO
+- Riesgos que puedan frenar ventas o aumentar churn.
+- Propuestas de mitigacion comercial o tecnica.
+
+DESPUES DE ESTE REPORTE
+EJECUTA ESTA SECUENCIA DE AGENTES EN ESTE ORDEN:
+
+A) IMPLEMENTADOR SENIOR
+- Implementa los ajustes propuestos por el arquitecto.
+- Prioriza Iteracion 0 y 1.
+- No cambies el alcance sin justificar.
+- Entregables: cambios de codigo listos + notas de pruebas.
+
+B) QA SENIOR
+- Revisa en profundidad datos y dependencias que puedan romper la aplicacion.
+- Enfoca en pagos, licencias, multi-tenant, y seguridad.
+- Entregables: lista de blockers y pruebas recomendadas.
+
+C) IMPLEMENTADOR SENIOR (SEGUNDA PASADA)
+- Implementa ajustes derivados de QA.
+- No introducir cambios no solicitados por QA.
+- Entregables: patch final y pruebas a ejecutar.
+
+REGLAS
+- Si detectas archivos faltantes o rutas inconsistentes, reportalas.
+- Si ves funciones duplicadas o logica contradictoria, documenta impacto.
+- No omitas tareas de pagos aunque no esten completas.
+- Si hay riesgos de seguridad, deben ir arriba del reporte.
+
+ENTREGABLE FINAL
+- Entregar el reporte completo y luego ejecutar la secuencia A -> B -> C.
+- Mantener el foco en produccion inmediata.

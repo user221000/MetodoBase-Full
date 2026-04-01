@@ -15,9 +15,10 @@ FONTS_DIR      = BASE_DIR / "fonts"
 CONFIG_DIR     = BASE_DIR / "config"
 
 # ── Metadatos de la aplicación ────────────────────────────────────────────────
+from config.constantes import VERSION
 APP_NAME       = "MetodoBase"
-APP_VERSION    = "2.0.0"
-APP_AUTHOR     = "Consultoría Hernández"
+APP_VERSION    = VERSION
+APP_AUTHOR     = "MetodoBase"  # Generic vendor name
 APP_ICON       = str(ASSETS_DIR / "logo.ico")   # .ico para Windows
 
 # ── Datos a empaquetar dentro del ejecutable ──────────────────────────────────
@@ -31,23 +32,23 @@ ADD_DATA = [
     (str(BASE_DIR / "api"),    "api"),
     (str(BASE_DIR / "src"),    "src"),
     (str(BASE_DIR / "core"),   "core"),
-    (str(BASE_DIR / "utils"),  "utils"),
+    (str(BASE_DIR / "utils"),         "utils"),
+    (str(BASE_DIR / "ui_desktop"),    "ui_desktop"),
+    (str(BASE_DIR / "design_system"), "design_system"),
 ]
 
-# ── Hidden imports requeridos por uvicorn / FastAPI / legacy ──────────────────
+# ── Hidden imports requeridos por el build desktop ────────────────────────────
 HIDDEN_IMPORTS = [
-    # Uvicorn internals (necesarios en onefile)
-    "uvicorn.logging",
-    "uvicorn.loops",
-    "uvicorn.loops.auto",
-    "uvicorn.protocols",
-    "uvicorn.protocols.http",
-    "uvicorn.protocols.http.auto",
-    "uvicorn.protocols.http.h11_impl",
-    "uvicorn.protocols.websockets",
-    "uvicorn.protocols.websockets.auto",
-    "uvicorn.lifespan",
-    "uvicorn.lifespan.on",
+    # PySide6 (GUI desktop)
+    "PySide6.QtWidgets",
+    "PySide6.QtCore",
+    "PySide6.QtGui",
+    # App internals
+    "core.branding",
+    "core.licencia",
+    "ui_desktop.pyside.theme_manager",
+    "ui_desktop.pyside.flow_controller",
+    "ui_desktop.pyside.gym_app_window",
     # Auth
     "passlib.handlers.bcrypt",
     "passlib.handlers.pbkdf2",
@@ -57,20 +58,14 @@ HIDDEN_IMPORTS = [
     # ReportLab (a veces no se detecta automáticamente)
     "reportlab.graphics.barcode.code128",
     "reportlab.graphics.barcode.code39",
-    # Pillow
-    "PIL._tkinter_finder",
     # SQLite
     "sqlite3",
 ]
 
 # ── Módulos a excluir (reducen tamaño del ejecutable) ─────────────────────────
 EXCLUDES = [
-    "tkinter",          # UI antigua — reemplazada por FastAPI/web
-    "matplotlib",       # Solo usado en GUI PySide6, no en API server
-    "pandas",           # Solo en exportador_multi.py (import lazy, no ruta API)
-    "openpyxl",         # Ídem
-    "numpy",
-    "PySide6",          # GUI desktop — no incluir en bundle web
+    "tkinter",          # UI antigua — no se usa
+    "customtkinter",    # Legacy — no se usa
     "test",
     "unittest",
     "doctest",
@@ -90,7 +85,7 @@ PYINSTALLER_CONFIG = {
     "add_data":       ADD_DATA,
     "hidden_imports": HIDDEN_IMPORTS,
     "excludes":       EXCLUDES,
-    "entry_point":    "api_server.py",
+    "entry_point":    "main.py",
 }
 
 # ── Configuración de runtime ──────────────────────────────────────────────────
@@ -100,3 +95,29 @@ RUNTIME_CONFIG = {
     "log_level": "info",
     "reload":    False,
 }
+
+# ── Ofuscación de core/licencia.py con PyArmor (pre-PyInstaller) ──────────────
+#
+# Pasos para ofuscar antes del build (idempotente):
+#
+#   1. pip install pyarmor
+#   2. pyarmor gen --output dist_obf core/licencia.py
+#   3. cp dist_obf/licencia.py core/licencia.py   (reemplazar fuente)
+#   4. Ejecutar PyInstaller normalmente (build.py o MetodoBase.spec)
+#
+# Script idempotente (ejecutar desde la raíz del proyecto):
+#
+#   import shutil, subprocess, sys
+#   from pathlib import Path
+#   ORIG = Path("core/licencia.py")
+#   BACKUP = Path("core/licencia.py.orig")
+#   OBFDIR = Path("dist_obf")
+#   if not BACKUP.exists():
+#       shutil.copy2(ORIG, BACKUP)
+#   subprocess.check_call([sys.executable, "-m", "pyarmor", "gen",
+#                          "--output", str(OBFDIR), str(ORIG)])
+#   shutil.copy2(OBFDIR / "licencia.py", ORIG)
+#   print("✅ core/licencia.py ofuscado — backup en core/licencia.py.orig")
+#
+# Para restaurar: cp core/licencia.py.orig core/licencia.py
+OFUSCAR_LICENCIA = False  # Cambiar a True para activar en CI

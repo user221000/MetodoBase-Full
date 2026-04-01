@@ -1,68 +1,102 @@
-"""CRUD endpoints /api/clientes."""
+"""
+api/routes/clientes.py — CRUD endpoints /api/clientes con autenticación multi-tenant.
+
+Todos los endpoints requieren autenticación y filtran por gym_id del usuario.
+"""
 import logging
 from typing import Optional
 
 from fastapi import APIRouter, HTTPException, Depends, Query
+from sqlalchemy.orm import Session
 
 from api.schemas import ClienteCreate, ClienteUpdate
-from api.dependencies import get_gestor, build_cliente_from_dict
-from src.gestor_bd import GestorBDClientes
+from api.dependencies import build_cliente_from_dict
+from web.database.engine import get_db
+from web.auth_deps import get_usuario_gym
+from web.database import repository as repo
+from config.constantes import DEFAULT_PAGE_SIZE, MAX_PAGE_SIZE, ERR_CLIENTE_NO_ENCONTRADO
 
 logger = logging.getLogger(__name__)
 router = APIRouter(tags=["Clientes"])
 
 
-@router.get("/clientes", summary="Listar clientes activos")
+@router.get("/clientes", summary="Listar clientes")
 def listar_clientes(
     q: Optional[str] = Query(None, description="Busca por nombre, teléfono o ID"),
-    limite: int = Query(100, ge=1, le=500),
-    gestor: GestorBDClientes = Depends(get_gestor),
+    filter: Optional[str] = Query(None, description="activos|inactivos"),
+    limite: int = Query(DEFAULT_PAGE_SIZE, ge=1, le=MAX_PAGE_SIZE),
+    offset: int = Query(0, ge=0),
+    db: Session = Depends(get_db),
+    usuario: dict = Depends(get_usuario_gym),
 ):
-    """Lista clientes activos; acepta búsqueda opcional con ?q=."""
+    """Lista clientes del gym; acepta búsqueda y filtro de actividad."""
+    gym_id = usuario["id"]
     termino = q.strip() if q else ""
-    clientes = gestor.buscar_clientes(termino, solo_activos=True, limite=limite)
-    return {"clientes": clientes, "total": len(clientes)}
+    solo_activos = None
+    if filter == "activos":
+        solo_activos = True
+    elif filter == "inactivos":
+        solo_activos = False
+    clientes, total = repo.listar_clientes(
+        db, gym_id, termino=termino, solo_activos=solo_activos, limite=limite, offset=offset
+    )
+    return {"clientes": clientes, "total": total, "limit": limite, "offset": offset, "filter": filter}
 
 
 @router.get("/clientes/{id_cliente}", summary="Obtener cliente por ID")
 def obtener_cliente(
     id_cliente: str,
-    gestor: GestorBDClientes = Depends(get_gestor),
+    db: Session = Depends(get_db),
+    usuario: dict = Depends(get_usuario_gym),
 ):
-    """Retorna todos los datos de un cliente."""
-    cliente = gestor.obtener_cliente_por_id(id_cliente)
+    """Retorna todos los datos de un cliente que pertenece al gym."""
+    gym_id = usuario["id"]
+    cliente = repo.obtener_cliente(db, gym_id, id_cliente)
     if not cliente:
-        raise HTTPException(status_code=404, detail="Cliente no encontrado")
+        raise HTTPException(status_code=404, detail=ERR_CLIENTE_NO_ENCONTRADO)
     return cliente
 
 
 @router.post("/clientes", status_code=201, summary="Crear nuevo cliente")
 def crear_cliente(
     data: ClienteCreate,
-    gestor: GestorBDClientes = Depends(get_gestor),
+    db: Session = Depends(get_db),
+    usuario: dict = Depends(get_usuario_gym),
 ):
     """
-    Crea un nuevo cliente. Calcula macros (Katch-McArdle) automáticamente
-    a partir de los datos antropométricos y los almacena junto con el perfil.
+    Crea un nuevo cliente asignado al gym del usuario autenticado.
+    Calcula macros (Katch-McArdle) automáticamente.
     """
+    gym_id = usuario["id"]
     try:
-        cliente = build_cliente_from_dict(data.model_dump())
-        exito = gestor.registrar_cliente(cliente)
-        if not exito:
-            raise HTTPException(status_code=500, detail="Error guardando cliente en BD")
-
-        logger.info("Cliente creado: %s (%s)", cliente.nombre, cliente.id_cliente)
+        # Calcular macros usando el motor nutricional
+        cliente_calc = build_cliente_from_dict(data.model_dump())
+        
+        # Preparar datos con macros calculados
+        cliente_data = data.model_dump()
+        cliente_data.update({
+            "tmb": cliente_calc.tmb,
+            "get_total": cliente_calc.get_total,
+            "kcal_objetivo": cliente_calc.kcal_objetivo,
+            "proteina_g": cliente_calc.proteina_g,
+            "carbs_g": cliente_calc.carbs_g,
+            "grasa_g": cliente_calc.grasa_g,
+        })
+        
+        nuevo = repo.crear_cliente(db, gym_id, cliente_data)
+        
+        logger.info("Cliente creado: %s (gym: %s)", nuevo["nombre"], gym_id)
         return {
             "success": True,
-            "id_cliente": cliente.id_cliente,
-            "message": f"Cliente '{cliente.nombre}' creado correctamente",
+            "id_cliente": nuevo["id_cliente"],
+            "message": f"Cliente '{nuevo['nombre']}' creado correctamente",
             "macros": {
-                "tmb": round(cliente.tmb or 0, 1),
-                "get_total": round(cliente.get_total or 0, 1),
-                "kcal_objetivo": round(cliente.kcal_objetivo or 0, 0),
-                "proteina_g": round(cliente.proteina_g or 0, 1),
-                "carbs_g": round(cliente.carbs_g or 0, 1),
-                "grasa_g": round(cliente.grasa_g or 0, 1),
+                "tmb": round(cliente_calc.tmb or 0, 1),
+                "get_total": round(cliente_calc.get_total or 0, 1),
+                "kcal_objetivo": round(cliente_calc.kcal_objetivo or 0, 0),
+                "proteina_g": round(cliente_calc.proteina_g or 0, 1),
+                "carbs_g": round(cliente_calc.carbs_g or 0, 1),
+                "grasa_g": round(cliente_calc.grasa_g or 0, 1),
             },
         }
     except HTTPException:
@@ -76,20 +110,33 @@ def crear_cliente(
 def actualizar_cliente(
     id_cliente: str,
     data: ClienteUpdate,
-    gestor: GestorBDClientes = Depends(get_gestor),
+    db: Session = Depends(get_db),
+    usuario: dict = Depends(get_usuario_gym),
 ):
     """Actualiza los datos de un cliente existente (merge parcial)."""
-    existing = gestor.obtener_cliente_por_id(id_cliente)
+    gym_id = usuario["id"]
+    existing = repo.obtener_cliente(db, gym_id, id_cliente)
     if not existing:
-        raise HTTPException(status_code=404, detail="Cliente no encontrado")
+        raise HTTPException(status_code=404, detail=ERR_CLIENTE_NO_ENCONTRADO)
 
     try:
-        # Merge: solo sobreescribe campos no-None del body
         update_dict = {k: v for k, v in data.model_dump().items() if v is not None}
-        merged = {**existing, **update_dict, "id_cliente": id_cliente}
-        cliente = build_cliente_from_dict(merged)
-        exito = gestor.registrar_cliente(cliente)
-        if not exito:
+        
+        # Recalcular macros si hay cambios en datos antropométricos
+        if any(k in update_dict for k in ("peso_kg", "estatura_cm", "grasa_corporal_pct", "nivel_actividad", "objetivo")):
+            merged = {**existing, **update_dict}
+            cliente_calc = build_cliente_from_dict(merged)
+            update_dict.update({
+                "tmb": cliente_calc.tmb,
+                "get_total": cliente_calc.get_total,
+                "kcal_objetivo": cliente_calc.kcal_objetivo,
+                "proteina_g": cliente_calc.proteina_g,
+                "carbs_g": cliente_calc.carbs_g,
+                "grasa_g": cliente_calc.grasa_g,
+            })
+        
+        updated = repo.actualizar_cliente(db, gym_id, id_cliente, update_dict)
+        if not updated:
             raise HTTPException(status_code=500, detail="Error actualizando cliente")
 
         logger.info("Cliente actualizado: %s", id_cliente)
@@ -104,20 +151,17 @@ def actualizar_cliente(
 @router.delete("/clientes/{id_cliente}", summary="Desactivar cliente (soft delete)")
 def desactivar_cliente(
     id_cliente: str,
-    gestor: GestorBDClientes = Depends(get_gestor),
+    db: Session = Depends(get_db),
+    usuario: dict = Depends(get_usuario_gym),
 ):
     """Desactiva un cliente (lo oculta del listado; sus datos se conservan)."""
-    existing = gestor.obtener_cliente_por_id(id_cliente)
+    gym_id = usuario["id"]
+    existing = repo.obtener_cliente(db, gym_id, id_cliente)
     if not existing:
-        raise HTTPException(status_code=404, detail="Cliente no encontrado")
+        raise HTTPException(status_code=404, detail=ERR_CLIENTE_NO_ENCONTRADO)
 
-    try:
-        import sqlite3
-        conn = sqlite3.connect(gestor.db_path)
-        conn.execute("UPDATE clientes SET activo = 0 WHERE id_cliente = ?", (id_cliente,))
-        conn.commit()
-        conn.close()
-        logger.info("Cliente desactivado: %s", id_cliente)
-        return {"success": True, "message": "Cliente desactivado"}
-    except Exception as exc:
-        raise HTTPException(status_code=500, detail=str(exc))
+    exito = repo.eliminar_cliente(db, gym_id, id_cliente)
+    if not exito:
+        raise HTTPException(status_code=500, detail="Error desactivando cliente")
+    logger.info("Cliente desactivado: %s", id_cliente)
+    return {"success": True, "message": "Cliente desactivado"}

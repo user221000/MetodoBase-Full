@@ -1,13 +1,10 @@
 """
 api/pdf_generator.py — Generador de PDFs profesionales con ReportLab Platypus.
 
-Diferencias vs GeneradorPDFProfesional (core/exportador_salida.py):
-  - Usa el motor de flujo *Platypus* (SimpleDocTemplate + Flowables)
-    en lugar de canvas de bajo nivel.
-  - Layout configurable por dict `config` — cada gym puede personalizar
-    nombre, logo, colores y datos de contacto sin tocar el código.
-  - Acepta `datos_plan` como dict puro (no depende de ClienteEvaluacion),
-    lo que facilita el testing aislado.
+Premium dark-neon theme (black/yellow/purple) adaptado para impresión.
+Logo normalizado: cualquier forma (oval, rectangular, cuadrada) se ajusta
+a un bounding-box estándar con preserveAspectRatio para que el header
+siempre tenga dimensiones consistentes.
 
 Uso desde routes/services:
     from api.pdf_generator import PDFGenerator
@@ -18,7 +15,6 @@ from __future__ import annotations
 
 import logging
 from datetime import datetime
-from io import BytesIO
 from pathlib import Path
 from typing import Optional
 
@@ -31,7 +27,6 @@ from reportlab.platypus import (
     HRFlowable,
     Image,
     KeepTogether,
-    PageBreak,
     Paragraph,
     SimpleDocTemplate,
     Spacer,
@@ -41,13 +36,21 @@ from reportlab.platypus import (
 
 logger = logging.getLogger(__name__)
 
-# ── Paleta de colores predeterminada ──────────────────────────────────────────
-_COLOR_ORANGE = colors.HexColor("#FF6B35")
-_COLOR_NAVY   = colors.HexColor("#004E89")
-_COLOR_GRAY   = colors.HexColor("#F3F4F6")
-_COLOR_DARK   = colors.HexColor("#111827")
-_COLOR_MID    = colors.HexColor("#6B7280")
-_COLOR_WHITE  = colors.white
+# ── Paleta premium (black · gold · midnight) — print-adapted ─────────────────
+_BLACK       = colors.HexColor("#0F0F0F")
+_DARK        = colors.HexColor("#292524")        # warm charcoal
+_GOLD        = colors.HexColor("#E5B800")        # golden yellow — primary accent
+_GOLD_SOFT   = colors.HexColor("#FFF8E1")        # warm card bg
+_GRAY_50     = colors.HexColor("#FAFAFA")
+_GRAY_100    = colors.HexColor("#F5F5F5")
+_GRAY_200    = colors.HexColor("#E5E5E5")
+_GRAY_400    = colors.HexColor("#A3A3A3")
+_GRAY_600    = colors.HexColor("#525252")
+_WHITE       = colors.white
+
+# Logo standard bounding-box (any shape normalizes into this)
+_LOGO_MAX_W = 3.0 * cm
+_LOGO_MAX_H = 2.2 * cm
 
 _PAGE_W, _PAGE_H = LETTER
 _MARGIN = 1.5 * cm
@@ -56,23 +59,11 @@ _MARGIN = 1.5 * cm
 class PDFGenerator:
     """
     Generador de PDFs con branding personalizado por gimnasio.
-
-    Args:
-        config: Dict opcional con llaves:
-            gym_nombre     (str)   — "Mi Gym"
-            gym_logo       (Path)  — Ruta al archivo de logo (.png/.jpg)
-            gym_telefono   (str)   — "33 1234 5678"
-            gym_direccion  (str)   — "Calle Falsa 123"
-            color_primario (str)   — Hex "#FF6B35"
-            color_secundario(str)  — Hex "#004E89"
+    Tema premium: black · gold · warm charcoal, minimalista para impresión.
     """
 
     def __init__(self, config: Optional[dict] = None):
         self.config = {**self._default_config(), **(config or {})}
-        _c1 = self.config.get("color_primario", "#FF6B35")
-        _c2 = self.config.get("color_secundario", "#004E89")
-        self.C_PRIMARY   = colors.HexColor(_c1)
-        self.C_SECONDARY = colors.HexColor(_c2)
         self.styles = getSampleStyleSheet()
         self._build_styles()
 
@@ -134,11 +125,32 @@ class PDFGenerator:
 
     # ── Sección: Header ────────────────────────────────────────────────────────
 
+    def _build_logo_image(self, logo_path: str) -> Optional[Image]:
+        """Normalize any logo shape to a standard bounding-box."""
+        p = Path(logo_path)
+        if not p.exists():
+            return None
+        try:
+            img = Image(
+                str(p),
+                width=_LOGO_MAX_W,
+                height=_LOGO_MAX_H,
+                kind="proportional",          # preserves aspect ratio
+            )
+            img.hAlign = "RIGHT"
+            return img
+        except Exception:
+            logger.warning("No se pudo cargar logo: %s", logo_path)
+            return None
+
     def _build_header(self, datos_plan: dict) -> list:
         flowables = []
-        gym_nombre   = self.config["gym_nombre"]
-        gym_telefono = self.config.get("gym_telefono", "")
-        gym_dir      = self.config.get("gym_direccion", "")
+        gym_nombre    = self.config["gym_nombre"]
+        gym_telefono  = self.config.get("gym_telefono", "")
+        gym_dir       = self.config.get("gym_direccion", "")
+        gym_instagram = self.config.get("gym_instagram", "")
+        gym_facebook  = self.config.get("gym_facebook", "")
+        gym_tiktok    = self.config.get("gym_tiktok", "")
         fecha = datos_plan.get("fecha_generacion") or datetime.now()
         if isinstance(fecha, str):
             fecha_str = fecha[:10]
@@ -147,53 +159,69 @@ class PDFGenerator:
 
         logo_path = self.config.get("gym_logo")
         usable_w = _PAGE_W - 2 * _MARGIN
+        _s = self.styles
 
-        if logo_path and Path(logo_path).exists():
-            # Header 2 columnas: logo izq, info gym der
-            logo_img = Image(str(logo_path), width=3 * cm, height=1.6 * cm)
-            logo_img.hAlign = "LEFT"
-            gym_data = [
-                [Paragraph(gym_nombre, self.styles["PDF_GymName"]),
-                 Paragraph(f"Fecha: {fecha_str}", self.styles["PDF_SmallRight"])],
-            ]
-            if gym_dir or gym_telefono:
-                sub = " | ".join(filter(None, [gym_dir, gym_telefono]))
-                gym_data.append([
-                    Paragraph(sub, self.styles["PDF_Sub"]),
-                    Paragraph("", self.styles["PDF_Sub"]),
-                ])
+        # ── Left block: gym identity (hierarchical) ──
+        info_parts = []
+        info_parts.append(Paragraph(gym_nombre, _s["PDF_GymName"]))
+
+        if gym_dir:
+            info_parts.append(Paragraph(gym_dir, _s["PDF_Contact"]))
+        if gym_telefono:
+            info_parts.append(Paragraph(gym_telefono, _s["PDF_Contact"]))
+
+        # Social media line
+        redes = []
+        if gym_instagram:
+            redes.append(f"@{gym_instagram}" if not gym_instagram.startswith("@") else gym_instagram)
+        if gym_facebook:
+            redes.append(gym_facebook)
+        if gym_tiktok:
+            redes.append(gym_tiktok)
+        if redes:
+            info_parts.append(Paragraph(" · ".join(redes), _s["PDF_Social"]))
+
+        info_parts.append(Paragraph(fecha_str, _s["PDF_Sub"]))
+
+        info_tbl = Table([[p] for p in info_parts], colWidths=[None])
+        info_tbl.setStyle(TableStyle([
+            ("LEFTPADDING",  (0, 0), (-1, -1), 0),
+            ("RIGHTPADDING", (0, 0), (-1, -1), 0),
+            ("TOPPADDING",   (0, 0), (-1, -1), 1),
+            ("BOTTOMPADDING",(0, 0), (-1, -1), 1),
+        ]))
+
+        # ── Right block: logo (normalized to standard bounding-box) ──
+        logo_img = self._build_logo_image(logo_path) if logo_path else None
+
+        if logo_img:
+            logo_col_w = _LOGO_MAX_W + 0.6 * cm
             header_tbl = Table(
-                [[logo_img, Table(gym_data)]],
-                colWidths=[3.5 * cm, usable_w - 3.5 * cm],
+                [[info_tbl, logo_img]],
+                colWidths=[usable_w - logo_col_w, logo_col_w],
             )
             header_tbl.setStyle(TableStyle([
-                ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
-                ("LEFTPADDING", (0, 0), (-1, -1), 0),
+                ("VALIGN",       (0, 0), (-1, -1), "MIDDLE"),
+                ("LEFTPADDING",  (0, 0), (-1, -1), 0),
                 ("RIGHTPADDING", (0, 0), (-1, -1), 0),
+                ("TOPPADDING",   (0, 0), (-1, -1), 0),
+                ("BOTTOMPADDING",(0, 0), (-1, -1), 0),
             ]))
             flowables.append(header_tbl)
         else:
-            # Header sin logo: dos columnas de texto
-            header_tbl = Table(
-                [[Paragraph(gym_nombre, self.styles["PDF_GymName"]),
-                  Paragraph(f"Fecha: {fecha_str}", self.styles["PDF_SmallRight"])]],
-                colWidths=[usable_w * 0.65, usable_w * 0.35],
-            )
-            header_tbl.setStyle(TableStyle([
-                ("VALIGN", (0, 0), (-1, -1), "BOTTOM"),
-                ("LEFTPADDING", (0, 0), (-1, -1), 0),
-                ("RIGHTPADDING", (0, 0), (-1, -1), 0),
-            ]))
-            flowables.append(header_tbl)
-            if gym_dir or gym_telefono:
-                sub = " · ".join(filter(None, [gym_dir, gym_telefono]))
-                flowables.append(Paragraph(sub, self.styles["PDF_Sub"]))
+            flowables.append(info_tbl)
 
+        # ── Gold accent line ──
         flowables.append(Spacer(1, 0.2 * cm))
-        flowables.append(HRFlowable(width="100%", thickness=2, color=self.C_PRIMARY))
-        flowables.append(Spacer(1, 0.15 * cm))
+        flowables.append(HRFlowable(width="100%", thickness=2, color=_GOLD))
+        flowables.append(Spacer(1, 0.35 * cm))
+
+        # ── Tagline ──
         flowables.append(
-            Paragraph("Plan Nutricional Personalizado", self.styles["PDF_Title"])
+            Paragraph(
+                "Tu plan nutricional personalizado, ¡Disfrútalo!",
+                _s["PDF_Tagline"],
+            )
         )
         return flowables
 
@@ -207,20 +235,29 @@ class PDFGenerator:
         peso      = f"{cliente.get('peso_kg', '—')} kg"
         estatura  = f"{cliente.get('estatura_cm', '—')} cm"
         grasa     = cliente.get("grasa_corporal_pct")
-        grasa_str = f"{grasa}%" if grasa else "No especificado"
+        grasa_str = f"{grasa}%" if grasa else "N/E"
         objetivo_map = {
-            "deficit": "Déficit calórico (bajar grasa)",
-            "mantenimiento": "Mantenimiento de peso",
-            "superavit": "Superávit calórico (ganar masa)",
+            "deficit": "Déficit calórico",
+            "perdida_grasa": "Pérdida de grasa",
+            "mantenimiento": "Mantenimiento",
+            "superavit": "Superávit calórico",
+            "ganancia_muscular": "Ganancia muscular",
+            "rendimiento": "Rendimiento",
+            "salud_general": "Salud general",
         }
         objetivo  = objetivo_map.get(str(cliente.get("objetivo", "")).lower(), str(cliente.get("objetivo", "—")))
         nivel_map = {
             "nula": "Sedentario",
+            "sedentario": "Sedentario",
             "leve": "Leve (1-3 días/sem)",
+            "ligero": "Ligero (1-3 días/sem)",
             "moderada": "Moderada (3-5 días/sem)",
+            "moderado": "Moderado (3-5 días/sem)",
             "intensa": "Intensa (6-7 días/sem)",
+            "activo": "Activo (6-7 días/sem)",
+            "muy_activo": "Muy activo (atleta)",
         }
-        nivel     = nivel_map.get(str(cliente.get("nivel_actividad", "")).lower(), str(cliente.get("nivel_actividad", "—")))
+        nivel = nivel_map.get(str(cliente.get("nivel_actividad", "")).lower(), str(cliente.get("nivel_actividad", "—")))
 
         _s = self.styles
         data = [
@@ -239,18 +276,16 @@ class PDFGenerator:
 
         tbl = Table(data, colWidths=[col_w] * 4)
         tbl.setStyle(TableStyle([
-            # Header row spanning 4 cols
             ("SPAN",            (0, 0), (3, 0)),
-            ("BACKGROUND",      (0, 0), (3, 0), self.C_SECONDARY),
-            ("TEXTCOLOR",       (0, 0), (3, 0), _COLOR_WHITE),
+            ("BACKGROUND",      (0, 0), (3, 0), _DARK),
+            ("TEXTCOLOR",       (0, 0), (3, 0), _GOLD),
             ("FONTNAME",        (0, 0), (3, 0), "Helvetica-Bold"),
             ("FONTSIZE",        (0, 0), (3, 0), 9),
-            ("TOPPADDING",      (0, 0), (3, 0), 5),
-            ("BOTTOMPADDING",   (0, 0), (3, 0), 5),
-            # Data rows
-            ("BACKGROUND",      (0, 1), (-1, -1), _COLOR_GRAY),
-            ("ROWBACKGROUNDS",  (0, 1), (-1, -1), [_COLOR_GRAY, colors.white]),
-            ("GRID",            (0, 0), (-1, -1), 0.5, colors.HexColor("#E5E7EB")),
+            ("TOPPADDING",      (0, 0), (3, 0), 6),
+            ("BOTTOMPADDING",   (0, 0), (3, 0), 6),
+            ("BACKGROUND",      (0, 1), (-1, -1), _GRAY_50),
+            ("ROWBACKGROUNDS",  (0, 1), (-1, -1), [_GRAY_50, _WHITE]),
+            ("GRID",            (0, 0), (-1, -1), 0.4, _GRAY_200),
             ("TOPPADDING",      (0, 1), (-1, -1), 5),
             ("BOTTOMPADDING",   (0, 1), (-1, -1), 5),
             ("LEFTPADDING",     (0, 0), (-1, -1), 8),
@@ -263,8 +298,6 @@ class PDFGenerator:
         if not macros:
             return []
 
-        tmb      = int(round(macros.get("tmb", 0)))
-        get_tot  = int(round(macros.get("get_total", 0)))
         kcal_obj = int(round(macros.get("kcal_objetivo", 0)))
         prot     = round(macros.get("proteina_g", 0), 1)
         carb     = round(macros.get("carbs_g", 0), 1)
@@ -272,17 +305,15 @@ class PDFGenerator:
 
         _s = self.styles
 
-        def _macro_cell(valor, label, bg_hex):
-            """Celda con valor grande y etiqueta pequeña."""
-            bg = colors.HexColor(bg_hex)
+        def _macro_cell(valor, label, bg_color):
             inner = Table(
                 [[Paragraph(str(valor), _s["PDF_MacroNum"])],
                  [Paragraph(label,      _s["PDF_MacroLabel"])]],
                 colWidths=[None],
             )
             inner.setStyle(TableStyle([
-                ("BACKGROUND",    (0, 0), (-1, -1), bg),
-                ("TEXTCOLOR",     (0, 0), (-1, -1), _COLOR_WHITE),
+                ("BACKGROUND",    (0, 0), (-1, -1), bg_color),
+                ("TEXTCOLOR",     (0, 0), (-1, -1), _WHITE),
                 ("ALIGN",         (0, 0), (-1, -1), "CENTER"),
                 ("TOPPADDING",    (0, 0), (-1, -1), 8),
                 ("BOTTOMPADDING", (0, 0), (-1, -1), 8),
@@ -291,17 +322,15 @@ class PDFGenerator:
             return inner
 
         usable_w = _PAGE_W - 2 * _MARGIN
-        cw       = usable_w / 6
+        cw       = usable_w / 4
 
         cells = [
-            _macro_cell(f"{tmb}", "TMB (kcal)",       "#6366F1"),
-            _macro_cell(f"{get_tot}", "GET (kcal)",   "#0EA5E9"),
-            _macro_cell(f"{kcal_obj}", "Objetivo",    "#FF6B35"),
-            _macro_cell(f"{prot}g", "Proteína",       "#10B981"),
-            _macro_cell(f"{carb}g", "Carbohidratos",  "#F59E0B"),
-            _macro_cell(f"{fat}g", "Grasas",          "#EF4444"),
+            _macro_cell(f"{kcal_obj}","Calorías Objetivo", _GOLD),
+            _macro_cell(f"{prot}g",   "Proteína",          _DARK),
+            _macro_cell(f"{carb}g",   "Carbohidratos",     _DARK),
+            _macro_cell(f"{fat}g",    "Grasas",            _DARK),
         ]
-        tbl = Table([cells], colWidths=[cw] * 6)
+        tbl = Table([cells], colWidths=[cw] * 4)
         tbl.setStyle(TableStyle([
             ("LEFTPADDING",   (0, 0), (-1, -1), 3),
             ("RIGHTPADDING",  (0, 0), (-1, -1), 3),
@@ -343,7 +372,6 @@ class PDFGenerator:
             alimentos  = comida.get("alimentos", {})
             kcal_real  = int(round(comida.get("kcal_real", 0)))
 
-            # Header de esta comida
             header_row = [
                 Paragraph(label, _s["PDF_MealHeader"]),
                 Paragraph("Porción (g)", _s["PDF_MealHeaderC"]),
@@ -351,7 +379,6 @@ class PDFGenerator:
                 Paragraph("", _s["PDF_MealHeader"]),
             ]
 
-            # Filas de alimentos
             rows = [header_row]
             for alimento, gramos in alimentos.items():
                 nombre_fmt = alimento.replace("_", " ").title()
@@ -363,7 +390,6 @@ class PDFGenerator:
                     Paragraph("",                  _s["PDF_CellC"]),
                 ])
 
-            # Fila de total
             rows.append([
                 Paragraph("<b>Total comida</b>", _s["PDF_CellBold"]),
                 Paragraph("",        _s["PDF_CellC"]),
@@ -373,22 +399,17 @@ class PDFGenerator:
 
             tbl = Table(rows, colWidths=cols)
             tbl.setStyle(TableStyle([
-                # Header
-                ("BACKGROUND",    (0, 0), (-1, 0), self.C_PRIMARY),
-                ("TEXTCOLOR",     (0, 0), (-1, 0), _COLOR_WHITE),
-                ("FONTNAME",      (0, 0), (-1, 0), "Helvetica-Bold"),
-                ("FONTSIZE",      (0, 0), (-1, 0), 8),
-                # Zebra
-                ("ROWBACKGROUNDS", (0, 1), (-1, -2),
-                 [colors.white, _COLOR_GRAY]),
-                # Total row
-                ("BACKGROUND",    (0, -1), (-1, -1), colors.HexColor("#E0F2FE")),
-                # Grid
-                ("GRID",          (0, 0), (-1, -1), 0.3, colors.HexColor("#E5E7EB")),
-                ("TOPPADDING",    (0, 0), (-1, -1), 4),
-                ("BOTTOMPADDING", (0, 0), (-1, -1), 4),
-                ("LEFTPADDING",   (0, 0), (-1, -1), 6),
-                ("SPAN",          (0, -1), (-2, -1)),  # "Total comida" spans 2 cols
+                ("BACKGROUND",     (0, 0), (-1, 0), _DARK),
+                ("TEXTCOLOR",      (0, 0), (-1, 0), _GOLD),
+                ("FONTNAME",       (0, 0), (-1, 0), "Helvetica-Bold"),
+                ("FONTSIZE",       (0, 0), (-1, 0), 8),
+                ("ROWBACKGROUNDS", (0, 1), (-1, -2), [_WHITE, _GRAY_50]),
+                ("BACKGROUND",     (0, -1), (-1, -1), _GOLD_SOFT),
+                ("GRID",           (0, 0), (-1, -1), 0.3, _GRAY_200),
+                ("TOPPADDING",     (0, 0), (-1, -1), 4),
+                ("BOTTOMPADDING",  (0, 0), (-1, -1), 4),
+                ("LEFTPADDING",    (0, 0), (-1, -1), 6),
+                ("SPAN",           (0, -1), (1, -1)),
             ]))
             flowables.append(KeepTogether([tbl, Spacer(1, 0.4 * cm)]))
 
@@ -405,21 +426,21 @@ class PDFGenerator:
             ("Ansiedad", "Puedes consumir gelatina sin azúcar (light) libremente entre comidas."),
         ]
         _s = self.styles
-        rows = [[Paragraph("Recomendaciones Básicas", _s["PDF_CardTitle"]), ""]]
+        rows = [[Paragraph("Recomendaciones", _s["PDF_CardTitle"]), ""]]
         for titulo, texto in tips:
             rows.append([
-                Paragraph(f"<b>{titulo}:</b>", _s["PDF_Cell"]),
+                Paragraph(f"<b>{titulo}</b>", _s["PDF_Cell"]),
                 Paragraph(texto, _s["PDF_Cell"]),
             ])
 
         usable_w = _PAGE_W - 2 * _MARGIN
-        tbl = Table(rows, colWidths=[usable_w * 0.20, usable_w * 0.80])
+        tbl = Table(rows, colWidths=[usable_w * 0.18, usable_w * 0.82])
         tbl.setStyle(TableStyle([
             ("SPAN",          (0, 0), (1, 0)),
-            ("BACKGROUND",    (0, 0), (1, 0), self.C_SECONDARY),
-            ("TEXTCOLOR",     (0, 0), (1, 0), _COLOR_WHITE),
-            ("ROWBACKGROUNDS", (0, 1), (-1, -1), [colors.white, _COLOR_GRAY]),
-            ("GRID",          (0, 0), (-1, -1), 0.3, colors.HexColor("#E5E7EB")),
+            ("BACKGROUND",    (0, 0), (1, 0), _DARK),
+            ("TEXTCOLOR",     (0, 0), (1, 0), _GOLD),
+            ("ROWBACKGROUNDS", (0, 1), (-1, -1), [_WHITE, _GRAY_50]),
+            ("GRID",          (0, 0), (-1, -1), 0.3, _GRAY_200),
             ("TOPPADDING",    (0, 0), (-1, -1), 4),
             ("BOTTOMPADDING", (0, 0), (-1, -1), 4),
             ("LEFTPADDING",   (0, 0), (-1, -1), 6),
@@ -436,9 +457,12 @@ class PDFGenerator:
         )
         _s = self.styles
         return [
-            HRFlowable(width="100%", thickness=0.5, color=colors.HexColor("#D1D5DB")),
+            HRFlowable(width="100%", thickness=0.5, color=_GRAY_200),
             Spacer(1, 0.15 * cm),
-            Paragraph(f"Generado con <b>Método Base</b> · {datetime.now().strftime('%d/%m/%Y')}", _s["PDF_Footer"]),
+            Paragraph(
+                f"Generado con <b>Método Base</b> · {datetime.now().strftime('%d/%m/%Y')}",
+                _s["PDF_Footer"],
+            ),
             Spacer(1, 0.1 * cm),
             Paragraph(disclaimer, _s["PDF_Disclaimer"]),
         ]
@@ -446,73 +470,119 @@ class PDFGenerator:
     # ── Decoración de página ───────────────────────────────────────────────────
 
     def _draw_page_border(self, canvas, doc):
-        """Dibuja un borde sutil alrededor de cada página."""
+        """Borde sutil con acento dorado superior."""
         canvas.saveState()
-        canvas.setStrokeColor(colors.HexColor("#E5E7EB"))
-        canvas.setLineWidth(0.5)
-        canvas.rect(
-            _MARGIN * 0.7, _MARGIN * 0.7,
-            _PAGE_W - _MARGIN * 1.4,
-            _PAGE_H - _MARGIN * 1.4,
-        )
+        # Thin outer border
+        canvas.setStrokeColor(colors.HexColor("#E5E5E5"))
+        canvas.setLineWidth(0.4)
+        x0 = _MARGIN * 0.7
+        y0 = _MARGIN * 0.7
+        w  = _PAGE_W - _MARGIN * 1.4
+        h  = _PAGE_H - _MARGIN * 1.4
+        canvas.rect(x0, y0, w, h)
+        # Gold accent line at top
+        canvas.setStrokeColor(colors.HexColor("#E5B800"))
+        canvas.setLineWidth(2.5)
+        canvas.line(x0, y0 + h, x0 + w, y0 + h)
         canvas.restoreState()
 
     # ── Estilos ────────────────────────────────────────────────────────────────
 
     def _build_styles(self) -> None:
-        """Registra todos los ParagraphStyle personalizados."""
         add = self.styles.add
 
         add(ParagraphStyle("PDF_GymName",     parent=self.styles["Normal"],
-                           fontSize=14, fontName="Helvetica-Bold",
-                           textColor=self.C_SECONDARY))
+                           fontSize=15, fontName="Helvetica-Bold",
+                           textColor=_DARK, leading=19))
+        add(ParagraphStyle("PDF_Contact",     parent=self.styles["Normal"],
+                           fontSize=8, textColor=_GRAY_600, leading=11))
+        add(ParagraphStyle("PDF_Social",      parent=self.styles["Normal"],
+                           fontSize=7.5, textColor=_GOLD,
+                           fontName="Helvetica-Bold", leading=10))
         add(ParagraphStyle("PDF_Sub",         parent=self.styles["Normal"],
-                           fontSize=7.5, textColor=_COLOR_MID))
+                           fontSize=7.5, textColor=_GRAY_400, leading=10))
         add(ParagraphStyle("PDF_SmallRight",  parent=self.styles["Normal"],
-                           fontSize=8, alignment=TA_RIGHT, textColor=_COLOR_MID))
+                           fontSize=8, alignment=TA_RIGHT, textColor=_GRAY_400))
+        add(ParagraphStyle("PDF_Tagline",     parent=self.styles["Normal"],
+                           fontSize=12, fontName="Helvetica-BoldOblique",
+                           textColor=_DARK, alignment=TA_CENTER,
+                           spaceAfter=2))
         add(ParagraphStyle("PDF_Title",       parent=self.styles["Normal"],
                            fontSize=16, fontName="Helvetica-Bold",
-                           textColor=self.C_PRIMARY, alignment=TA_CENTER,
+                           textColor=_GOLD, alignment=TA_CENTER,
                            spaceAfter=2))
         add(ParagraphStyle("PDF_SectionTitle", parent=self.styles["Normal"],
                            fontSize=10, fontName="Helvetica-Bold",
-                           textColor=self.C_SECONDARY, spaceBefore=4))
+                           textColor=_DARK, spaceBefore=4))
         add(ParagraphStyle("PDF_CardTitle",   parent=self.styles["Normal"],
-                           fontSize=9, fontName="Helvetica-Bold", textColor=_COLOR_WHITE))
+                           fontSize=9, fontName="Helvetica-Bold",
+                           textColor=_GOLD))
         add(ParagraphStyle("PDF_Cell",        parent=self.styles["Normal"],
-                           fontSize=8, leading=11))
+                           fontSize=8, leading=11, textColor=_BLACK))
         add(ParagraphStyle("PDF_CellBold",    parent=self.styles["Normal"],
-                           fontSize=8, fontName="Helvetica-Bold", leading=11))
+                           fontSize=8, fontName="Helvetica-Bold",
+                           leading=11, textColor=_BLACK))
         add(ParagraphStyle("PDF_CellC",       parent=self.styles["Normal"],
-                           fontSize=8, leading=11, alignment=TA_CENTER))
+                           fontSize=8, leading=11, alignment=TA_CENTER,
+                           textColor=_BLACK))
         add(ParagraphStyle("PDF_CellCBold",   parent=self.styles["Normal"],
                            fontSize=8, fontName="Helvetica-Bold",
-                           leading=11, alignment=TA_CENTER))
+                           leading=11, alignment=TA_CENTER, textColor=_BLACK))
         add(ParagraphStyle("PDF_MealHeader",  parent=self.styles["Normal"],
                            fontSize=8.5, fontName="Helvetica-Bold",
-                           textColor=_COLOR_WHITE))
+                           textColor=_GOLD))
         add(ParagraphStyle("PDF_MealHeaderC", parent=self.styles["Normal"],
                            fontSize=8.5, fontName="Helvetica-Bold",
-                           textColor=_COLOR_WHITE, alignment=TA_CENTER))
+                           textColor=_GOLD, alignment=TA_CENTER))
         add(ParagraphStyle("PDF_MacroNum",    parent=self.styles["Normal"],
                            fontSize=14, fontName="Helvetica-Bold",
-                           textColor=_COLOR_WHITE, alignment=TA_CENTER))
+                           textColor=_WHITE, alignment=TA_CENTER))
         add(ParagraphStyle("PDF_MacroLabel",  parent=self.styles["Normal"],
-                           fontSize=6.5, textColor=_COLOR_WHITE, alignment=TA_CENTER))
+                           fontSize=6.5, textColor=_WHITE, alignment=TA_CENTER))
         add(ParagraphStyle("PDF_Footer",      parent=self.styles["Normal"],
-                           fontSize=7.5, alignment=TA_CENTER, textColor=_COLOR_MID))
+                           fontSize=7.5, alignment=TA_CENTER, textColor=_GRAY_400))
         add(ParagraphStyle("PDF_Disclaimer",  parent=self.styles["Normal"],
-                           fontSize=6.5, textColor=_COLOR_MID, leading=9))
+                           fontSize=6.5, textColor=_GRAY_400, leading=9))
 
     # ── Config predeterminada ──────────────────────────────────────────────────
 
     @staticmethod
     def _default_config() -> dict:
         return {
-            "gym_nombre":      "Método Base",
-            "gym_logo":        None,
-            "gym_telefono":    "",
-            "gym_direccion":   "",
-            "color_primario":  "#FF6B35",
-            "color_secundario": "#004E89",
+            "gym_nombre":       "Método Base",
+            "gym_logo":         None,
+            "gym_telefono":     "",
+            "gym_direccion":    "",
+            "gym_instagram":    "",
+            "gym_facebook":     "",
+            "gym_tiktok":       "",
+            "color_primario":   "#E5B800",
+            "color_secundario": "#292524",
+        }
+
+    # ── Helpers ────────────────────────────────────────────────────────────────
+
+    @staticmethod
+    def datos_from_cliente(cliente, plan: dict) -> dict:
+        """Build datos_plan dict from a ClienteEvaluacion + plan dict."""
+        return {
+            "cliente": {
+                "nombre": getattr(cliente, "nombre", ""),
+                "edad": getattr(cliente, "edad", None),
+                "sexo": getattr(cliente, "sexo", None),
+                "peso_kg": getattr(cliente, "peso_kg", None),
+                "estatura_cm": getattr(cliente, "estatura_cm", None),
+                "grasa_corporal_pct": getattr(cliente, "grasa_corporal_pct", None),
+                "nivel_actividad": getattr(cliente, "nivel_actividad", ""),
+                "objetivo": getattr(cliente, "objetivo", ""),
+            },
+            "macros": {
+                "tmb": getattr(cliente, "tmb", 0) or 0,
+                "get_total": getattr(cliente, "get_total", 0) or 0,
+                "kcal_objetivo": getattr(cliente, "kcal_objetivo", 0) or 0,
+                "proteina_g": getattr(cliente, "proteina_g", 0) or 0,
+                "carbs_g": getattr(cliente, "carbs_g", 0) or 0,
+                "grasa_g": getattr(cliente, "grasa_g", 0) or 0,
+            },
+            "plan": plan,
         }

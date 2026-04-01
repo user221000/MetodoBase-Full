@@ -1,0 +1,781 @@
+================================================================================
+  AUDITORÍA EXHAUSTIVA DE PRODUCCIÓN — METODOBASE SaaS
+  Fecha: 25 de Marzo, 2026
+  Auditor: Arquitecto de Software Senior (AI-Assisted)
+  Objetivo: Preparar MetodoBase para venta a Gyms en Guadalajara
+  Estado actual tests: 1030 passed, 3 skipped, 51 warnings
+================================================================================
+
+ÍNDICE
+------
+  1. RESUMEN EJECUTIVO
+  2. HALLAZGOS CRÍTICOS (Bloquean deploy)
+  3. HALLAZGOS ALTOS (Requieren fix pre-producción)
+  4. HALLAZGOS MEDIOS (Fix en primer sprint post-launch)
+  5. HALLAZGOS BAJOS (Deuda técnica controlada)
+  6. DATOS LEGACY Y CÓDIGO MUERTO
+  7. DATOS HARDCODEADOS
+  8. ESTADO DE DEPENDENCIAS
+  9. ESTADO DE INFRAESTRUCTURA (Docker/Railway)
+  10. ANÁLISIS MULTI-TENANT
+  11. ANÁLISIS DE SEGURIDAD
+  12. ROADMAP DE PRODUCCIÓN (Siguientes pasos)
+  13. RECOMENDACIONES ARQUITECTÓNICAS
+
+================================================================================
+1. RESUMEN EJECUTIVO
+================================================================================
+
+MetodoBase es una plataforma SaaS de nutrición para gimnasios construida con:
+  - Backend: FastAPI + SQLAlchemy + Alembic
+  - Frontend Web: Jinja2 + HTMX + CDN libs
+  - Desktop: PySide6
+
+SCORE DE PRODUCCIÓN: 5.5/10 — NO ESTÁ LISTO PARA PRODUCCIÓN
+
+La aplicación tiene una base técnica sólida (1030 tests pasando, middleware
+de seguridad implementado, RBAC funcional), pero presenta BLOQUEANTES CRÍTICOS
+en: multi-tenancy, datos hardcodeados del desarrollador, configuración de pagos
+incompleta, y migración de base de datos sin finalizar.
+
+RESUMEN DE HALLAZGOS:
+  ┌──────────────┬────────┬──────────────────────────┐
+  │ Severidad    │ Total  │ Bloquean producción?     │
+  ├──────────────┼────────┼──────────────────────────┤
+  │ CRÍTICO      │   11   │ SÍ — todos               │
+  │ ALTO         │   18   │ SÍ — la mayoría          │
+  │ MEDIO        │   15   │ No, pero fix en 30 días  │
+  │ BAJO         │    9   │ No, deuda técnica         │
+  ├──────────────┼────────┼──────────────────────────┤
+  │ TOTAL        │   53   │                          │
+  └──────────────┴────────┴──────────────────────────┘
+
+
+================================================================================
+2. HALLAZGOS CRÍTICOS (Bloquean deploy)
+================================================================================
+
+C-01 | BRANDING HARDCODEADO DEL DESARROLLADOR
+     Archivo: config/branding.json
+     Impacto: TODOS los gyms clientes verían "FitnessGym Real del Valle",
+              el teléfono personal (5217441614117), el email personal
+              (oscar_autumn@outlook.com), y la dirección física del
+              desarrollador.
+     Detalle: El archivo branding.json contiene datos estáticos:
+              - nombre_gym: "FitnessGym Real del Valle"
+              - telefono: "5217441614117"
+              - email: "oscar_autumn@outlook.com"
+              - direccion: "C. Valle De San José 1329B..."
+              - cuota_mensual: 800
+     Fix: Mover branding a tabla en base de datos por gym_id.
+          Cada gym debe tener su propio registro de branding cargado
+          dinámicamente al login.
+
+C-02 | EMAIL PERSONAL EN TEMPLATES HTML (VISIBLE A CLIENTES)
+     Archivos:
+       - web/pages/landing.html (línea 219): "Oscar_Autumn@outlook.com"
+       - web/templates/suscripciones.html (líneas 203, 208):
+         WhatsApp hardcodeado "5217441614117"
+     Impacto: Los usuarios finales ven datos personales del desarrollador,
+              no del gym que contrató el servicio.
+     Fix: Cargar datos de contacto desde branding dinámico (DB) y usar
+          variables Jinja2: {{ gym.contacto.email }}, {{ gym.contacto.whatsapp }}
+
+C-03 | STRIPE PRICE IDs SON PLACEHOLDERS (PAGOS NO FUNCIONAN)
+     Archivo: config/constantes.py (líneas 103-127)
+     Detalle: Los IDs de precio de Stripe son strings inventados:
+              - "price_starter_monthly_29"
+              - "price_profesional_monthly_59"
+              - "price_clinica_monthly_129"
+              Estos NO son IDs reales de Stripe y los webhooks fallarán.
+     Fix: 1) Crear productos/precios en Stripe Dashboard
+          2) Mover IDs a variables de entorno:
+             STRIPE_PRICE_STARTER, STRIPE_PRICE_PRO, STRIPE_PRICE_CLINICA
+          3) Validar que existan al arrancar el servidor
+
+C-04 | MERCADOPAGO INCOMPLETO — NO CREA LICENCIAS
+     Archivo: api/routes/pagos.py (línea 262)
+     Contenido: "# TODO: Verificar pago con SDK y auto-crear licencia."
+     Impacto: Los pagos por MercadoPago se procesan pero NO generan la
+              licencia automáticamente. El cliente paga y no recibe nada.
+     Fix: Implementar webhook de MercadoPago con verificación y
+          auto-creación de licencia (como ya existe para Stripe).
+
+C-05 | SECRET_KEY CON DEFAULT INSEGURO
+     Archivo: config/settings.py (líneas 27-38)
+     Detalle: En desarrollo usa "metodobase_dev_secret_2026_localhost_only"
+              y el SALT usa "METODO_BASE_2026_CH".
+              Si por error no se configuran las env vars en producción,
+              el sistema arranca con secretos predecibles.
+     Fix: En producción, si WEB_SECRET_KEY o METODO_BASE_SALT no están
+          configurados, el servidor DEBE crashear inmediatamente.
+          Verificar que _require_in_prod() realmente lanza excepción.
+
+C-06 | LICENSE SALT HARDCODEADO EN CÓDIGO
+     Archivo: core/licencia.py (~línea 30)
+     Detalle: SALT_MASTER tiene fallback hardcodeado "METODO_BASE_2026_CH"
+              Si env var no existe, todas las licencias usan el mismo salt,
+              permitiendo forjar licencias válidas.
+     Fix: Eliminar el default. Requerir METODO_BASE_SALT como obligatorio.
+
+C-07 | DEMO USERS CON CREDENCIALES DÉBILES
+     Archivo: web/auth.py (líneas 169-182)
+     Detalle: Función _seed_demo_users() crea:
+              - gym@test.com / test123
+              - usuario@test.com / test123
+              Se activa con METODOBASE_SEED_DEMO=1, pero NO valida que
+              el entorno sea desarrollo.
+     Fix: 1) Agregar check: if settings.is_production: return
+          2) Mejor: eliminar la función completamente
+          3) Crear script separado para seeds de desarrollo
+
+C-08 | DATABASE_URL CAE A SQLITE EN PRODUCCIÓN
+     Impacto: Si DATABASE_URL no está configurado o tiene un typo,
+              el sistema silenciosamente usa SQLite local. En Railway
+              con múltiples pods, cada pod tendría su propia DB vacía.
+     Fix: En producción, requerir DATABASE_URL con postgresql://
+          Validar el scheme al arrancar.
+
+C-09 | ALEMBIC MIGRATIONS NO SE EJECUTAN EN DEPLOY
+     Archivos: Dockerfile, Procfile, railway.toml
+     Detalle: El CMD del Dockerfile es: python web/main_web.py --no-browser
+              No hay paso de "alembic upgrade head" antes de arrancar.
+              Cambios de schema requieren intervención manual.
+     Fix: Agregar release command en railway.toml:
+              [deploy]
+              releaseCommand = "alembic upgrade head"
+          O crear un entrypoint.sh que ejecute migraciones antes de iniciar.
+
+C-10 | create_all() BYPASSA EL SISTEMA DE MIGRACIONES
+     Detalle: El código llama Base.metadata.create_all() directamente,
+              creando tablas fuera del control de Alembic. Esto causa
+              que Alembic piense que las migraciones no se han aplicado.
+     Fix: Eliminar create_all() en producción. Solo Alembic debe manejar
+          el schema.
+
+C-11 | HEALTH CHECK EXPONE ERRORES INTERNOS
+     Archivo: api/app.py (líneas 145-165)
+     Detalle: El endpoint /health devuelve str(e) cuando hay errores de DB,
+              exponiendo información interna del sistema (paths, queries, etc.)
+     Fix: Retornar solo {"status": "error"} sin detalles. Loguear
+          internamente el error completo.
+
+
+================================================================================
+3. HALLAZGOS ALTOS (Requieren fix pre-producción)
+================================================================================
+
+H-01 | JWT TOKEN TYPE NO VALIDADO ESTRICTAMENTE
+     Archivo: web/auth.py (~línea 390)
+     Detalle: verificar_token() usa payload.get("type", "access") — un token
+              sin campo "type" es aceptado como access token.
+     Fix: Requerir campo "type" explícito. Si no existe: return None.
+
+H-02 | LICENCIAS ALMACENADAS EN MEMORIA (PERDIDAS AL REINICIAR)
+     Archivo: api/routes/licencias.py (~línea 73)
+     Detalle: _licencias_activas es un dict en memoria Python.
+              Al reiniciar el servidor, todas las activaciones se pierden.
+     Fix: Crear modelo LicenseActivation en DB y persistir ahí.
+
+H-03 | CSRF COOKIE ACCESIBLE POR JAVASCRIPT (httponly=False)
+     Archivo: web/middleware/csrf.py (~línea 286)
+     Detalle: Si existe XSS, el atacante puede leer el token CSRF del cookie.
+     Fix: Cambiar httponly=True y proveer el token vía meta tag en HTML.
+
+H-04 | CSP PERMITE 'unsafe-inline' EN SCRIPTS
+     Archivo: web/middleware/security_headers.py (~línea 47)
+     Detalle: script-src incluye 'unsafe-inline', anulando la protección CSP
+              contra XSS completamente.
+     Fix: Migrar scripts inline a archivos .js externos y usar nonces.
+
+H-05 | CDN SCRIPTS SIN SRI (Subresource Integrity)
+     Archivo: web/templates/base.html
+     Detalle: Las librerías cargadas desde CDN (jsdelivr, etc.) no tienen
+              hashes de integridad. Si el CDN se compromete, código malicioso
+              se ejecuta en todos los gyms.
+     Fix: Agregar atributo integrity="sha384-..." a todos los <script> CDN.
+
+H-06 | NO HAY RATE LIMITING EN LOGIN
+     Archivo: web/main_web.py
+     Detalle: El endpoint de login no tiene rate limiting, permitiendo
+              ataques de fuerza bruta contra credenciales de gyms.
+     Fix: Aplicar rate_limit_dependency(attempts=5, window=900) al login.
+          Implementar lockout temporal después de N intentos fallidos.
+
+H-07 | NO HAY AUDIT LOG DE AUTENTICACIÓN
+     Archivo: web/auth.py
+     Detalle: No se loguean intentos de login (exitosos ni fallidos).
+              Imposible detectar ataques de fuerza bruta o accesos no autorizados.
+     Fix: logger.info("[AUTH] Login exitoso: %s") y
+          logger.warning("[AUTH] Login fallido: %s")
+
+H-08 | REMEMBER-ME TOKEN VÁLIDO 30 DÍAS
+     Archivo: web/auth.py (~línea 304)
+     Detalle: Access tokens con remember-me duran 30 días.
+              Un token robado da acceso prolongado sin forma de revocar.
+     Fix: Máximo 7 días para access tokens. Usar refresh token rotation.
+
+H-09 | /metrics Y /health SIN AUTENTICACIÓN
+     Archivo: api/app.py (líneas 136-200)
+     Detalle: /metrics expone datos de rendimiento sin auth.
+              Útil para reconocimiento por atacantes.
+     Fix: Proteger /metrics con auth. Mantener /health público solo si
+          es requerido por el load balancer.
+
+H-10 | STRIPE SESSIONS EN MEMORIA (se pierden al reiniciar)
+     Archivo: api/routes/pagos.py (~línea 69)
+     Fix: Persistir session IDs en base de datos.
+
+H-11 | DUAL DATABASE SIN COMPLETAR (Strangler Fig Pattern)
+     Archivos: config/feature_flags.py, src/gestor_bd.py,
+               src/repositories/cliente_repository.py
+     Detalle: La migración de SQLite legacy a SQLAlchemy está en FASE 1
+              (legacy como primary) y no hay mecanismo para avanzar fases.
+              El módulo gestor_bd.py está marcado DEPRECATED pero sigue activo.
+     Fix: Completar migración. Establecer timeline para deprecar legacy.
+
+H-12 | PORT MISMATCH DOCKER vs CÓDIGO
+     Detalle: Dockerfile EXPOSE ${PORT} (default 8000), pero hay referencias
+              a puerto 8001 en config/settings.py.
+     Fix: Estandarizar en 8000 para producción.
+
+H-13 | CORS_ORIGINS INCLUYE LOCALHOST POR DEFAULT
+     Archivo: config/settings.py (línea 50)
+     Detalle: Los CORS origins por defecto incluyen localhost:8000 y
+              localhost:8001, que no deberían estar en producción.
+     Fix: En producción, CORS_ORIGINS debe ser solo el dominio real.
+
+H-14 | SUBSCRIPTION MODEL SIN CAMPOS FISCALES (CFDI México)
+     Archivo: web/database/models.py
+     Detalle: Para vender en Guadalajara (México), se necesitan campos
+              para RFC, razón social, régimen fiscal del gym para CFDI.
+     Fix: Agregar campos fiscales al modelo de suscripción.
+
+H-15 | RLS POLICIES NO ENFORZADAS A NIVEL APP
+     Detalle: Las migraciones crean Row-Level Security policies en PostgreSQL,
+              pero el código no establece app.current_tenant en la sesión.
+              La aislación multi-tenant a nivel DB es inoperante.
+     Fix: En get_db(), ejecutar: SET app.current_tenant = '{gym_id}'
+
+H-16 | PAYMENT GATEWAY KEYS VACÍAS POR DEFAULT
+     Archivo: config/settings.py (líneas 61-66)
+     Detalle: STRIPE_SECRET_KEY y MERCADOPAGO_ACCESS_TOKEN defaultean a ""
+              Si no se configuran, los handlers fallan silenciosamente.
+     Fix: Validar al arrancar que las keys estén configuradas.
+
+H-17 | REFRESH TOKEN CLEANUP INCOMPLETO
+     Archivo: web/middleware/rate_limiter.py, web/auth.py
+     Detalle: _cleanup_old_buckets() definida pero nunca ejecutada.
+              Tokens expirados se acumulan indefinidamente.
+     Fix: Programar tarea de limpieza periódica.
+
+H-18 | FACTURA PDF CON DATOS PERSONALES
+     Archivo: api/factura_pdf.py (~línea 161)
+     Detalle: El footer del PDF de factura contiene datos personales del
+              desarrollador en lugar del gym.
+     Fix: Cargar datos del gym desde branding dinámico (DB).
+
+
+================================================================================
+4. HALLAZGOS MEDIOS (Fix en primer sprint post-launch)
+================================================================================
+
+M-01 | 80+ STATEMENTS print() EN LUGAR DE logger
+     Archivos principales:
+       - main.py: ~40 print()
+       - benchmark.py: ~30 print()
+       - api_server.py: 7 print()
+       - seed_dashboard_data.py: 6 print()
+       - web/database/migrate_legacy.py: 3 print()
+       - orchestrator/pipeline.py: ~10 print()
+     Fix: Reemplazar todos con logger.info() / logger.warning()
+
+M-02 | datetime.utcnow() DEPRECATED (Python 3.12+)
+     Archivo: web/database/repository.py (líneas 47, 194)
+     51 DeprecationWarnings en test suite.
+     Fix: Cambiar a datetime.now(datetime.UTC)
+
+M-03 | PAGINACIÓN PERMITE 500 ITEMS POR PÁGINA
+     Archivo: api/routes/clientes.py (~línea 24)
+     Detalle: le=500 en el query param permite DoS por exhaustion.
+     Fix: Reducir a le=100.
+
+M-04 | RATE LIMITER DESACTIVABLE POR ENV VAR
+     Archivo: web/middleware/rate_limiter.py (~línea 28)
+     Detalle: RATE_LIMIT_ENABLED se puede poner en false vía env var,
+              incluso en producción.
+     Fix: En producción, forzar RATE_LIMIT_ENABLED=True.
+
+M-05 | TIMEZONE INCONSISTENTE
+     Detalle: Mezcla de time.gmtime(), datetime.utcnow() y
+              datetime.now(timezone.utc) en distintos módulos.
+     Fix: Estandarizar en datetime.now(timezone.utc) en todo el proyecto.
+
+M-06 | REFERENCIAS A CUSTOMTKINTER (FRAMEWORK VIEJO)
+     Archivos: utils/helpers.py, utils/iconos.py
+     Detalle: Comentarios y docstrings aún mencionan CustomTkinter/CTk.
+     Fix: Limpiar todas las referencias a la UI vieja.
+
+M-07 | REQUEST ID NO INCLUIDO EN RESPUESTAS DE ERROR
+     Archivo: api/app.py (líneas 119-124)
+     Fix: Incluir X-Request-ID en respuestas de error para debugging.
+
+M-08 | exc_info=True EN PRODUCCIÓN
+     Archivos: api/app.py, api/routes/pagos.py
+     Detalle: Stack traces completos se loguean en producción,
+              pudiendo exponer paths, queries, y datos sensibles.
+     Fix: Usar exc_info solo en desarrollo.
+
+M-09 | ÍNDICE FALTANTE EN fecha_fin_suscripcion
+     Archivo: web/database/models.py
+     Fix: Agregar index=True al campo fecha_fin_suscripcion.
+
+M-10 | NO HAY VALIDACIÓN DE INVITACIÓN EXPIRADA
+     Archivo: web/routes/team.py
+     Detalle: Tokens de invitación no validan expiración.
+     Fix: Agregar campo expires_at y validar en el handler.
+
+M-11 | REDONDEO CLÍNICO SOLO PARA DESAYUNO
+     Archivo: core/generador_planes.py
+     Detalle: _aplicar_redondeo_clinico_desayuno() solo aplica a desayuno.
+              No escalable si se necesitan otros tiempos de comida.
+     Fix: Parametrizar o generalizar la función.
+
+M-12 | TRIAL CONFIG HARDCODEADA
+     Archivo: config/constantes.py (líneas 130-131)
+     Detalle: TRIAL_DAYS=14, TRIAL_MAX_CLIENTES=50 son constantes.
+     Fix: Mover a settings configurable por entorno.
+
+M-13 | TODO EN web/routes/team.py — EMAIL NO INTEGRADO
+     Archivos: web/routes/team.py (líneas 144, 233)
+     Detalle: "# TODO: Integrar con web/services/email_service.py"
+              "# TODO: Usar settings.BASE_URL"
+     Fix: Implementar integración de email para invitaciones de equipo.
+
+M-14 | utils/updater.py — CÓDIGO MUERTO MARCADO DEPRECATED
+     Detalle: Archivo entero marcado como "DEPRECATED / DEAD CODE".
+     Fix: Eliminar el archivo.
+
+M-15 | HORARIOS DE COMIDA HARDCODEADOS (NO PERSONALIZABLES)
+     Archivo: config/constantes.py (líneas 139-175)
+     Detalle: Los horarios están hardcodeados. Cada gym podría necesitar
+              horarios diferentes.
+     Fix: Hacerlos configurables desde el panel de cada gym.
+
+
+================================================================================
+5. HALLAZGOS BAJOS (Deuda técnica controlada)
+================================================================================
+
+L-01 | ~40 bare except Exception: con solo logger.warning
+L-02 | Dashboard sin estado vacío completo para 0 clientes
+L-03 | Test fixtures usan mismas credenciales que demo users
+L-04 | build_config.py tiene APP_AUTHOR = "Consultoría Hernández"
+L-05 | README_COMERCIAL.md contiene email personal
+L-06 | LICENSE contiene email personal del desarrollador
+L-07 | Alembic migrations usan UUID naming (no ordenables por fecha)
+L-08 | ui_desktop/pyside/gym_app_window.py abre localhost:8000/docs hardcoded
+L-09 | No hay soft-delete audit timestamps en modelos
+
+
+================================================================================
+6. DATOS LEGACY Y CÓDIGO MUERTO
+================================================================================
+
+ARCHIVOS DEPRECATED / MUERTOS:
+  ├── utils/updater.py           → Marcado DEPRECATED, código muerto
+  ├── _test_imports.py           → Script debug huérfano
+  ├── _test_panels.py            → Script debug huérfano
+  ├── test_qss.py                → Script debug con path absoluto hardcodeado
+  ├── web/static/js/charts.js.bak → Backup olvidado
+  ├── web/static/css/styles.css.bak → Backup olvidado
+  ├── web/templates/dashboard.html.bak → Backup olvidado
+  └── core/services/security/     → Directorio vacío
+
+MÓDULOS DEPRECATED PERO AÚN EN USO:
+  ├── src/gestor_bd.py           → Legacy DB manager, usado por UI Desktop
+  │   (marcado con ⚠️ DEPRECATION WARNING, migrar a repositories/)
+  └── config/feature_flags.py    → Flags de migración DB en FASE 1 (legacy)
+
+REFERENCIAS A FRAMEWORK VIEJO (CustomTkinter):
+  ├── utils/helpers.py (línea 40) → Docstring menciona "ventana Tk/CTk"
+  └── utils/iconos.py (línea 6)  → Comentario menciona "CTk"
+
+
+================================================================================
+7. DATOS HARDCODEADOS (Requieren parametrización)
+================================================================================
+
+DATOS PERSONALES DEL DESARROLLADOR:
+  ┌─────────────────────────────────────────────────────────────────────┐
+  │ Dato              │ Archivo                    │ Valor              │
+  ├───────────────────┼────────────────────────────┼────────────────────┤
+  │ Nombre gym        │ config/branding.json       │ FitnessGym Real    │
+  │                   │                            │ del Valle          │
+  │ Teléfono          │ config/branding.json       │ 5217441614117      │
+  │ Email             │ config/branding.json       │ oscar_autumn@      │
+  │                   │                            │ outlook.com        │
+  │ Dirección         │ config/branding.json       │ C. Valle De San    │
+  │                   │                            │ José 1329B...      │
+  │ WhatsApp          │ suscripciones.html(203,208)│ 5217441614117      │
+  │ Email footer      │ web/pages/landing.html(219)│ Oscar_Autumn@      │
+  │                   │                            │ outlook.com        │
+  │ Cuota mensual     │ config/branding.json       │ 800 (pesos?)       │
+  │ Autor             │ build_config.py(20)        │ Consultoría        │
+  │                   │                            │ Hernández          │
+  │ Email             │ api/factura_pdf.py(161)    │ (datos personales) │
+  │ Email             │ README_COMERCIAL.md        │ oscar_autumn@...   │
+  │ Email             │ LICENSE                    │ oscar_autumn@...   │
+  └─────────────────────────────────────────────────────────────────────┘
+
+DATOS DE NEGOCIO HARDCODEADOS:
+  ┌─────────────────────────────────────────────────────────────────────┐
+  │ Dato              │ Archivo                    │ Valor              │
+  ├───────────────────┼────────────────────────────┼────────────────────┤
+  │ Stripe Price IDs  │ config/constantes.py       │ Placeholders       │
+  │ Trial días        │ config/constantes.py       │ 14                 │
+  │ Trial clientes    │ config/constantes.py       │ 50                 │
+  │ Modo estricto     │ config/constantes.py       │ True               │
+  │ License salt      │ core/licencia.py           │ METODO_BASE_2026_CH│
+  │ Secret key dev    │ config/settings.py         │ metodobase_dev_... │
+  │ Horarios comida   │ config/constantes.py       │ 07:00-20:30        │
+  │ Precios USD       │ config/constantes.py       │ 0/29/59/129        │
+  └─────────────────────────────────────────────────────────────────────┘
+
+
+================================================================================
+8. ESTADO DE DEPENDENCIAS
+================================================================================
+
+requirements_web.txt (producción web):
+  fastapi>=0.115.0         ✓ Actual
+  uvicorn[standard]>=0.30  ✓ Actual
+  sqlalchemy>=2.0.0        ✓ Actual
+  alembic>=1.13.0          ✓ Actual
+  psycopg2-binary>=2.9.0   ✓ Actual (cambiar a psycopg para producción real)
+  stripe>=11.0.0           ✓ Actual
+  resend>=2.0.0            ✓ Actual
+  sentry-sdk[fastapi]>=2.0 ✓ Actual
+  passlib[bcrypt]>=1.7.4   ✓ Actual
+  bcrypt>=4.0.0            ✓ Actual
+
+OBSERVACIONES:
+  - psycopg2-binary: OK para desarrollo, pero en producción considerar
+    psycopg2 (compilado) o psycopg (v3, async-ready)
+  - Falta: pyjwt (para JWT — verificar si usa jose o PyJWT)
+  - Falta: python-jose o pyjwt en requirements_web.txt
+  - No hay archivo de lock (poetry.lock, pip-compile) para reproducibilidad
+  - 4 archivos requirements (txt, web, api, build) — posible confusión
+
+
+================================================================================
+9. ESTADO DE INFRAESTRUCTURA (Docker / Railway)
+================================================================================
+
+DOCKERFILE:
+  ✓ Multi-stage build (deps → runtime)
+  ✓ python:3.12-slim base
+  ✓ Non-root user (appuser)
+  ✓ HEALTHCHECK configurado
+  ✓ PYTHONDONTWRITEBYTECODE + PYTHONUNBUFFERED
+  ✓ /data para persistencia
+
+  ✗ No ejecuta alembic upgrade head (C-09)
+  ✗ No valida env vars al arrancar
+  ✗ Fonts/ copiado pero puede no ser necesario en web
+
+RAILWAY.TOML:
+  ✓ Health check en /health
+  ✓ Restart on failure con max 5 retries
+
+  ✗ Falta releaseCommand para migraciones
+  ✗ No hay configuration para volumen persistente
+
+PROCFILE:
+  ✓ Comando correcto: python web/main_web.py --no-browser
+
+  ✗ No ejecuta migraciones antes
+
+
+================================================================================
+10. ANÁLISIS MULTI-TENANT
+================================================================================
+
+ESTADO ACTUAL:
+  - Modelo Cliente tiene campo gym_id ✓
+  - API routes filtran por gym_id del JWT ✓
+  - RBAC con 4 roles (owner, admin, nutriologo, usuario) ✓
+  - Tests de aislamiento multi-tenant existen ✓
+
+BRECHAS CRÍTICAS:
+  1. Branding NO es per-tenant (C-01) → Un solo branding.json para todos
+  2. RLS policies creadas en PostgreSQL pero NO activadas en app (H-15)
+  3. Catálogo de alimentos compartido sin personalización per-gym
+  4. Licencias en memoria, no per-tenant (H-02)
+  5. config/branding.json es static, no dinámico
+
+LO QUE NECESITA PARA SER VERDADERAMENTE MULTI-TENANT:
+  ┌─────────────────────────────────────────────────────────────────┐
+  │ Componente          │ Estado       │ Necesario                  │
+  ├─────────────────────┼──────────────┼────────────────────────────┤
+  │ Datos de cliente    │ ✓ per-gym    │ OK                         │
+  │ Autenticación       │ ✓ per-gym    │ OK                         │
+  │ RBAC                │ ✓ per-gym    │ OK                         │
+  │ Branding            │ ✗ global     │ Mover a DB per-gym         │
+  │ Catálogo alimentos  │ ✗ global     │ Base + overrides per-gym   │
+  │ Licencias           │ ✗ in-memory  │ Persistir en DB per-gym    │
+  │ Configuración       │ ✗ global     │ Settings per-gym en DB     │
+  │ Facturación/CFDI    │ ✗ no existe  │ Crear tabla datos fiscales │
+  │ Email templates     │ ✗ no existe  │ Templates per-gym          │
+  │ RLS Database        │ ✗ no activo  │ Activar app.current_tenant │
+  │ Subdomain/routing   │ ✗ no existe  │ gym-name.metodobase.com    │
+  └─────────────────────────────────────────────────────────────────┘
+
+
+================================================================================
+11. ANÁLISIS DE SEGURIDAD
+================================================================================
+
+LO QUE YA ESTÁ BIEN:
+  ✓ bcrypt obligatorio (no plaintext, SHA256 removido)
+  ✓ Security headers: HSTS, X-Frame-Options DENY, X-Content-Type-Options
+  ✓ CSRF middleware implementado (HMAC-SHA256)
+  ✓ Request ID tracking
+  ✓ Stripe webhook idempotency
+  ✓ RBAC con permisos granulares
+  ✓ Jinja2 auto-escape (protección XSS en templates)
+  ✓ Non-root Docker user
+  ✓ CORS configurado (aunque con defaults de localhost)
+  ✓ 912+ tests de seguridad
+
+LO QUE FALTA O ESTÁ MAL:
+  ✗ CSP con 'unsafe-inline' anula protección XSS (H-04)
+  ✗ CSRF cookie no httponly (H-03)
+  ✗ No rate limiting en login (H-06)
+  ✗ No audit log de auth (H-07)
+  ✗ Access tokens de 30 días con remember-me (H-08)
+  ✗ /metrics sin auth (H-09)
+  ✗ CDN scripts sin SRI (H-05)
+  ✗ Health check expone errores (C-11)
+  ✗ exc_info=True en producción (M-08)
+  ✗ No HTTPS redirect (solo HSTS header)
+  ✗ No secret rotation policy
+  ✗ No protección contra token fixation
+
+
+================================================================================
+12. ROADMAP DE PRODUCCIÓN (Siguientes pasos)
+================================================================================
+
+════════════════════════════════════════════════════════════════════════
+FASE 0 — BLOQUEANTES CRÍTICOS (Hacer ANTES de cualquier deploy)
+════════════════════════════════════════════════════════════════════════
+
+  0.1 Crear tabla gym_branding en DB y migrar datos de branding.json
+      → Cada gym tiene su nombre, teléfono, email, dirección, logo
+      → Templates Jinja2 cargan datos dinámicamente
+
+  0.2 Eliminar TODOS los datos personales del código:
+      → config/branding.json: convertir en template genérico
+      → web/pages/landing.html: usar {{ branding.email }}
+      → web/templates/suscripciones.html: usar {{ branding.whatsapp }}
+      → api/factura_pdf.py: cargar datos del gym del usuario
+      → README_COMERCIAL.md: usar placeholder [VENDOR_EMAIL]
+
+  0.3 Crear productos en Stripe Dashboard:
+      → Obtener price_ids reales
+      → Mover a env vars: STRIPE_PRICE_STARTER, etc.
+      → Validar al arrancar que existan
+
+  0.4 Implementar webhook MercadoPago completo:
+      → Verificar pago con SDK
+      → Auto-crear licencia
+      → Enviar email de confirmación
+
+  0.5 Asegurar secretos:
+      → config/settings.py: crash if SECRET_KEY missing in production
+      → core/licencia.py: eliminar default salt
+      → Generar secretos fuertes para producción
+
+  0.6 Fix deploy pipeline:
+      → railway.toml: releaseCommand = "alembic upgrade head"
+      → Eliminar create_all() en producción
+      → Validar DATABASE_URL scheme = postgresql://
+
+  0.7 Fix health check:
+      → No exponer str(e) en respuestas
+      → Solo {"status": "ok"} o {"status": "error"}
+
+════════════════════════════════════════════════════════════════════════
+FASE 1 — SEGURIDAD Y AUTH (Semana 1-2 post-fix)
+════════════════════════════════════════════════════════════════════════
+
+  1.1 Remover 'unsafe-inline' de CSP
+      → Migrar scripts inline a archivos externos
+      → Implementar nonce-based CSP
+
+  1.2 Agregar SRI hashes a CDN scripts
+
+  1.3 Rate limiting en login (5 intentos / 15 min)
+
+  1.4 Audit logging:
+      → Login exitoso/fallido
+      → Cambios de contraseña
+      → Creación/eliminación de usuarios
+
+  1.5 Reducir access token a max 7 días
+      → Implementar refresh token rotation proper
+
+  1.6 Proteger /metrics con autenticación
+
+  1.7 CSRF cookie → httponly=True
+
+  1.8 HTTPS redirect middleware para producción
+
+════════════════════════════════════════════════════════════════════════
+FASE 2 — MULTI-TENANCY COMPLETO (Semana 3-4)
+════════════════════════════════════════════════════════════════════════
+
+  2.1 Activar RLS en PostgreSQL (SET app.current_tenant)
+
+  2.2 Completar migración DB (salir de FASE 1 legacy)
+      → Migrar todos los accesos gestor_bd.py → repositories/
+      → Establecer SA como primary
+      → Archivar módulo legacy
+
+  2.3 Licencias persistidas en DB (no in-memory)
+
+  2.4 Catálogo de alimentos: base compartida + overrides per-gym
+
+  2.5 Agregar campos fiscales México (RFC, razón social) para CFDI
+
+  2.6 Subdomain routing: gym-name.metodobase.com (opcional)
+
+════════════════════════════════════════════════════════════════════════
+FASE 3 — CALIDAD Y OBSERVABILIDAD (Semana 5-6)
+════════════════════════════════════════════════════════════════════════
+
+  3.1 Reemplazar TODOS los print() → logger (80+ instancias)
+
+  3.2 Fix datetime.utcnow() → datetime.now(UTC) (51 warnings)
+
+  3.3 Configurar logging estructurado (JSON) para producción
+
+  3.4 Implementar cleanup de refresh tokens expirados
+
+  3.5 Agregar request ID en respuestas de error
+
+  3.6 Limpiar código muerto:
+      → Eliminar utils/updater.py
+      → Eliminar _test_imports.py, _test_panels.py, test_qss.py
+      → Eliminar archivos .bak
+      → Eliminar directorio vacío core/services/security/
+
+  3.7 Limpiar referencias CustomTkinter en docstrings
+
+════════════════════════════════════════════════════════════════════════
+FASE 4 — OPTIMIZACIÓN Y ESCALA (Mes 2)
+════════════════════════════════════════════════════════════════════════
+
+  4.1 Implementar email transaccional (Resend ya en deps):
+      → Bienvenida al registrarse
+      → Confirmación de pago
+      → Invitaciones de equipo
+      → Reset de contraseña
+
+  4.2 Rate limiting per-user (no solo per-IP)
+
+  4.3 Redis para rate limiting + cache de sesiones
+      (cuando se necesite horizontal scaling)
+
+  4.4 N+1 query optimization (profiling post-producción)
+
+  4.5 pip-compile o Poetry para lock de dependencias
+
+  4.6 CI/CD pipeline:
+      → Tests automáticos en PR
+      → Deploy automático a staging
+      → Promote a producción manual
+
+════════════════════════════════════════════════════════════════════════
+FASE 5 — FEATURES DE NEGOCIO (Mes 3+)
+════════════════════════════════════════════════════════════════════════
+
+  5.1 Onboarding wizard para nuevos gyms
+
+  5.2 Dashboard analytics mejorado:
+      → Revenue per gym
+      → Churn rate
+      → Adherencia a planes nutricionales
+
+  5.3 White-labeling completo (logo, colores, domain)
+
+  5.4 App móvil / PWA para clientes del gym
+
+  5.5 API pública documentada para integraciones
+
+  5.6 Reportes automáticos por email (semanal/mensual)
+
+  5.7 Sistema de facturación CFDI integrado
+
+
+================================================================================
+13. RECOMENDACIONES ARQUITECTÓNICAS
+================================================================================
+
+1. MULTI-TENANT ARCHITECTURE:
+   Para vender a múltiples gyms en Guadalajara, el modelo actual de
+   "shared database with gym_id filtering" es correcto para el volumen
+   esperado (decenas de gyms, no miles). NO necesitan schema-per-tenant
+   ni database-per-tenant aún. Pero sí necesitan:
+   - RLS activo en PostgreSQL como segunda capa de defensa
+   - Branding dinámico cargado de DB
+   - Aislamiento verificado con tests E2E
+
+2. DEPLOYMENT:
+   Railway es una buena opción para empezar. Para escalar:
+   - Railway → AWS ECS o DigitalOcean App Platform cuando tengan 50+ gyms
+   - PostgreSQL managed (Railway Postgres o Supabase) es suficiente para ahora
+   - Redis solo cuando necesiten horizontal scaling (10+ pods)
+
+3. MONETIZACIÓN:
+   - Stripe es la opción correcta para pagos internacionales
+   - MercadoPago es ESENCIAL para Guadalajara (domina el mercado mexicano)
+   - Implementar AMBOS gateways antes de vender
+   - Considerar OXXO Pay via Stripe para clientes sin tarjeta
+
+4. COMPLIANCE MÉXICO:
+   - CFDI (facturación electrónica) es OBLIGATORIO para cobrar a empresas
+   - Necesitan RFC del gym para emitir facturas
+   - Considerar integración con Facturapi o similar
+   - Ley Federal de Protección de Datos Personales (LFPDPPP)
+   - Aviso de privacidad OBLIGATORIO en la landing page
+
+5. TESTING:
+   1030 tests es excelente base. Agregar:
+   - Tests de penetración (OWASP ZAP)
+   - Load testing (k6 o locust)
+   - Tests de migración de datos entre versiones
+   - Tests de smoke en staging antes de promover a producción
+
+6. PRIORIZACIÓN:
+   El orden correcto es:
+   1) Limpiar datos personales (URGENTE — riesgo legal)
+   2) Fix secretos y seguridad crítica
+   3) Completar pagos (Stripe real + MercadoPago)
+   4) Multi-tenancy branding
+   5) Deploy a staging
+   6) Tests de penetración
+   7) Deploy a producción
+   8) Primer gym piloto
+
+
+================================================================================
+FIN DEL REPORTE
+================================================================================
+
+Generado: 25 de Marzo, 2026
+Herramientas: Análisis multi-agente (API Security, Config/Hardcoded Data,
+              DB/Web/Deploy, Code Pattern Search)
+Tests al momento: 1030 passed, 3 skipped, 51 warnings (13.64s)
+Próxima auditoría recomendada: Post-FASE 1 (2 semanas después de este reporte)

@@ -14,7 +14,7 @@
 <!-- ══════════════════════════════════════════════════════════════
       Wizard progress bar
 ══════════════════════════════════════════════════════════════ -->
-<div class="wizard-steps glass mb-6">
+<div class="wizard-steps chart-container mb-6">
   <div class="step-item active" id="nav-step-1">
     <div class="step-circle" data-step="1">1</div>
     <span class="step-label">Seleccionar cliente</span>
@@ -34,16 +34,17 @@
 <!-- ══════════════════════════════════════════════════════════════
       STEP 1 — Seleccionar cliente
 ══════════════════════════════════════════════════════════════ -->
-<div class="plan-step active glass" id="step-1">
+<div class="plan-step active chart-container" id="step-1">
   <div class="search-bar mb-4" style="background:transparent;padding:0;box-shadow:none;">
     <div class="input-wrap flex-1" style="max-width:480px;">
-      <span class="input-icon">🔍</span>
+      <span class="input-icon"><img src="/static/img/search.png" style="width:16px;height:16px"></span>
       <input
         id="s1-search"
         class="input has-icon"
         type="search"
         placeholder="Buscar cliente o crear nuevo..."
         autocomplete="off"
+        aria-label="Buscar cliente"
       />
     </div>
     <button class="btn btn-outline" id="s1-btn-nuevo">
@@ -54,79 +55,8 @@
   <!-- Lista de resultados -->
   <div id="s1-resultados" style="min-height:200px;">
     <div class="empty-state">
-      <div class="empty-state-icon">👥</div>
+      <div class="empty-state-icon"><img src="/static/img/users-alt.png" style="width:32px;height:32px"></div>
       <p>Escribe un nombre para buscar clientes</p>
-    </div>
-  </div>
-
-  <!-- Formulario inline: nuevo cliente -->
-  <div id="s1-form-nuevo" class="hidden" style="margin-top:24px;">
-    <div class="section-divider mb-4">
-      <span class="divider-label">Registrar nuevo cliente</span>
-    </div>
-
-    <div class="grid-2">
-      <div class="input-group">
-        <label class="input-label required">Nombre completo</label>
-        <input id="n-nombre" class="input" type="text" placeholder="Juan Pérez" required />
-      </div>
-      <div class="input-group">
-        <label class="input-label">Teléfono</label>
-        <input id="n-telefono" class="input" type="tel" placeholder="3312345678" />
-      </div>
-    </div>
-    <div class="grid-3">
-      <div class="input-group">
-        <label class="input-label required">Edad</label>
-        <input id="n-edad" class="input" type="number" min="15" max="80" placeholder="28" required />
-      </div>
-      <div class="input-group">
-        <label class="input-label">Sexo</label>
-        <select id="n-sexo" class="input">
-          <option value="">—</option>
-          <option value="M">Masculino</option>
-          <option value="F">Femenino</option>
-          <option value="OTRO">Otro</option>
-        </select>
-      </div>
-      <div class="input-group">
-        <label class="input-label required">Objetivo</label>
-        <select id="n-objetivo" class="input" required>
-          <option value="">—</option>
-          <option value="deficit">Déficit</option>
-          <option value="mantenimiento">Mantenimiento</option>
-          <option value="superavit">Superávit</option>
-        </select>
-      </div>
-    </div>
-    <div class="grid-3">
-      <div class="input-group">
-        <label class="input-label required">Peso (kg)</label>
-        <input id="n-peso" class="input" type="number" step="0.1" min="40" max="200" placeholder="75" required />
-      </div>
-      <div class="input-group">
-        <label class="input-label required">Estatura (cm)</label>
-        <input id="n-estatura" class="input" type="number" step="0.1" min="140" max="220" placeholder="175" required />
-      </div>
-      <div class="input-group">
-        <label class="input-label">% Grasa</label>
-        <input id="n-grasa" class="input" type="number" step="0.1" min="5" max="60" placeholder="20" />
-      </div>
-    </div>
-    <div class="input-group" style="max-width:300px;">
-      <label class="input-label required">Nivel actividad</label>
-      <select id="n-nivel" class="input" required>
-        <option value="">—</option>
-        <option value="nula">Sedentario</option>
-        <option value="leve">Leve</option>
-        <option value="moderada">Moderada</option>
-        <option value="intensa">Intensa</option>
-      </select>
-    </div>
-
-    <div class="flex gap-3 mt-4">
-      <button class="btn btn-outline" id="s1-cancelar-nuevo">Cancelar</button>
-      <button class="btn btn-primary" id="s1-registrar">Registrar y continuar →</button>
     </div>
   </div>
 </div>
@@ -134,15 +64,15 @@
 <!-- ══════════════════════════════════════════════════════════════
       STEP 2 — Datos del plan
 ══════════════════════════════════════════════════════════════ -->
-<div class="plan-step glass" id="step-2">
+<div class="plan-step chart-container" id="step-2">
   <!-- Mini perfil del cliente seleccionado -->
-  <div id="s2-cliente-card" class="flex items-center gap-4 mb-6" style="padding:20px;border-radius:16px;background:rgba(102,126,234,.08);border:1px solid rgba(102,126,234,.2);">
+  <div id="s2-cliente-card" class="flex items-center gap-4 mb-6" style="padding:20px;border-radius:16px;background:rgba(45,212,191,.06);border:1px solid rgba(45,212,191,.15);">
     <div id="s2-avatar"></div>
     <div>
       <p id="s2-nombre" class="font-semibold" style="font-size:1.1rem;margin-bottom:4px;">—</p>
       <p id="s2-meta" style="font-size:.82rem;color:var(--text-muted)">—</p>
     </div>
-    <button class="btn btn-icon btn-secondary" id="s2-cambiar" style="margin-left:auto;" title="Cambiar cliente">✏️</button>
+    <button class="btn btn-icon btn-secondary ml-auto" id="s2-cambiar" title="Cambiar cliente">✏️</button>
   </div>
 
   <h3 class="chart-title mb-4">Ajustar parámetros del plan</h3>
@@ -182,11 +112,50 @@
       </select>
     </div>
   </div>
-  <div class="input-group" style="max-width:280px;">
-    <label class="input-label">Número de comidas por día</label>
-    <div class="flex gap-2 items-center">
-      <input id="s2-comidas" class="input" type="range" min="3" max="6" step="1" value="4" style="flex:1;accent-color:var(--accent-purple)" />
-      <span id="s2-comidas-val" class="font-bold" style="color:var(--accent-purple);min-width:2ch;">4</span>
+  <div class="grid-2" style="align-items:start;">
+    <div class="input-group" style="max-width:280px;">
+        <label class="input-label">Variedad de alimentos</label>
+      <div class="flex gap-2 items-center">
+        <input id="s2-variacion" class="input" type="range" min="1" max="5" step="1" value="1" style="flex:1;accent-color:var(--accent-purple)" />
+        <span id="s2-variacion-val" class="font-bold" style="color:var(--accent-purple);min-width:2ch;">1</span>
+      </div>
+      <p class="text-xs text-muted" style="margin-top:4px;">1 = básico, 5 = máxima variedad</p>
+    </div>
+
+    <!-- Preferencias de alimentos (exclusiones) -->
+    <div class="input-group">
+      <label class="input-label">Preferencias de alimentos</label>
+      <button type="button" id="s2-btn-exclusiones" class="btn-food-exclusion" style="margin-top:4px;">
+        <img src="/static/img/no-cupcake.gif" alt="Preferencias" class="food-excl-icon">
+        <div class="food-excl-text">
+          <span class="food-excl-title">Preferencias de alimentos</span>
+          <span class="food-excl-sub">Excluir ingredientes del plan</span>
+        </div>
+        <span id="s2-excl-badge" class="food-excl-badge" style="display:none;">0</span>
+        <svg width="16" height="16" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" style="margin-left:auto;flex-shrink:0;opacity:.5;"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7"/></svg>
+      </button>
+      <div id="s2-excl-tags" style="display:flex;flex-wrap:wrap;gap:6px;margin-top:8px;min-height:0"></div>
+    </div>
+  </div>
+
+  <!-- Tipo de plan -->
+  <div class="input-group mt-4" style="max-width:420px;">
+    <label class="input-label">Tipo de plan</label>
+    <div class="flex gap-3" style="margin-top:8px;">
+      <label class="plan-type-option" style="display:flex;align-items:center;gap:8px;padding:12px 18px;border-radius:12px;border:2px solid var(--border-color);cursor:pointer;transition:all .2s;flex:1;">
+        <input type="radio" name="tipo_plan" value="menu_fijo" checked style="accent-color:var(--accent-purple);width:18px;height:18px;" />
+        <div>
+          <p class="font-semibold text-sm" style="margin:0;">Menú Fijo</p>
+          <p class="text-xs text-muted" style="margin:2px 0 0;">Un alimento por categoría</p>
+        </div>
+      </label>
+      <label class="plan-type-option" style="display:flex;align-items:center;gap:8px;padding:12px 18px;border-radius:12px;border:2px solid var(--border-color);cursor:pointer;transition:all .2s;flex:1;">
+        <input type="radio" name="tipo_plan" value="opciones" style="accent-color:var(--accent-purple);width:18px;height:18px;" />
+        <div>
+          <p class="font-semibold text-sm" style="margin:0;">Plan con Opciones</p>
+          <p class="text-xs text-muted" style="margin:2px 0 0;">3 alternativas por macro</p>
+        </div>
+      </label>
     </div>
   </div>
 
@@ -204,13 +173,24 @@
 <!-- ══════════════════════════════════════════════════════════════
       STEP 3 — Resultado
 ══════════════════════════════════════════════════════════════ -->
-<div class="plan-step glass" id="step-3">
+<div class="plan-step chart-container" id="step-3">
   <div id="s3-skeleton" class="flex flex-col items-center py-12 gap-4">
     <div class="spinner" style="width:48px;height:48px;border-width:4px;"></div>
     <p style="color:var(--text-muted)">Calculando plan nutricional...</p>
   </div>
 
   <div id="s3-resultado" class="hidden">
+    <!-- Success celebration banner -->
+    <div class="success-banner" style="display:flex;align-items:center;gap:14px;padding:16px 20px;border-radius:12px;background:rgba(52,211,153,.08);border:1px solid rgba(52,211,153,.2);margin-bottom:20px;">
+      <div style="width:40px;height:40px;border-radius:50%;background:rgba(52,211,153,.15);display:flex;align-items:center;justify-content:center;flex-shrink:0;">
+        <svg width="20" height="20" fill="none" viewBox="0 0 24 24" stroke="#34D399" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/></svg>
+      </div>
+      <div>
+        <p style="font-weight:700;color:#34D399;font-size:.95rem;margin:0;">¡Plan generado con éxito!</p>
+        <p style="font-size:.82rem;color:var(--text-muted);margin:2px 0 0;">Descarga el PDF o envíalo directamente a tu cliente</p>
+      </div>
+    </div>
+
     <!-- Cabecera resultado -->
     <div class="flex items-center gap-4 mb-6" style="flex-wrap:wrap;">
       <div>
@@ -219,10 +199,13 @@
           Plan nutricional personalizado · <span id="s3-objetivo-label">—</span>
         </p>
       </div>
-      <div style="margin-left:auto;display:flex;gap:12px;flex-wrap:wrap;">
+      <div class="ml-auto" style="display:flex;gap:12px;flex-wrap:wrap;">
         <button class="btn btn-outline" id="s3-nueva-generacion">🔄 Regenerar</button>
         <button class="btn btn-primary" id="s3-descargar-pdf">
           ⬇️ Descargar PDF
+        </button>
+        <button class="btn btn-primary btn-whatsapp" id="s3-whatsapp">
+          📲 Enviar por WhatsApp
         </button>
       </div>
     </div>
@@ -236,16 +219,234 @@
     <!-- Acciones finales -->
     <div class="flex gap-3 mt-6" style="border-top:1px solid var(--border-color);padding-top:24px;">
       <button class="btn btn-outline" id="s3-nuevo-plan">← Otro cliente</button>
+      <button class="btn btn-primary" id="s3-nuevo-plan-mismo">📋 Nuevo plan para este cliente</button>
       <a href="/clientes" class="btn btn-secondary">Ver todos los clientes</a>
     </div>
   </div>
 
 </div>
 
+<!-- ══════════════════════════════════════════════════════════════
+     Panel — Exclusión de Alimentos (Generar Plan)
+══════════════════════════════════════════════════════════════ -->
+<div id="s2-panel-exclusiones" class="modal-backdrop hidden">
+  <div class="modal" style="max-width:520px;">
+    <button id="s2-panel-close" class="btn btn-icon btn-secondary modal-close" type="button">✕</button>
+    <div class="food-panel-header">
+      <img src="/static/img/no-cupcake.gif" alt="Preferencias de alimentos" class="food-panel-gif">
+      <div>
+        <h2 class="chart-title" style="margin:0;font-size:1.1rem;">Preferencias de alimentos</h2>
+        <p style="margin:2px 0 0;font-size:.78rem;color:var(--text-secondary);">Selecciona los alimentos que <strong>no</strong> deben incluirse en el plan</p>
+      </div>
+    </div>
+    <div class="food-panel-search">
+      <svg width="16" height="16" fill="none" viewBox="0 0 24 24" stroke="var(--text-muted)" stroke-width="2" style="position:absolute;left:12px;top:50%;transform:translateY(-50%);"><circle cx="11" cy="11" r="8"/><path stroke-linecap="round" d="M21 21l-4.35-4.35"/></svg>
+      <input id="s2-food-search" class="input" type="text" placeholder="Buscar alimento..." autocomplete="off" style="padding-left:36px;" />
+    </div>
+    <div id="s2-food-panel-tags" style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:12px;min-height:0"></div>
+    <div id="s2-food-list" class="food-panel-list"></div>
+    <div class="food-panel-footer">
+      <span id="s2-food-count" style="font-size:.78rem;color:var(--text-muted);">0 alimentos excluidos</span>
+      <button type="button" id="s2-food-done" class="btn btn-primary btn-sm">Listo</button>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════════════════════════
+      MODAL — Nuevo Cliente (con GIFs animados)
+══════════════════════════════════════════════════════════════ -->
+<div id="modal-nuevo-cliente" class="modal">
+  <div class="modal-backdrop"></div>
+  <div class="modal-container" style="max-width:700px;">
+    <div class="modal-header">
+      <div style="display:flex;align-items:center;gap:12px;">
+        <div style="width:40px;height:40px;border-radius:11px;background:var(--accent-primary-glow);display:flex;align-items:center;justify-content:center;flex-shrink:0">
+          <svg width="20" height="20" fill="none" viewBox="0 0 24 24" stroke="var(--accent-primary)" stroke-width="2">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/>
+          </svg>
+        </div>
+        <div>
+          <h3 class="modal-title">Registrar nuevo cliente</h3>
+          <p style="margin:2px 0 0;font-size:0.8rem;color:var(--text-secondary);">Completa los datos básicos para generar su plan</p>
+        </div>
+      </div>
+      <button class="modal-close" id="modal-nuevo-close">×</button>
+    </div>
+    <div class="modal-body">
+      <!-- Datos personales -->
+      <div style="font-size:0.75rem;font-weight:600;text-transform:uppercase;letter-spacing:0.05em;color:var(--accent-purple);margin-bottom:12px;padding-bottom:6px;border-bottom:1px solid rgba(255,255,255,0.06);">
+        Datos personales
+      </div>
+
+      <div class="grid-2" style="margin-bottom:16px;">
+        <div class="input-group">
+          <label class="input-label required">Nombre completo</label>
+          <input id="n-nombre" class="input" type="text" placeholder="Juan Pérez" required autocomplete="name" />
+        </div>
+        <div class="input-group">
+          <label class="input-label">Teléfono</label>
+          <input id="n-telefono" class="input" type="tel" placeholder="3312345678" autocomplete="tel" />
+        </div>
+      </div>
+
+      <div class="grid-2" style="margin-bottom:16px;">
+        <div class="input-group">
+          <label class="input-label required">Edad</label>
+          <div class="input-wrap">
+            <span class="input-icon">🎂</span>
+            <input id="n-edad" class="input has-icon" type="number" min="15" max="80" placeholder="28" required />
+          </div>
+        </div>
+        <div class="input-group">
+          <label class="input-label">Sexo</label>
+          <select id="n-sexo" class="input">
+            <option value="">Sin especificar</option>
+            <option value="M">Masculino</option>
+            <option value="F">Femenino</option>
+            <option value="Otro">Otro</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="input-group" style="margin-bottom:16px;">
+        <label class="input-label required">Objetivo</label>
+        <select id="n-objetivo" class="input" required>
+          <option value="">Seleccionar...</option>
+          <option value="deficit">Déficit (bajar grasa)</option>
+          <option value="mantenimiento">Mantenimiento</option>
+          <option value="superavit">Superávit (ganar masa)</option>
+        </select>
+      </div>
+
+      <!-- Medidas corporales -->
+      <div style="font-size:0.75rem;font-weight:600;text-transform:uppercase;letter-spacing:0.05em;color:var(--accent-purple);margin-bottom:12px;padding-bottom:6px;border-bottom:1px solid rgba(255,255,255,0.06);">
+        Medidas corporales
+      </div>
+
+      <div class="grid-3" style="margin-bottom:16px;">
+        <div class="input-group">
+          <label class="input-label required">Peso (kg)</label>
+          <div class="input-wrap">
+            <span class="input-icon">⚖️</span>
+            <input id="n-peso" class="input has-icon" type="number" step="0.1" min="40" max="200" placeholder="75.0" required />
+          </div>
+        </div>
+        <div class="input-group">
+          <label class="input-label required">Estatura (cm)</label>
+          <div class="input-wrap">
+            <span class="input-icon">📏</span>
+            <input id="n-estatura" class="input has-icon" type="number" step="0.1" min="140" max="220" placeholder="175" required />
+          </div>
+        </div>
+        <div class="input-group">
+          <label class="input-label">% Grasa</label>
+          <div class="input-wrap">
+            <span class="input-icon">💧</span>
+            <input id="n-grasa" class="input has-icon" type="number" step="0.1" min="5" max="60" placeholder="20.0" />
+          </div>
+        </div>
+      </div>
+
+      <div class="input-group">
+        <label class="input-label required">Nivel actividad</label>
+        <select id="n-nivel" class="input" required>
+          <option value="">Seleccionar...</option>
+          <option value="nula">Sedentario (nula)</option>
+          <option value="leve">Actividad leve</option>
+          <option value="moderada">Actividad moderada</option>
+          <option value="intensa">Actividad intensa</option>
+        </select>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-secondary" id="s1-cancelar-nuevo">Cancelar</button>
+      <button class="btn btn-primary" id="s1-registrar">
+        <svg width="16" height="16" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/>
+        </svg>
+        Registrar y continuar
+      </button>
+    </div>
+  </div>
+</div>
+
 {% endblock %}
 
 {% block scripts %}
-<script>
+<style>
+/* ── Fix: .modal inside .modal-backdrop is a content container, not overlay ── */
+#s2-panel-exclusiones > .modal {
+  display: block !important;
+  position: relative !important;
+  inset: auto !important;
+  z-index: auto !important;
+  padding: 24px;
+  background: var(--bg-card);
+  border-radius: 16px;
+  border: 1px solid var(--border-glass);
+  border-top: 2px solid var(--accent-primary);
+  box-shadow: 0 24px 64px rgba(0,0,0,.6), 0 0 0 1px var(--border-glass);
+  width: 100%;
+}
+#s2-panel-exclusiones.hidden { display: none !important; }
+
+/* ── Food exclusion button & panel (generar-plan) ──────────── */
+.btn-food-exclusion {
+  display:flex;align-items:center;gap:12px;width:100%;
+  padding:12px 16px;border-radius:12px;
+  border:1px solid rgba(255,255,255,.06);background:rgba(255,255,255,.02);
+  cursor:pointer;transition:all .2s ease;color:var(--text-primary);
+}
+.btn-food-exclusion:hover {
+  border-color:rgba(239,68,68,.25);background:rgba(239,68,68,.04);
+  box-shadow:0 0 0 1px rgba(239,68,68,.1);
+}
+.food-excl-icon { width:38px;height:38px;border-radius:10px;flex-shrink:0; }
+.food-excl-text { display:flex;flex-direction:column;text-align:left; }
+.food-excl-title { font-weight:700;font-size:.88rem;color:var(--text-primary); }
+.food-excl-sub { font-size:.72rem;color:var(--text-muted);margin-top:1px; }
+.food-excl-badge {
+  min-width:22px;height:22px;border-radius:12px;padding:0 6px;
+  background:rgba(239,68,68,.18);color:#f87171;font-size:.72rem;
+  font-weight:700;display:flex;align-items:center;justify-content:center;
+}
+.food-panel-header { display:flex;align-items:center;gap:14px;margin-bottom:20px; }
+.food-panel-gif {
+  width:56px;height:56px;border-radius:14px;flex-shrink:0;
+  background:rgba(239,68,68,.06);padding:4px;
+}
+.food-panel-search { position:relative;margin-bottom:12px; }
+.food-panel-list {
+  max-height:280px;overflow-y:auto;
+  border:1px solid rgba(255,255,255,.06);border-radius:10px;
+  background:rgba(255,255,255,.015);margin-bottom:16px;
+}
+.food-panel-list::-webkit-scrollbar { width:4px; }
+.food-panel-list::-webkit-scrollbar-thumb { background:rgba(255,255,255,.1);border-radius:4px; }
+.food-panel-footer {
+  display:flex;align-items:center;justify-content:space-between;
+  padding-top:12px;border-top:1px solid rgba(255,255,255,.06);
+}
+.food-cat-header {
+  padding:8px 14px;font-size:.7rem;font-weight:700;text-transform:uppercase;
+  letter-spacing:.04em;color:var(--accent-purple);position:sticky;top:0;
+  background:var(--bg-card);z-index:1;
+}
+.food-item-row {
+  display:flex;align-items:center;gap:10px;padding:8px 14px;
+  cursor:pointer;transition:background .12s;
+}
+.food-item-row:hover { background:rgba(255,255,255,.04); }
+.food-item-row.excluded { background:rgba(239,68,68,.06); }
+.food-item-row.excluded .food-item-name { text-decoration:line-through;color:var(--text-muted); }
+.food-item-check {
+  width:18px;height:18px;border-radius:5px;border:1.5px solid rgba(255,255,255,.15);
+  display:flex;align-items:center;justify-content:center;flex-shrink:0;transition:all .15s;
+}
+.food-item-row.excluded .food-item-check { background:rgba(239,68,68,.2);border-color:#f87171; }
+.food-item-name { font-size:.84rem;color:var(--text-primary); }
+</style>
+<script nonce="{{ request.state.csp_nonce }}">
 /* ══════════════════════════════════════════════════════════════
    generar-plan.js
 ═════════════════════════════════════════════════════════════ */
@@ -253,6 +454,7 @@
 let _wizard_step = 1;
 let _cliente_sel = null;   // objeto cliente completo
 let _plan_result = null;   // resultado de generación
+let _last_pdf_path = null; // ruta del último PDF generado
 
 // ── Inicialización ───────────────────────────────────────────
 (async () => {
@@ -269,9 +471,9 @@ let _plan_result = null;   // resultado de generación
     await buscarClientes('');
   }
 
-  // Rango de comidas
-  document.getElementById('s2-comidas').addEventListener('input', (e) => {
-    document.getElementById('s2-comidas-val').textContent = e.target.value;
+  // Rango de variaciones
+  document.getElementById('s2-variacion').addEventListener('input', (e) => {
+    document.getElementById('s2-variacion-val').textContent = e.target.value;
   });
 })();
 
@@ -289,28 +491,27 @@ function irAStep(n) {
 }
 
 // ── STEP 1 — Búsqueda ────────────────────────────────────────
+// Debounce de 600ms para evitar rate limiting con búsquedas rápidas
 document.getElementById('s1-search').addEventListener('input', debounce(async (e) => {
   await buscarClientes(e.target.value.trim());
-}, 300));
+}, 600));
 
 async function buscarClientes(q) {
   const cont = document.getElementById('s1-resultados');
-  if (!q) {
-    cont.innerHTML = `<div class="empty-state"><div class="empty-state-icon">👥</div><p>Escribe un nombre para buscar clientes</p></div>`;
-    return;
-  }
   cont.innerHTML = '<div class="empty-state"><div class="empty-state-icon">⏳</div><p>Buscando...</p></div>';
   try {
-    const res = await Api.clientes.listar(q, 20);
+    const res = await Api.clientes.listar(q, q ? 100 : 50);
     const lista = res.clientes || [];
     if (!lista.length) {
-      cont.innerHTML = `<div class="empty-state"><div class="empty-state-icon">🔍</div><p>Sin resultados para "<strong>${esc(q)}</strong>"</p></div>`;
+      cont.innerHTML = q
+        ? `<div class="empty-state"><div class="empty-state-icon"><img src="/static/img/search.png" style="width:32px;height:32px"></div><p>Sin resultados para "<strong>${esc(q)}</strong>"</p></div>`
+        : '<div class="empty-state"><div class="empty-state-icon"><img src="/static/img/users-alt.png" style="width:32px;height:32px"></div><p>No hay clientes registrados.<br>Crea uno con el botón <strong>"+ Nuevo cliente"</strong>.</p></div>';
       return;
     }
     cont.innerHTML = '';
     lista.forEach(c => {
       const div = document.createElement('div');
-      div.className = 'cliente-result-row glass-hover';
+      div.className = 'cliente-result-row';
       div.innerHTML = `
         <div class="flex items-center gap-3">
           <div class="av-placeholder"></div>
@@ -318,7 +519,7 @@ async function buscarClientes(q) {
             <p class="font-semibold text-sm">${esc(c.nombre)}</p>
             <p class="text-xs text-muted">${esc(c.telefono || '—')} · ${esc(c.objetivo || '—')}</p>
           </div>
-          <button class="btn btn-primary btn-sm" style="margin-left:auto;">Seleccionar →</button>
+          <button class="btn btn-primary btn-sm ml-auto">Seleccionar →</button>
         </div>
       `;
       div.querySelector('.av-placeholder').replaceWith(buildAvatar(c.nombre));
@@ -341,6 +542,9 @@ function seleccionarCliente(c) {
   document.getElementById('s2-nivel').value   = c.nivel_actividad ?? 'moderada';
   document.getElementById('s2-objetivo').value = c.objetivo ?? 'mantenimiento';
 
+  // Load client's food exclusions
+  s2LoadClientExclusions(c);
+
   const avContainer = document.getElementById('s2-avatar');
   avContainer.innerHTML = '';
 avContainer.appendChild(buildAvatar(c.nombre, 'lg'));
@@ -348,12 +552,37 @@ avContainer.appendChild(buildAvatar(c.nombre, 'lg'));
   irAStep(2);
 }
 
-// Botón "nuevo cliente"
+// Botón "nuevo cliente" — abrir modal
+const modalNuevo = document.getElementById('modal-nuevo-cliente');
 document.getElementById('s1-btn-nuevo').addEventListener('click', () => {
-  document.getElementById('s1-form-nuevo').classList.toggle('hidden');
+  modalNuevo.classList.add('active');
+  // Limpiar campos
+  document.getElementById('n-nombre').value = '';
+  document.getElementById('n-telefono').value = '';
+  document.getElementById('n-edad').value = '';
+  document.getElementById('n-sexo').value = '';
+  document.getElementById('n-objetivo').value = '';
+  document.getElementById('n-peso').value = '';
+  document.getElementById('n-estatura').value = '';
+  document.getElementById('n-grasa').value = '';
+  document.getElementById('n-nivel').value = '';
+  // Focus en nombre
+  setTimeout(() => document.getElementById('n-nombre').focus(), 100);
 });
-document.getElementById('s1-cancelar-nuevo').addEventListener('click', () => {
-  document.getElementById('s1-form-nuevo').classList.add('hidden');
+
+// Cerrar modal
+function cerrarModalNuevo() {
+  modalNuevo.classList.remove('active');
+}
+document.getElementById('s1-cancelar-nuevo').addEventListener('click', cerrarModalNuevo);
+document.getElementById('modal-nuevo-close').addEventListener('click', cerrarModalNuevo);
+document.querySelector('#modal-nuevo-cliente .modal-backdrop').addEventListener('click', cerrarModalNuevo);
+
+// Cerrar con ESC
+document.addEventListener('keydown', (e) => {
+  if (e.key === 'Escape' && modalNuevo.classList.contains('active')) {
+    cerrarModalNuevo();
+  }
 });
 document.getElementById('s1-registrar').addEventListener('click', async () => {
   const nombre  = document.getElementById('n-nombre').value.trim();
@@ -365,9 +594,14 @@ document.getElementById('s1-registrar').addEventListener('click', async () => {
     Toast.error('Completa los campos obligatorios (*)');
     return;
   }
+  const edadVal = parseInt(document.getElementById('n-edad').value);
+  if (!edadVal || edadVal < 15 || edadVal > 80) {
+    Toast.error('Ingresa una edad válida (15–80)');
+    return;
+  }
   const payload = {
     nombre, peso_kg: peso, estatura_cm: estatura, objetivo, nivel_actividad: nivel,
-    edad:     parseInt(document.getElementById('n-edad').value)    || null,
+    edad:     edadVal,
     sexo:     document.getElementById('n-sexo').value              || null,
     telefono: document.getElementById('n-telefono').value.trim()   || null,
     grasa_corporal_pct: parseFloat(document.getElementById('n-grasa').value) || null,
@@ -375,7 +609,14 @@ document.getElementById('s1-registrar').addEventListener('click', async () => {
   try {
     const created = await Api.clientes.crear(payload);
     Toast.success('¡Cliente registrado!');
-    seleccionarCliente(created.cliente ?? { ...payload, id_cliente: created.id_cliente });
+    // Fetch full client to get all computed fields
+    let fullClient;
+    try {
+      fullClient = await Api.clientes.obtener(created.id_cliente);
+    } catch(_e) {
+      fullClient = { ...payload, id_cliente: created.id_cliente };
+    }
+    seleccionarCliente(fullClient);
   } catch(e) {
     Toast.error('Error: ' + e.message);
   }
@@ -389,6 +630,11 @@ document.getElementById('s2-back').addEventListener('click', () => irAStep(1));
 document.getElementById('s2-generar').addEventListener('click', async () => {
   if (!_cliente_sel) { Toast.error('Selecciona un cliente primero'); return; }
 
+  const btnGenerar = document.getElementById('s2-generar');
+  if (btnGenerar.disabled) return;
+  btnGenerar.disabled = true;
+  btnGenerar.innerHTML = '<span class="spinner" style="width:16px;height:16px;border-width:2px;"></span> Generando...';
+
   // Actualizar datos del cliente antes de generar
   try {
     await Api.clientes.actualizar(_cliente_sel.id_cliente, {
@@ -396,6 +642,7 @@ document.getElementById('s2-generar').addEventListener('click', async () => {
       grasa_corporal_pct: parseFloat(document.getElementById('s2-grasa').value) || null,
       nivel_actividad:   document.getElementById('s2-nivel').value,
       objetivo:          document.getElementById('s2-objetivo').value,
+      alimentos_excluidos: _s2Excluidos.size > 0 ? [..._s2Excluidos] : null,
     });
   } catch(e) { /* continuar aunque falle la actualización */ }
 
@@ -403,15 +650,24 @@ document.getElementById('s2-generar').addEventListener('click', async () => {
   document.getElementById('s3-skeleton').classList.remove('hidden');
   document.getElementById('s3-resultado').classList.add('hidden');
 
-  const numComidas = parseInt(document.getElementById('s2-comidas').value) || 4;
+  // Auto-increment plan_numero based on client's plan count for proper food rotation
+  const planNumero = (_cliente_sel.total_planes_generados || _cliente_sel.total_planes || 0) + 1;
+  const tipoPlan = document.querySelector('input[name="tipo_plan"]:checked').value;
 
   try {
-    const plan = await Api.planes.generar(_cliente_sel.id_cliente, numComidas);
+    const plan = await Api.planes.generar(_cliente_sel.id_cliente, planNumero, tipoPlan);
     _plan_result = plan;
+    _last_pdf_path = plan.ruta_pdf || null;
+    // Update local plan count so further regenerations increment properly
+    _cliente_sel.total_planes_generados = (_cliente_sel.total_planes_generados || 0) + 1;
+    _cliente_sel.total_planes = _cliente_sel.total_planes_generados;
     renderResultado(plan);
   } catch(e) {
     Toast.error('Error generando plan: ' + e.message);
     irAStep(2);
+  } finally {
+    btnGenerar.disabled = false;
+    btnGenerar.innerHTML = '<span>Generar plan</span><svg style="width:16px;height:16px" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.2"><path stroke-linecap="round" stroke-linejoin="round" d="M13 9l3 3-3 3m-5-3h8"/></svg>';
   }
 });
 
@@ -427,10 +683,10 @@ function renderResultado(plan) {
   mgrid.innerHTML = '';
   const macros = plan.macros || plan.resumen_macros || {};
   const items = [
-    { icon: '🔥', label: 'Calorías',   value: formatKcal(macros.kcal_objetivo ?? macros.kcal),   unit: 'kcal', color: '--accent-pink' },
-    { icon: '🥩', label: 'Proteína',   value: `${macros.proteinas_g ?? macros.proteinas ?? '—'} g`, unit: 'por día', color: '--accent-purple' },
-    { icon: '🍞', label: 'Carbohidratos', value: `${macros.carbohidratos_g ?? macros.carbs ?? '—'} g`, unit: 'por día', color: '--accent-teal' },
-    { icon: '🫒', label: 'Grasas',     value: `${macros.grasas_g ?? macros.grasas ?? '—'} g`,    unit: 'por día', color: '#f97316' },
+    { icon: '🔥', label: 'Calorías',      value: formatKcal(macros.kcal_objetivo ?? macros.kcal), unit: 'kcal',    color: '--accent-pink' },
+    { icon: '🥩', label: 'Proteína',      value: `${macros.proteina_g ?? macros.proteinas_g ?? '—'} g`, unit: 'por día', color: '--accent-purple' },
+    { icon: '🍞', label: 'Carbohidratos', value: `${macros.carbs_g ?? macros.carbohidratos_g ?? '—'} g`, unit: 'por día', color: '--accent-teal' },
+    { icon: '🫒', label: 'Grasas',        value: `${macros.grasa_g ?? macros.grasas_g ?? '—'} g`, unit: 'por día', color: '--accent-orange' },
   ];
   items.forEach(i => {
     mgrid.innerHTML += `
@@ -443,17 +699,37 @@ function renderResultado(plan) {
     `;
   });
 
-  // Comidas
-  const comidas = plan.comidas || plan.plan_comidas || [];
   const cc = document.getElementById('s3-comidas-container');
   cc.innerHTML = '';
+
+  const tipoPlan = plan.tipo_plan || 'menu_fijo';
+
+  if (tipoPlan === 'opciones') {
+    renderComidasOpciones(plan, cc);
+  } else {
+    renderComidasMenuFijo(plan, cc);
+  }
+}
+
+function renderComidasMenuFijo(plan, cc) {
+  let comidas = plan.comidas || plan.plan_comidas || [];
+  if (!comidas.length && plan.plan && typeof plan.plan === 'object') {
+    comidas = Object.entries(plan.plan).map(([key, val]) => ({
+      nombre_comida: key.charAt(0).toUpperCase() + key.slice(1),
+      kcal: Math.round(val.kcal_real || val.kcal_objetivo || 0),
+      alimentos: Object.entries(val.alimentos || {}).map(([nombre, gramos]) => ({
+        nombre,
+        cantidad_g: Math.round(gramos)
+      }))
+    }));
+  }
   if (comidas.length) {
     cc.innerHTML = `<h3 class="chart-title mt-4 mb-3">Plan del día (${comidas.length} comidas)</h3>`;
     comidas.forEach((com, idx) => {
       const nombre_comida = com.nombre_comida ?? com.nombre ?? `Comida ${idx + 1}`;
       const alimentos = com.alimentos || [];
       cc.innerHTML += `
-        <div class="meal-row glass-hover mb-3">
+        <div class="meal-row mb-3">
           <div class="meal-header">
             <span class="meal-number">${idx + 1}</span>
             <span class="font-semibold">${esc(nombre_comida)}</span>
@@ -461,7 +737,7 @@ function renderResultado(plan) {
           </div>
           ${alimentos.length ? `
           <ul class="meal-foods">
-            ${alimentos.map(a => `<li>${esc(a.nombre ?? a)} <span class="text-muted">${a.cantidad_g ?? a.gramos ?? ''}g</span></li>`).join('')}
+            ${alimentos.map(a => `<li>${esc(formatFoodName(a.nombre ?? a))} <span class="text-muted">${a.cantidad_g ?? a.gramos ?? ''}g</span></li>`).join('')}
           </ul>` : ''}
         </div>
       `;
@@ -469,21 +745,134 @@ function renderResultado(plan) {
   }
 }
 
+function renderComidasOpciones(plan, cc) {
+  const planData = plan.plan || {};
+  const comidaNames = Object.keys(planData);
+  if (!comidaNames.length) return;
+
+  cc.innerHTML = `<h3 class="chart-title mt-4 mb-3">Plan con Opciones (${comidaNames.length} comidas)</h3>
+    <p class="text-xs text-muted mb-4">Elige <strong>una opción</strong> de cada categoría por comida</p>`;
+
+  const macroLabels = {
+    proteinas: { icon: '🥩', label: 'Proteínas', color: 'var(--accent-purple)' },
+    carbohidratos: { icon: '🍞', label: 'Carbohidratos', color: 'var(--accent-teal, #2dd4bf)' },
+    grasas: { icon: '🫒', label: 'Grasas', color: '#f97316' },
+  };
+
+  comidaNames.forEach((nombre, idx) => {
+    const datos = planData[nombre];
+    if (!datos || datos.tipo_plan !== 'opciones') return;
+
+    let mealHtml = `
+      <div class="meal-row mb-4" style="border:1px solid var(--border-color);border-radius:16px;overflow:hidden;">
+        <div class="meal-header" style="padding:16px 20px;background:rgba(45,212,191,.06);">
+          <span class="meal-number">${idx + 1}</span>
+          <span class="font-semibold">${esc(nombre.charAt(0).toUpperCase() + nombre.slice(1))}</span>
+          <span class="ml-auto text-xs text-muted">${Math.round(datos.kcal_objetivo || 0)} kcal</span>
+        </div>
+        <div style="padding:16px 20px;">`;
+
+    // Render each macro category
+    for (const [macroKey, meta] of Object.entries(macroLabels)) {
+      const macroData = datos[macroKey];
+      if (!macroData || !macroData.opciones || !macroData.opciones.length) continue;
+
+      mealHtml += `
+        <div style="margin-bottom:16px;">
+          <div class="flex items-center gap-2 mb-2">
+            <span>${meta.icon}</span>
+            <span class="font-semibold text-sm" style="color:${meta.color}">${meta.label}</span>
+            <span class="text-xs text-muted">(${Math.round(macroData.cantidad_objetivo || 0)}g objetivo)</span>
+          </div>
+          <div class="options-list" style="display:flex;flex-direction:column;gap:8px;">`;
+
+      macroData.opciones.forEach((op, opIdx) => {
+        const nombreAlimento = formatFoodName(op.alimento || '');
+        const equivalencia = op.equivalencia ? ` · ${op.equivalencia}` : '';
+        mealHtml += `
+            <div class="option-item" style="display:flex;align-items:center;gap:12px;padding:10px 14px;border-radius:10px;background:rgba(255,255,255,.03);border:1px solid var(--border-color);">
+              <span class="option-badge" style="display:inline-flex;align-items:center;justify-content:center;width:24px;height:24px;border-radius:50%;background:${meta.color};color:#fff;font-size:.75rem;font-weight:700;flex-shrink:0;">${opIdx + 1}</span>
+              <div style="flex:1;min-width:0;">
+                <span class="font-semibold text-sm">${esc(nombreAlimento)}</span>
+                <span class="text-xs text-muted" style="margin-left:8px;">${op.gramos}g${equivalencia}</span>
+              </div>
+            </div>`;
+      });
+
+      mealHtml += `
+          </div>
+        </div>`;
+    }
+
+    // Vegetales
+    const vegetales = datos.vegetales || [];
+    if (vegetales.length) {
+      mealHtml += `
+        <div style="margin-bottom:8px;">
+          <div class="flex items-center gap-2 mb-2">
+            <span>🥦</span>
+            <span class="font-semibold text-sm" style="color:var(--accent-green, #34d399)">Vegetales</span>
+          </div>`;
+      vegetales.forEach(v => {
+        const nombreVeg = formatFoodName(v.alimento || '');
+        mealHtml += `
+          <div style="padding:8px 14px;border-radius:10px;background:rgba(0,255,136,.04);border:1px solid rgba(0,255,136,.12);">
+            <span class="text-sm">${esc(nombreVeg)}</span>
+            <span class="text-xs text-muted" style="margin-left:8px;">${v.gramos}g</span>
+          </div>`;
+      });
+      mealHtml += `</div>`;
+    }
+
+    mealHtml += `</div></div>`;
+    cc.innerHTML += mealHtml;
+  });
+}
+
 // ── PDF ──────────────────────────────────────────────────────
 document.getElementById('s3-descargar-pdf').addEventListener('click', async () => {
   if (!_cliente_sel) return;
-  const btn = document.getElementById('s3-descargar-pdf');
-  btn.disabled = true;
-  btn.innerHTML = '⏳ Generando PDF...';
   try {
-    Api.planes.descargar(_cliente_sel.id_cliente);
-    Toast.success('PDF abierto en nueva pestaña');
-  } catch(e) {
-    Toast.error('Error: ' + e.message);
-  } finally {
-    btn.disabled = false;
-    btn.innerHTML = '⬇️ Descargar PDF';
+    await Api.planes.descargar(_cliente_sel.id_cliente);
+    Toast.success('PDF descargado');
+  } catch (e) {    // If the latest plan download fails, provide a clear message    Toast.error(e.message || 'Error al descargar PDF');
   }
+});
+
+// ── WhatsApp share ──────────────────────────────────────────
+document.getElementById('s3-whatsapp').addEventListener('click', () => {
+  if (!_cliente_sel || !_plan_result) return;
+  const macros = _plan_result.macros || {};
+  const nombre = _cliente_sel.nombre || 'Cliente';
+  const obj = objetivoLabel(_cliente_sel.objetivo || '');
+  const kcal = Math.round(macros.kcal_objetivo || 0);
+  const prot = Math.round(macros.proteina_g || 0);
+  const carbs = Math.round(macros.carbs_g || 0);
+  const grasa = Math.round(macros.grasa_g || 0);
+  const gymName = localStorage.getItem('mb_nombre') || 'Tu Nutriólogo';
+  const hoy = new Date().toLocaleDateString('es-MX', {day:'numeric',month:'long',year:'numeric'});
+  const mensaje = [
+    `¡Hola ${nombre}! 👋`,
+    '',
+    `Tu plan nutricional personalizado está listo. Aquí va el resumen:`,
+    '',
+    `🎯 *Objetivo:* ${obj}`,
+    `🔥 *Calorías diarias:* ${kcal} kcal`,
+    `🥩 *Proteína:* ${prot}g | 🍞 *Carbos:* ${carbs}g | 🫒 *Grasas:* ${grasa}g`,
+    '',
+    `📅 Fecha: ${hoy}`,
+    `📄 Tu PDF con el plan completo y detallado te lo envío en seguida.`,
+    '',
+    `¿Tienes alguna duda o quieres ajustar algo? Escríbeme. 💪`,
+    '',
+    `— *${gymName}*`,
+    `_Powered by Método Base_`,
+  ].join('\n');
+  const tel = (_cliente_sel.telefono || '').replace(/\D/g, '');
+  const url = tel
+    ? `https://wa.me/${tel.length === 10 ? '52' + tel : tel}?text=${encodeURIComponent(mensaje)}`
+    : `https://wa.me/?text=${encodeURIComponent(mensaje)}`;
+  window.open(url, '_blank');
 });
 
 // Regenerar / volver
@@ -491,23 +880,198 @@ document.getElementById('s3-nueva-generacion').addEventListener('click', () => i
 document.getElementById('s3-nuevo-plan').addEventListener('click', () => {
   _cliente_sel = null;
   _plan_result = null;
+  _last_pdf_path = null;
   document.getElementById('s1-search').value = '';
-  document.getElementById('s1-resultados').innerHTML = `<div class="empty-state"><div class="empty-state-icon">👥</div><p>Escribe un nombre para buscar clientes</p></div>`;
+  document.getElementById('s1-resultados').innerHTML = `<div class="empty-state"><div class="empty-state-icon"><img src="/static/img/users-alt.png" style="width:32px;height:32px"></div><p>Escribe un nombre para buscar clientes</p></div>`;
   irAStep(1);
+  buscarClientes('');
+});
+// New plan for the same client (skip step 1)
+document.getElementById('s3-nuevo-plan-mismo').addEventListener('click', () => {
+  _plan_result = null;
+  _last_pdf_path = null;
+  irAStep(2);
 });
 
 // ── Utils ────────────────────────────────────────────────────
+// Plan type radio highlight
+document.querySelectorAll('input[name="tipo_plan"]').forEach(radio => {
+  radio.addEventListener('change', () => {
+    document.querySelectorAll('.plan-type-option').forEach(label => {
+      label.style.borderColor = label.querySelector('input').checked
+        ? 'var(--accent-purple)' : 'var(--border-color)';
+      label.style.background = label.querySelector('input').checked
+        ? 'rgba(45,212,191,.08)' : 'transparent';
+    });
+  });
+  // Init selected state
+  const label = radio.closest('.plan-type-option');
+  if (label && radio.checked) {
+    label.style.borderColor = 'var(--accent-purple)';
+    label.style.background = 'rgba(45,212,191,.08)';
+  }
+});
 function objetivoLabel(o) {
   return { deficit: 'Déficit calórico', mantenimiento: 'Mantenimiento', superavit: 'Superávit calórico' }[o] ?? o;
 }
 
-function esc(v) {
-  return String(v ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+/** Formats food names: 'pechuga_de_pollo' → 'Pechuga de pollo' */
+function formatFoodName(name) {
+  if (!name) return '';
+  const formatted = name.replace(/_/g, ' ');
+  return formatted.charAt(0).toUpperCase() + formatted.slice(1);
 }
 
-function debounce(fn, ms = 300) {
-  let t;
-  return (...a) => { clearTimeout(t); t = setTimeout(() => fn(...a), ms); };
+// esc() and debounce() are provided by components.js
+
+// ══════════════════════════════════════════════════════════════
+// Food Exclusion Panel (Step 2)
+// ══════════════════════════════════════════════════════════════
+const _S2_CAT_LABELS = {proteina:'Proteínas',carbs:'Carbohidratos',grasa:'Grasas',verdura:'Verduras',fruta:'Frutas'};
+const _S2_CAT_ICONS  = {proteina:'🥩',carbs:'🍚',grasa:'🥑',verdura:'🥦',fruta:'🍎'};
+let _s2CatalogoAlimentos = {};
+let _s2Excluidos = new Set();
+
+function s2Humanize(name) {
+  return name.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
 }
+
+async function s2LoadCatalog() {
+  try {
+    const res = await fetch('/api/alimentos/catalogo', {
+      headers: {'Authorization': 'Bearer ' + (localStorage.getItem('mb_token') || '')}
+    });
+    if (res.ok) {
+      const data = await res.json();
+      _s2CatalogoAlimentos = data.categorias || {};
+    }
+  } catch(e) { console.warn('Catálogo no disponible:', e.message); }
+}
+
+// Load client's existing exclusions when selected
+function s2LoadClientExclusions(cliente) {
+  _s2Excluidos.clear();
+  const raw = cliente.alimentos_excluidos;
+  if (Array.isArray(raw)) {
+    raw.forEach(f => _s2Excluidos.add(f));
+  }
+  s2SyncBadgeAndTags();
+}
+
+// Open panel
+document.getElementById('s2-btn-exclusiones').addEventListener('click', () => {
+  document.getElementById('s2-panel-exclusiones').classList.remove('hidden');
+  s2RenderCatalog();
+  document.getElementById('s2-food-search').value = '';
+  document.getElementById('s2-food-search').focus();
+});
+
+// Close panel
+document.getElementById('s2-panel-close').addEventListener('click', s2ClosePanel);
+document.getElementById('s2-panel-exclusiones').addEventListener('click', e => {
+  if (e.target === e.currentTarget) s2ClosePanel();
+});
+document.getElementById('s2-food-done').addEventListener('click', s2ClosePanel);
+
+function s2ClosePanel() {
+  document.getElementById('s2-panel-exclusiones').classList.add('hidden');
+  s2SyncBadgeAndTags();
+}
+
+// Render catalog with toggle checkboxes
+function s2RenderCatalog(query) {
+  const list = document.getElementById('s2-food-list');
+  const q = (query || '').toLowerCase().trim();
+  let html = '';
+  let totalVisible = 0;
+
+  for (const [cat, foods] of Object.entries(_s2CatalogoAlimentos)) {
+    const filtered = foods.filter(f => !q || s2Humanize(f).toLowerCase().includes(q));
+    if (!filtered.length) continue;
+    html += `<div class="food-cat-header">${_S2_CAT_ICONS[cat] || '📦'} ${_S2_CAT_LABELS[cat] || cat} <span style="opacity:.5;font-weight:400">· ${filtered.length}</span></div>`;
+    filtered.forEach(f => {
+      const isExcl = _s2Excluidos.has(f);
+      html += `<div class="food-item-row${isExcl ? ' excluded' : ''}" data-food="${f}">`
+        + `<div class="food-item-check">${isExcl ? '<svg width="12" height="12" fill="none" viewBox="0 0 24 24" stroke="#f87171" stroke-width="3"><path stroke-linecap="round" stroke-linejoin="round" d="M18 6L6 18M6 6l12 12"/></svg>' : ''}</div>`
+        + `<span class="food-item-name">${s2Humanize(f)}</span>`
+        + `</div>`;
+      totalVisible++;
+    });
+  }
+
+  if (!totalVisible && q) {
+    html = '<div style="padding:24px;color:var(--text-secondary);font-size:.84rem;text-align:center;">'
+      + '<img src="/static/img/no-cupcake.gif" alt="" style="width:48px;height:48px;opacity:.4;margin-bottom:8px;"><br>'
+      + 'No se encontraron alimentos</div>';
+  }
+  list.innerHTML = html;
+
+  list.querySelectorAll('.food-item-row').forEach(el => {
+    el.addEventListener('click', () => {
+      const food = el.dataset.food;
+      if (_s2Excluidos.has(food)) _s2Excluidos.delete(food);
+      else _s2Excluidos.add(food);
+      s2RenderCatalog(document.getElementById('s2-food-search').value);
+      s2SyncPanelTags();
+      s2UpdateCount();
+    });
+  });
+  s2SyncPanelTags();
+  s2UpdateCount();
+}
+
+// Tags inside panel
+function s2SyncPanelTags() {
+  const container = document.getElementById('s2-food-panel-tags');
+  container.innerHTML = '';
+  _s2Excluidos.forEach(food => {
+    const tag = document.createElement('span');
+    tag.style.cssText = 'display:inline-flex;align-items:center;gap:4px;padding:3px 10px;border-radius:20px;font-size:0.73rem;background:rgba(239,68,68,0.14);color:#f87171;cursor:pointer;transition:all 0.15s;border:1px solid rgba(239,68,68,.12)';
+    tag.textContent = s2Humanize(food) + ' ✕';
+    tag.title = 'Click para restaurar';
+    tag.addEventListener('click', () => {
+      _s2Excluidos.delete(food);
+      s2RenderCatalog(document.getElementById('s2-food-search').value);
+      s2SyncPanelTags();
+      s2UpdateCount();
+    });
+    container.appendChild(tag);
+  });
+}
+
+// Badge + tags in step 2 form
+function s2SyncBadgeAndTags() {
+  const badge = document.getElementById('s2-excl-badge');
+  const count = _s2Excluidos.size;
+  badge.textContent = count;
+  badge.style.display = count > 0 ? 'flex' : 'none';
+
+  const container = document.getElementById('s2-excl-tags');
+  container.innerHTML = '';
+  _s2Excluidos.forEach(food => {
+    const tag = document.createElement('span');
+    tag.style.cssText = 'display:inline-flex;align-items:center;gap:4px;padding:3px 10px;border-radius:20px;font-size:0.73rem;background:rgba(239,68,68,0.14);color:#f87171;cursor:pointer;transition:all 0.15s';
+    tag.textContent = s2Humanize(food) + ' ✕';
+    tag.title = 'Click para restaurar';
+    tag.addEventListener('click', () => {
+      _s2Excluidos.delete(food);
+      s2SyncBadgeAndTags();
+    });
+    container.appendChild(tag);
+  });
+}
+
+function s2UpdateCount() {
+  const el = document.getElementById('s2-food-count');
+  const n = _s2Excluidos.size;
+  el.textContent = n === 0 ? 'Ningún alimento excluido' : n + ' alimento' + (n > 1 ? 's' : '') + ' excluido' + (n > 1 ? 's' : '');
+}
+
+document.getElementById('s2-food-search').addEventListener('input', function() {
+  s2RenderCatalog(this.value);
+});
+
+// Load catalog on page init
+s2LoadCatalog();
 </script>
 {% endblock %}

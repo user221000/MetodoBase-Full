@@ -1,7 +1,10 @@
 """Pydantic schemas para MetodoBase API v2."""
 import re
+from datetime import datetime
 from typing import Optional
 from pydantic import BaseModel, Field, field_validator
+
+from utils.validadores import RANGO_EDAD, RANGO_PESO, RANGO_ESTATURA, RANGO_GRASA
 
 _NIVELES = {"nula", "leve", "moderada", "intensa"}
 _OBJETIVOS = {"deficit", "mantenimiento", "superavit"}
@@ -11,14 +14,17 @@ class ClienteCreate(BaseModel):
     nombre: str = Field(..., min_length=2, max_length=100, description="Nombre completo")
     telefono: Optional[str] = Field(None, description="Teléfono 10 dígitos")
     email: Optional[str] = Field(None, description="Correo electrónico")
-    edad: int = Field(..., ge=15, le=80, description="Edad en años (15–80)")
+    edad: int = Field(..., ge=RANGO_EDAD[0], le=RANGO_EDAD[1], description=f"Edad en años ({RANGO_EDAD[0]}–{RANGO_EDAD[1]})")
     sexo: Optional[str] = Field(None, description="M / F / Otro")
-    peso_kg: float = Field(..., ge=40.0, le=200.0, description="Peso en kg (40–200)")
-    estatura_cm: float = Field(..., ge=140.0, le=220.0, description="Estatura en cm (140–220)")
-    grasa_corporal_pct: Optional[float] = Field(None, ge=5.0, le=60.0, description="% grasa corporal (5–60)")
+    peso_kg: float = Field(..., ge=RANGO_PESO[0], le=RANGO_PESO[1], description=f"Peso en kg ({RANGO_PESO[0]}–{RANGO_PESO[1]})")
+    estatura_cm: float = Field(..., ge=RANGO_ESTATURA[0], le=RANGO_ESTATURA[1], description=f"Estatura en cm ({RANGO_ESTATURA[0]}–{RANGO_ESTATURA[1]})")
+    grasa_corporal_pct: Optional[float] = Field(None, ge=RANGO_GRASA[0], le=RANGO_GRASA[1], description=f"% grasa corporal ({RANGO_GRASA[0]}–{RANGO_GRASA[1]})")
     nivel_actividad: str = Field(..., description="nula | leve | moderada | intensa")
     objetivo: str = Field(..., description="deficit | mantenimiento | superavit")
     notas: Optional[str] = Field(None, max_length=500)
+    alimentos_excluidos: Optional[list[str]] = Field(None, description="Lista de alimentos a excluir del plan")
+    fecha_suscripcion: Optional[datetime] = Field(None, description="Fecha de inicio de suscripción")
+    fecha_fin_suscripcion: Optional[datetime] = Field(None, description="Fecha de fin de suscripción")
 
     @field_validator("nombre")
     @classmethod
@@ -52,10 +58,12 @@ class ClienteCreate(BaseModel):
     def validar_sexo(cls, v: Optional[str]) -> Optional[str]:
         if not v:
             return None
-        v = v.strip().upper()
-        if v not in {"M", "F", "OTRO"}:
+        v = v.strip()
+        mapping = {"m": "M", "f": "F", "otro": "Otro", "OTRO": "Otro"}
+        normalized = mapping.get(v, mapping.get(v.lower()))
+        if normalized is None:
             raise ValueError("Sexo debe ser M, F, u Otro")
-        return v
+        return normalized
 
     @field_validator("nivel_actividad")
     @classmethod
@@ -78,13 +86,16 @@ class ClienteUpdate(BaseModel):
     nombre: Optional[str] = Field(None, min_length=2, max_length=100)
     telefono: Optional[str] = None
     email: Optional[str] = None
-    edad: Optional[int] = Field(None, ge=15, le=80)
-    peso_kg: Optional[float] = Field(None, ge=40.0, le=200.0)
-    estatura_cm: Optional[float] = Field(None, ge=140.0, le=220.0)
-    grasa_corporal_pct: Optional[float] = Field(None, ge=5.0, le=60.0)
+    edad: Optional[int] = Field(None, ge=RANGO_EDAD[0], le=RANGO_EDAD[1])
+    peso_kg: Optional[float] = Field(None, ge=RANGO_PESO[0], le=RANGO_PESO[1])
+    estatura_cm: Optional[float] = Field(None, ge=RANGO_ESTATURA[0], le=RANGO_ESTATURA[1])
+    grasa_corporal_pct: Optional[float] = Field(None, ge=RANGO_GRASA[0], le=RANGO_GRASA[1])
     nivel_actividad: Optional[str] = None
     objetivo: Optional[str] = None
     notas: Optional[str] = Field(None, max_length=500)
+    alimentos_excluidos: Optional[list[str]] = Field(None, description="Lista de alimentos a excluir del plan")
+    fecha_suscripcion: Optional[datetime] = None
+    fecha_fin_suscripcion: Optional[datetime] = None
 
     @field_validator("nombre")
     @classmethod
@@ -114,6 +125,18 @@ class ClienteUpdate(BaseModel):
         return v
 
 
+_TIPOS_PLAN = {"menu_fijo", "opciones"}
+
+
 class PlanRequest(BaseModel):
     id_cliente: str = Field(..., min_length=1, description="ID del cliente")
     plan_numero: int = Field(1, ge=1, le=9999, description="Número de plan para rotación")
+    tipo_plan: str = Field("menu_fijo", description="menu_fijo | opciones")
+
+    @field_validator("tipo_plan")
+    @classmethod
+    def validar_tipo_plan(cls, v: str) -> str:
+        v = v.strip().lower()
+        if v not in _TIPOS_PLAN:
+            raise ValueError(f"tipo_plan debe ser uno de: {sorted(_TIPOS_PLAN)}")
+        return v

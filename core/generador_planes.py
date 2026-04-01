@@ -5,8 +5,6 @@ from datetime import datetime
 from config.constantes import (
     PROTEIN_FOODS, FACTORES_ACTIVIDAD, MODO_ESTRICTO,
     LIMITES_DUROS_ALIMENTOS, CARPETA_SALIDA,
-    ALIMENTOS_LIMITE_ESTRICTO, MINIMOS_POR_ALIMENTO,
-    PROTEINAS_ESTRUCTURALES, PROTEINAS_MIXTAS,
 )
 from src.alimentos_base import ALIMENTOS_BASE, LIMITES_ALIMENTOS, CATEGORIAS
 from src.gestor_rotacion import GestorRotacionAlimentos
@@ -26,12 +24,12 @@ from utils.logger import logger
 
 
 # ============================================================================
-# REDONDEO CLÍNICO PARA DESAYUNO
+# REDONDEO CLÍNICO
 # ============================================================================
 
-def _aplicar_redondeo_clinico_desayuno(comida_dict: dict) -> dict:
+def _aplicar_redondeo_clinico(comida_dict: dict) -> dict:
     """
-    Aplica redondeo clínico SOLO para desayuno.
+    Aplica redondeo clínico a una comida.
     
     Reglas de redondeo:
     - Proteínas: múltiplos de 5g
@@ -118,186 +116,6 @@ def _validar_limites_estrictos_por_plan(plan: dict) -> dict:
                 comida_data['desviacion_pct'] = abs(kcal_real - comida_data['kcal_objetivo']) / max(comida_data['kcal_objetivo'], 1) * 100
     
     return plan
-
-
-# ============================================================================
-# CONSTRUCTOR DEPRECADO (compatibilidad con tests)
-# ============================================================================
-
-class ConstructorPlan:
-    """
-    DEPRECATED: Usar ConstructorPlanNuevo en su lugar.
-    Se mantiene solo para compatibilidad con tests existentes.
-    """
-    
-    @staticmethod
-    def _ajustar_carbs_por_densidad(carbs_alimentos: dict, meal_idx: int) -> dict:
-        for arroz in ('arroz_blanco', 'arroz_integral'):
-            gramos = carbs_alimentos.get(arroz, 0)
-            if gramos > 300:
-                exceso = gramos - 250
-                carbs_alimentos[arroz] = 250
-                alternativas = ['papa', 'camote', 'pan_integral', 'frijoles']
-                dens_arroz = ALIMENTOS_BASE[arroz]['carbs'] / 100
-                for alt in alternativas:
-                    if alt == arroz:
-                        continue
-                    dens_alt = ALIMENTOS_BASE[alt]['carbs'] / 100
-                    gramos_alt = exceso * dens_arroz / dens_alt
-                    limite = LIMITES_ALIMENTOS.get(alt, 999)
-                    if gramos_alt <= limite:
-                        carbs_alimentos[alt] = carbs_alimentos.get(alt, 0) + gramos_alt
-                        break
-        if meal_idx == 2:
-            threshold = 150
-            for item in ('arroz_blanco', 'arroz_integral', 'papa', 'camote'):
-                gramos = carbs_alimentos.get(item, 0)
-                if gramos > threshold:
-                    extra = gramos - threshold
-                    carbs_alimentos[item] = threshold
-                    kcal_extra = extra * ALIMENTOS_BASE[item]['kcal'] / 100
-                    veg_gramos = kcal_extra / (ALIMENTOS_BASE['brocoli']['kcal'] / 100)
-                    carbs_alimentos['brocoli'] = carbs_alimentos.get('brocoli', 0) + veg_gramos
-        return carbs_alimentos
-
-    @staticmethod
-    def construir(cliente: ClienteEvaluacion, gestor_rotacion=None) -> dict:
-        """Construye plan con rotación de alimentos."""
-        distribuidor = DistribuidorComidas()
-        distribucion = distribuidor.distribuir(
-            cliente.kcal_objetivo, cliente.proteina_g, cliente.grasa_g, cliente.carbs_g,
-        )
-        
-        if gestor_rotacion is None:
-            gestor_rotacion = GestorRotacionAlimentos(cliente.id_cliente)
-        
-        plan = {}
-        selector = SelectorAlimentos()
-        calculador = CalculadorGramos()
-        vegetales_bajas = ['brocoli', 'espinaca', 'calabacita', 'champiñones', 'coliflor']
-        alimentos_usados_plan = set()
-        
-        meal_idx = 0
-        for nombre_comida, macros_comida in distribucion.items():
-            penalizados_hoy = gestor_rotacion.obtener_penalizados_flat()
-            penalizados_por_cat = gestor_rotacion.obtener_penalizados()
-            
-            proteinas_list = selector.seleccionar_lista('proteina', meal_idx, alimentos_usados_plan, alimentos_penalizados=penalizados_por_cat)
-            carbs_list = selector.seleccionar_lista('carbs', meal_idx, alimentos_usados_plan, alimentos_penalizados=penalizados_por_cat)
-            grasas_list = selector.seleccionar_lista('grasa', meal_idx, alimentos_usados_plan, alimentos_penalizados=penalizados_por_cat)
-            
-            prot_alimentos = calculador.calcular_iterativo(
-                macros_comida['proteina'], 'proteina', proteinas_list, meal_idx, penalizados=penalizados_hoy
-            )
-            
-            if meal_idx == 0 and 'huevo' in prot_alimentos:
-                if prot_alimentos['huevo'] > 200:
-                    exceso = prot_alimentos['huevo'] - 200
-                    prot_alimentos['huevo'] = 200
-                    prot_alimentos['claras_huevo'] = prot_alimentos.get('claras_huevo', 0) + exceso
-            
-            prot_alimentos = calculador.filtrar_menores_a_10g(prot_alimentos, 'proteina')
-            
-            carbs_alimentos = calculador.calcular_iterativo(
-                macros_comida['carbs'], 'carbs', carbs_list, meal_idx, penalizados=penalizados_hoy
-            )
-            carbs_alimentos = calculador.filtrar_menores_a_10g(carbs_alimentos, 'carbs')
-            if len(carbs_alimentos) > 1:
-                primer_carb = list(carbs_alimentos.keys())[0]
-                carbs_alimentos = {primer_carb: carbs_alimentos[primer_carb]}
-            
-            grasa_alimentos = calculador.calcular_iterativo(
-                macros_comida['grasa'], 'grasa', grasas_list, meal_idx, penalizados=penalizados_hoy
-            )
-            grasa_alimentos = calculador.filtrar_menores_a_10g(grasa_alimentos, 'grasa')
-            
-            carbs_alimentos = ConstructorPlan._ajustar_carbs_por_densidad(carbs_alimentos, meal_idx)
-            
-            comida_dict = {
-                'kcal_objetivo': macros_comida['kcal'],
-                'macros_objetivo': {
-                    'proteina': macros_comida['proteina'],
-                    'carbs': macros_comida['carbs'],
-                    'grasa': macros_comida['grasa'],
-                },
-                'alimentos': {},
-                'kcal_real': 0,
-                'desviacion_pct': 0,
-            }
-            
-            comida_dict['alimentos'].update(prot_alimentos)
-            comida_dict['alimentos'].update(carbs_alimentos)
-            comida_dict['alimentos'].update(grasa_alimentos)
-            
-            vegetal_gramos = 120
-            if cliente.objetivo.lower() == 'deficit':
-                vegetal_gramos = 175
-            elif cliente.objetivo.lower() == 'superavit':
-                vegetal_gramos = 100
-            if meal_idx == 2:
-                vegetal_gramos += 50
-            
-            vegetal = vegetales_bajas[meal_idx % len(vegetales_bajas)]
-            comida_dict['alimentos'][vegetal] = vegetal_gramos
-            
-            comida_dict = ValidadorEnergia.validar_y_ajustar(comida_dict, macros_comida['kcal'], meal_idx=meal_idx)
-            
-            comida_dict['alimentos'] = {
-                nombre: gramos
-                for nombre, gramos in comida_dict['alimentos'].items()
-                if gramos > 0 and nombre in ALIMENTOS_BASE
-            }
-            
-            alimentos_invalidos = [
-                nombre for nombre in comida_dict['alimentos'].keys()
-                if nombre not in ALIMENTOS_BASE
-            ]
-            if alimentos_invalidos:
-                logger.warning("Alimentos inválidos removidos: %s", alimentos_invalidos)
-                comida_dict['alimentos'] = {
-                    nombre: gramos
-                    for nombre, gramos in comida_dict['alimentos'].items()
-                    if nombre in ALIMENTOS_BASE
-                }
-            
-            proteinas_presentes = {
-                nombre: gramos for nombre, gramos in comida_dict['alimentos'].items()
-                if nombre in CATEGORIAS['proteina'] and gramos >= 80
-            }
-            
-            if not proteinas_presentes:
-                lista_prot = selector.seleccionar_lista('proteina', meal_idx)
-                prot_encontrada = None
-                
-                for prot in lista_prot:
-                    if comida_dict['alimentos'].get(prot, 0) > 0:
-                        prot_encontrada = prot
-                        break
-                
-                if not prot_encontrada:
-                    prot_encontrada = lista_prot[0] if lista_prot else 'pechuga_de_pollo'
-                
-                actual = comida_dict['alimentos'].get(prot_encontrada, 0)
-                if actual < 100:
-                    delta_g = 100 - actual
-                    for carb in ['arroz_blanco', 'arroz_integral', 'papa', 'camote']:
-                        if carb in comida_dict['alimentos'] and comida_dict['alimentos'][carb] > delta_g:
-                            comida_dict['alimentos'][carb] -= delta_g
-                            comida_dict['alimentos'][prot_encontrada] = 100
-                            comida_dict = ValidadorEnergia.validar_y_ajustar(comida_dict, macros_comida['kcal'], meal_idx=meal_idx)
-                            break
-            
-            comida_dict['alimentos'] = {
-                nombre: gramos
-                for nombre, gramos in comida_dict['alimentos'].items()
-                if gramos > 0
-            }
-            
-            alimentos_usados_plan.update(comida_dict['alimentos'].keys())
-            plan[nombre_comida] = comida_dict
-            meal_idx += 1
-        
-        return plan
 
 
 # ============================================================================
@@ -500,7 +318,7 @@ class ConstructorPlanNuevo:
                     )
 
                     if meal_idx == 0:
-                        comida_estructurada = _aplicar_redondeo_clinico_desayuno(comida_estructurada)
+                        comida_estructurada = _aplicar_redondeo_clinico(comida_estructurada)
 
                     if comida_estructurada.get('desviacion_pct', 0) > 5:
                         comida_estructurada = ValidadorEnergia.validar_y_ajustar(
@@ -606,106 +424,111 @@ class ConstructorPlanNuevo:
 
 
 # ============================================================================
-# DEMO
+# DEMO — Solo se ejecuta con: python generador_planes.py
 # ============================================================================
 
-def ejecutar_demo_gym():
-    """Demo completa del sistema de generación de planes nutricionales."""
-    from core.exportador_salida import GeneradorPDFProfesional
-    from config.constantes import CARPETA_PLANES
-    
-    os.makedirs(CARPETA_PLANES, exist_ok=True)
-    os.makedirs("datos", exist_ok=True)
-    
-    clientes_config = [
-        {
-            'nombre': 'Cliente Deficit', 'id_cliente': 'DEMO_DEF',
-            'edad': 30, 'peso_kg': 80.0, 'estatura_cm': 175,
-            'grasa_corporal_pct': 20.0, 'nivel_actividad': 'moderada', 'objetivo': 'deficit',
-        },
-        {
-            'nombre': 'Cliente Mantenimiento', 'id_cliente': 'DEMO_MAN',
-            'edad': 28, 'peso_kg': 70.0, 'estatura_cm': 170,
-            'grasa_corporal_pct': 18.0, 'nivel_actividad': 'leve', 'objetivo': 'mantenimiento',
-        },
-        {
-            'nombre': 'Cliente Superavit', 'id_cliente': 'DEMO_SUP',
-            'edad': 25, 'peso_kg': 75.0, 'estatura_cm': 180,
-            'grasa_corporal_pct': 15.0, 'nivel_actividad': 'intensa', 'objetivo': 'superavit',
-        },
-    ]
-    
-    resultados = []
-    
-    for config in clientes_config:
-        logger.info("=" * 70)
-        logger.info("PROCESANDO: %s", config['nombre'].upper())
-        logger.info("=" * 70)
-        
-        cliente = ClienteEvaluacion(
-            nombre=config['nombre'], id_cliente=config['id_cliente'],
-            edad=config['edad'], peso_kg=config['peso_kg'],
-            estatura_cm=config['estatura_cm'], grasa_corporal_pct=config['grasa_corporal_pct'],
-            nivel_actividad=config['nivel_actividad'], objetivo=config['objetivo'],
-        )
-        
-        cliente.factor_actividad = FACTORES_ACTIVIDAD.get(cliente.nivel_actividad, 1.2)
-        logger.info("[1] Cliente creado: %s", cliente.id_cliente)
-        
-        cliente = MotorNutricional.calcular_motor(cliente)
-        logger.info("[2] TMB: %.0f | GET: %.0f | Kcal: %.0f", cliente.tmb, cliente.get_total, cliente.kcal_objetivo)
-        
-        kcal_ajustado, ajuste_aplicado = AjusteCaloricoMensual.aplicar_ajuste(
-            cliente_id=cliente.id_cliente, peso_actual=cliente.peso_kg,
-            objetivo=cliente.objetivo, kcal_objetivo_base=cliente.kcal_objetivo,
-            plan_anterior=None, directorio_planes=CARPETA_PLANES
-        )
-        logger.info("[3] Kcal ajustado: %.0f | Ajuste: %s", kcal_ajustado, ajuste_aplicado)
-        
-        distribucion = DistribuidorComidas.distribuir(
-            cliente.kcal_objetivo, cliente.proteina_g, cliente.grasa_g, cliente.carbs_g
-        )
-        logger.info("[4] Distribuido: Des %.0f | Alm %.0f | Com %.0f | Cen %.0f",
-                    distribucion['desayuno']['kcal'], distribucion['almuerzo']['kcal'],
-                    distribucion['comida']['kcal'], distribucion['cena']['kcal'])
-        
-        plan = ConstructorPlanNuevo.construir(cliente, plan_numero=1, directorio_planes=CARPETA_PLANES)
-        
-        es_valido, errores = MealStructureContract.validar_plan_completo(plan)
-        if es_valido:
-            logger.info("[6] Plan VÁLIDO según contrato")
-        else:
-            logger.warning("[6] Plan INVÁLIDO: %s", errores)
-            if MODO_ESTRICTO:
-                raise Exception("Plan invalido por violacion de contrato energetico (>5%)")
-        
-        if not os.path.exists(CARPETA_SALIDA):
-            os.makedirs(CARPETA_SALIDA)
-        
-        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-        nombre_pdf = f"demo_{cliente.id_cliente}_{timestamp}.pdf"
-        ruta_pdf_completa = os.path.join(CARPETA_SALIDA, nombre_pdf)
-        
-        generador_pdf = GeneradorPDFProfesional(ruta_pdf_completa)
-        ruta_pdf = generador_pdf.generar(cliente, plan)
-        print(f"  [7] PDF: {ruta_pdf}")
-        
-        comidas_validas = ['desayuno', 'almuerzo', 'comida', 'cena']
-        desviacion_max = max(plan[c].get('desviacion_pct', 0) for c in comidas_validas if c in plan)
-        kcal_real = sum(plan[c].get('kcal_real', 0) for c in comidas_validas if c in plan)
-        
-        resultados.append({
-            'id_cliente': cliente.id_cliente, 'kcal_objetivo': cliente.kcal_objetivo,
-            'kcal_real': kcal_real, 'desviacion_max': desviacion_max,
-            'pdf': ruta_pdf, 'valido': es_valido,
-        })
-    
-    print("\n" + "=" * 70)
-    print("RESUMEN DEMO COMPLETA")
-    print("=" * 70)
-    for r in resultados:
-        estado = "OK" if r['valido'] else "ERROR"
-        print(f"  [{estado}] {r['id_cliente']}: {r['kcal_objetivo']:.0f} kcal | Desv max: {r['desviacion_max']:.2f}%")
-    print("=" * 70 + "\n")
-    
-    return resultados
+if __name__ == "__main__":
+    def ejecutar_demo_gym():
+        """Demo completa del sistema de generación de planes nutricionales."""
+        from api.pdf_generator import PDFGenerator
+        from config.constantes import CARPETA_PLANES
+
+        os.makedirs(CARPETA_PLANES, exist_ok=True)
+        os.makedirs("datos", exist_ok=True)
+
+        clientes_config = [
+            {
+                'nombre': 'Cliente Deficit', 'id_cliente': 'DEMO_DEF',
+                'edad': 30, 'peso_kg': 80.0, 'estatura_cm': 175,
+                'grasa_corporal_pct': 20.0, 'nivel_actividad': 'moderada', 'objetivo': 'deficit',
+            },
+            {
+                'nombre': 'Cliente Mantenimiento', 'id_cliente': 'DEMO_MAN',
+                'edad': 28, 'peso_kg': 70.0, 'estatura_cm': 170,
+                'grasa_corporal_pct': 18.0, 'nivel_actividad': 'leve', 'objetivo': 'mantenimiento',
+            },
+            {
+                'nombre': 'Cliente Superavit', 'id_cliente': 'DEMO_SUP',
+                'edad': 25, 'peso_kg': 75.0, 'estatura_cm': 180,
+                'grasa_corporal_pct': 15.0, 'nivel_actividad': 'intensa', 'objetivo': 'superavit',
+            },
+        ]
+
+        resultados = []
+
+        for config in clientes_config:
+            logger.info("=" * 70)
+            logger.info("PROCESANDO: %s", config['nombre'].upper())
+            logger.info("=" * 70)
+
+            cliente = ClienteEvaluacion(
+                nombre=config['nombre'], id_cliente=config['id_cliente'],
+                edad=config['edad'], peso_kg=config['peso_kg'],
+                estatura_cm=config['estatura_cm'], grasa_corporal_pct=config['grasa_corporal_pct'],
+                nivel_actividad=config['nivel_actividad'], objetivo=config['objetivo'],
+            )
+
+            cliente.factor_actividad = FACTORES_ACTIVIDAD.get(cliente.nivel_actividad, 1.2)
+            logger.info("[1] Cliente creado: %s", cliente.id_cliente)
+
+            cliente = MotorNutricional.calcular_motor(cliente)
+            logger.info("[2] TMB: %.0f | GET: %.0f | Kcal: %.0f", cliente.tmb, cliente.get_total, cliente.kcal_objetivo)
+
+            kcal_ajustado, ajuste_aplicado = AjusteCaloricoMensual.aplicar_ajuste(
+                cliente_id=cliente.id_cliente, peso_actual=cliente.peso_kg,
+                objetivo=cliente.objetivo, kcal_objetivo_base=cliente.kcal_objetivo,
+                plan_anterior=None, directorio_planes=CARPETA_PLANES
+            )
+            logger.info("[3] Kcal ajustado: %.0f | Ajuste: %s", kcal_ajustado, ajuste_aplicado)
+
+            distribucion = DistribuidorComidas.distribuir(
+                cliente.kcal_objetivo, cliente.proteina_g, cliente.grasa_g, cliente.carbs_g
+            )
+            logger.info("[4] Distribuido: Des %.0f | Alm %.0f | Com %.0f | Cen %.0f",
+                        distribucion['desayuno']['kcal'], distribucion['almuerzo']['kcal'],
+                        distribucion['comida']['kcal'], distribucion['cena']['kcal'])
+
+            plan = ConstructorPlanNuevo.construir(cliente, plan_numero=1, directorio_planes=CARPETA_PLANES)
+
+            es_valido, errores = MealStructureContract.validar_plan_completo(plan)
+            if es_valido:
+                logger.info("[6] Plan VÁLIDO según contrato")
+            else:
+                logger.warning("[6] Plan INVÁLIDO: %s", errores)
+                if MODO_ESTRICTO:
+                    raise Exception("Plan invalido por violacion de contrato energetico (>5%)")
+
+            if not os.path.exists(CARPETA_SALIDA):
+                os.makedirs(CARPETA_SALIDA)
+
+            timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+            nombre_pdf = f"demo_{cliente.id_cliente}_{timestamp}.pdf"
+            ruta_pdf_completa = os.path.join(CARPETA_SALIDA, nombre_pdf)
+
+            generador_pdf = PDFGenerator()
+            datos_pdf = PDFGenerator.datos_from_cliente(cliente, plan)
+            from pathlib import Path as _PPath
+            ruta_pdf = str(generador_pdf.generar_plan(datos_pdf, _PPath(ruta_pdf_completa)))
+            print(f"  [7] PDF: {ruta_pdf}")
+
+            comidas_validas = ['desayuno', 'almuerzo', 'comida', 'cena']
+            desviacion_max = max(plan[c].get('desviacion_pct', 0) for c in comidas_validas if c in plan)
+            kcal_real = sum(plan[c].get('kcal_real', 0) for c in comidas_validas if c in plan)
+
+            resultados.append({
+                'id_cliente': cliente.id_cliente, 'kcal_objetivo': cliente.kcal_objetivo,
+                'kcal_real': kcal_real, 'desviacion_max': desviacion_max,
+                'pdf': ruta_pdf, 'valido': es_valido,
+            })
+
+        print("\n" + "=" * 70)
+        print("RESUMEN DEMO COMPLETA")
+        print("=" * 70)
+        for r in resultados:
+            estado = "OK" if r['valido'] else "ERROR"
+            print(f"  [{estado}] {r['id_cliente']}: {r['kcal_objetivo']:.0f} kcal | Desv max: {r['desviacion_max']:.2f}%")
+        print("=" * 70 + "\n")
+
+        return resultados
+
+    ejecutar_demo_gym()
