@@ -254,7 +254,7 @@
 
     // ── Google Sign-In ──
     (function() {
-      const GOOGLE_CLIENT_ID = '{{ google_client_id }}';
+      const GOOGLE_CLIENT_ID = '{{ google_client_id | default("") | trim }}';
       const container = document.getElementById('googleBtnContainer');
       const errorMsg = document.getElementById('googleErrorMsg');
 

@@ -375,6 +375,15 @@
     el.setAttribute('stroke-dashoffset', (circumference * (1 - clamped / 100)).toFixed(2));
   }
 
+  /* ── Meal selections (initialized early so renderPlan can safely call computeDailyTotals) ── */
+  var TODAY_KEY = new Date().toISOString().slice(0, 10);
+  var MEALS_STORAGE_KEY = 'mb_meals_' + TODAY_KEY;
+  var mealSelections = {};
+  try {
+    var _savedMeals = JSON.parse(localStorage.getItem(MEALS_STORAGE_KEY) || '{}');
+    if (_savedMeals && typeof _savedMeals === 'object') mealSelections = _savedMeals;
+  } catch(e) {}
+
   /* ── Load profile ── */
   var perfil = null;
   var ultimoPlan = null;
@@ -421,7 +430,8 @@
   document.getElementById('context-bar').style.display = '';
   document.getElementById('summary-section').style.display = '';
 
-  if (ultimoPlan && ultimoPlan.plan) {
+  var _planKeys = ultimoPlan && ultimoPlan.plan ? Object.keys(ultimoPlan.plan) : [];
+  if (ultimoPlan && ultimoPlan.plan && _planKeys.length > 0) {
     renderPlan(ultimoPlan);
   } else {
     document.getElementById('empty-plan').style.display = 'block';
@@ -660,8 +670,7 @@
   /* ══════════════════════════════════════════════════════════
      WATER TRACKING PANEL
      ══════════════════════════════════════════════════════════ */
-  var WATER_KEY = 'mb_water_' + new Date().toISOString().slice(0, 10);
-  var TODAY_KEY = new Date().toISOString().slice(0, 10);
+  var WATER_KEY = 'mb_water_' + TODAY_KEY;
   var waterOverlay = document.getElementById('panel-agua-overlay');
   var waterInput = document.getElementById('water-input');
   var waterBarFill = document.getElementById('water-bar-fill');
@@ -731,14 +740,7 @@
   var mealSelectorContent = document.getElementById('meal-selector-content');
   var selectionSummary = document.getElementById('selection-summary');
   var activeMeal = null;
-  var MEALS_STORAGE_KEY = 'mb_meals_' + TODAY_KEY;
-  var mealSelections = {}; // { desayuno: { proteinas: idx, carbohidratos: idx, grasas: idx } }
-
-  // Load saved daily selections
-  try {
-    var savedMeals = JSON.parse(localStorage.getItem(MEALS_STORAGE_KEY) || '{}');
-    if (savedMeals && typeof savedMeals === 'object') mealSelections = savedMeals;
-  } catch(e) {}
+  // mealSelections already initialized at top of IIFE before renderPlan() is called
 
   document.getElementById('btn-comidas').addEventListener('click', function() {
     if (!ultimoPlan || !ultimoPlan.plan) {
