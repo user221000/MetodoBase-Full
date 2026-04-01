@@ -19,7 +19,7 @@ CRITICAL_IF_PRODUCTION = [
     "DATABASE_URL",
     "STRIPE_SECRET_KEY",
     "STRIPE_WEBHOOK_SECRET",
-    "SENTRY_DSN",
+    # SENTRY_DSN is optional - app works without it (no error tracking)
 ]
 
 STRIPE_PRICE_VARS = [
