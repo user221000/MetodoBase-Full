@@ -214,7 +214,7 @@
       </div>
 
       <div id="payment-methods" style="display:flex;flex-direction:column;gap:10px;margin-bottom:16px;">
-        <button id="pm-card" class="payment-method-btn" data-method="card" type="button" disabled>
+        <button id="pm-card" class="payment-method-btn" data-method="card" type="button">
           <div style="display:flex;align-items:center;gap:12px;width:100%;">
             <div style="width:40px;height:40px;border-radius:10px;background:rgba(45,212,191,.12);display:flex;align-items:center;justify-content:center;flex-shrink:0;">
               <svg width="20" height="20" fill="none" viewBox="0 0 24 24" stroke="var(--accent-purple)" stroke-width="2">
@@ -261,9 +261,7 @@
       <div id="payment-method-panel" class="transfer-details" style="display:none;margin-top:4px;">
       </div>
 
-      <div id="stripe-config-hint" style="font-size:.72rem;color:var(--text-muted);margin-bottom:10px;display:none;">
-        Configura STRIPE_PUBLISHABLE_KEY y STRIPE_SECRET_KEY para activar el cobro con tarjeta.
-      </div>
+
 
       <div style="font-size:.72rem;color:var(--text-muted);margin-bottom:18px;">
         Seguridad: checkout certificado, tokenización y 3DS. Nunca almacenamos datos de tu tarjeta.
@@ -549,12 +547,6 @@ let _billingConfig = null;
 let _currentSub = null;
 let _selectedPlan = null;
 let _selectedMethod = null;
-let _stripe = null;
-let _stripeElements = null;
-let _cardNumber = null;
-let _cardExpiry = null;
-let _cardCvc = null;
-let _cardState = { number: false, expiry: false, cvc: false };
 let _userMe = null;
 
 // ── Init: Load billing config + subscription state ──────────
@@ -574,35 +566,9 @@ let _userMe = null;
   renderSubscription(_currentSub || { plan: null, status: 'none', clientes_usados: 0, max_clientes: 0 });
   renderPlanButtons();
 
-  // Only init Stripe Elements when NO payment link is available for any plan
-  // (Payment Links are the primary path; Elements is a fallback)
-  const _hasAnyPaymentLink = _billingConfig?.payment_links &&
-    Object.values(_billingConfig.payment_links).some(Boolean);
-  const _stripeReady = !_hasAnyPaymentLink &&
-    _billingConfig?.stripe_configured && _billingConfig?.stripe_publishable_key;
-  if (_stripeReady) {
-    await loadStripeJs();
-    initStripeElements(_billingConfig.stripe_publishable_key);
-  }
+  // Enable Tarjeta button — it redirects to Stripe Payment Link (no Stripe.js needed)
   const cardBtn = document.getElementById('pm-card');
-  if (cardBtn) {
-    cardBtn.disabled = !_stripeReady;
-    if (!_stripeReady) {
-      const hint = cardBtn.querySelector('.pm-card-hint');
-      if (!hint) {
-        const span = document.createElement('span');
-        span.className = 'pm-card-hint';
-        span.style.cssText = 'font-size:.68rem;color:var(--accent-red);display:block;margin-top:2px;';
-        span.textContent = _hasAnyPaymentLink ? 'Pago vía Stripe Payment Link' : 'No disponible — Stripe no configurado';
-        const textDiv = cardBtn.querySelector('div[style*="text-align:left"]');
-        if (textDiv) textDiv.appendChild(span);
-      }
-    }
-  }
-  const stripeHint = document.getElementById('stripe-config-hint');
-  if (stripeHint) {
-    stripeHint.style.display = (_stripeReady || _hasAnyPaymentLink) ? 'none' : '';
-  }
+  if (cardBtn) cardBtn.disabled = false;
   if (!_billingConfig?.mercadopago_configured) {
     const mpBtn = document.getElementById('pm-mercadopago');
     if (mpBtn) mpBtn.disabled = true;
@@ -801,10 +767,6 @@ async function openPaymentModal(plan) {
   if (!_billingConfig) {
     try {
       _billingConfig = await Api.billing.config();
-      if (_billingConfig?.stripe_publishable_key && !_stripe) {
-        await loadStripeJs();
-        initStripeElements(_billingConfig.stripe_publishable_key);
-      }
     } catch(_) {}
   }
 
@@ -848,16 +810,6 @@ function closePaymentModal() {
   document.getElementById('modal-pago').classList.add('hidden');
   _selectedPlan = null;
   _selectedMethod = null;
-  _cardState = { number: false, expiry: false, cvc: false };
-  if (_cardNumber) _cardNumber.clear();
-  if (_cardExpiry) _cardExpiry.clear();
-  if (_cardCvc) _cardCvc.clear();
-  const errorEl = document.getElementById('card-element-error');
-  if (errorEl) {
-    errorEl.textContent = '';
-    errorEl.style.display = 'none';
-  }
-  updateCardPayState();
 }
 
 function goToStep(step) {
@@ -878,18 +830,9 @@ function goToStep(step) {
 
 function resetMethodSelection() {
   _selectedMethod = null;
-  _cardState = { number: false, expiry: false, cvc: false };
   document.querySelectorAll('.payment-method-btn').forEach(b => b.classList.remove('selected'));
   updateConfirmButtonState();
   renderMethodPanel(null);
-  const cardStep = document.getElementById('card-step-panel');
-  if (cardStep) cardStep.style.display = 'none';
-  const errorEl = document.getElementById('card-element-error');
-  if (errorEl) {
-    errorEl.textContent = '';
-    errorEl.style.display = 'none';
-  }
-  updateCardPayState();
 }
 
 function updateConfirmButtonState() {
@@ -947,65 +890,6 @@ function renderMethodPanel(method) {
   if (cardStep) cardStep.style.display = 'none';
 }
 
-async function loadStripeJs() {
-  if (window.Stripe) return;
-  await new Promise((resolve, reject) => {
-    const script = document.createElement('script');
-    script.src = 'https://js.stripe.com/v3/';
-    script.async = true;
-    script.onload = resolve;
-    script.onerror = () => reject(new Error('Stripe.js no disponible'));
-    document.head.appendChild(script);
-  });
-}
-
-function initStripeElements(publishableKey) {
-  if (!window.Stripe || _stripe) return;
-  _stripe = window.Stripe(publishableKey);
-  _stripeElements = _stripe.elements({
-    appearance: {
-      theme: 'night',
-      variables: {
-        colorPrimary: '#FBBF24',
-        colorText: '#F0F0F5',
-        colorDanger: '#F87171',
-        fontFamily: 'Inter, system-ui, -apple-system, sans-serif',
-      },
-    },
-  });
-
-  _cardNumber = _stripeElements.create('cardNumber');
-  _cardExpiry = _stripeElements.create('cardExpiry');
-  _cardCvc = _stripeElements.create('cardCvc');
-
-  // Clear placeholders before mounting Stripe iframes
-  document.querySelectorAll('.card-element-placeholder').forEach(el => el.remove());
-
-  _cardNumber.mount('#card-element-number');
-  _cardExpiry.mount('#card-element-expiry');
-  _cardCvc.mount('#card-element-cvc');
-
-  const errorEl = document.getElementById('card-element-error');
-  const handleChange = (event) => {
-    if (event.elementType === 'cardNumber') _cardState.number = event.complete;
-    if (event.elementType === 'cardExpiry') _cardState.expiry = event.complete;
-    if (event.elementType === 'cardCvc') _cardState.cvc = event.complete;
-    updateConfirmButtonState();
-    updateCardPayState();
-    if (!errorEl) return;
-    if (event.error) {
-      errorEl.textContent = event.error.message;
-      errorEl.style.display = '';
-    } else {
-      errorEl.textContent = '';
-      errorEl.style.display = 'none';
-    }
-  };
-  _cardNumber.on('change', handleChange);
-  _cardExpiry.on('change', handleChange);
-  _cardCvc.on('change', handleChange);
-}
-
 // ── Modal event listeners ───────────────────────────────────
 document.getElementById('pago-modal-close').addEventListener('click', closePaymentModal);
 document.getElementById('modal-pago').addEventListener('click', e => {
@@ -1038,29 +922,20 @@ document.getElementById('pago-btn-next-2').addEventListener('click', async () =>
   const btn = document.getElementById('pago-btn-next-2');
 
   if (_selectedMethod === 'card') {
-    if (!_stripe) {
-      Toast.error('Stripe no está configurado. Usa otro método de pago.');
+    // Redirect directly to Stripe Payment Link — no Stripe.js required
+    const paymentLink = _billingConfig?.payment_links?.[_selectedPlan];
+    if (!paymentLink) {
+      Toast.error('Pago con tarjeta no disponible. Configura STRIPE_PAYMENT_LINK_* en Railway.');
       return;
     }
-    goToStep(3);
-    const content = document.getElementById('pago-step-3-content');
-    if (content) {
-      content.innerHTML =
-        '<div style="font-size:2.4rem;margin-bottom:8px;">💳</div>' +
-        '<h3 style="font-size:1.05rem;font-weight:700;margin:0 0 6px;">Datos de la tarjeta</h3>' +
-        '<p style="font-size:.82rem;color:var(--text-secondary);margin:0 0 12px;">Tu pago se procesa con cifrado y 3DS</p>';
-    }
-    const meta = _PLAN_META[_selectedPlan] || {};
-    const info = _getPlanInfo(_selectedPlan);
-    const planEl = document.getElementById('card-summary-plan');
-    const priceEl = document.getElementById('card-summary-price');
-    const renewalEl = document.getElementById('card-summary-renewal');
-    if (planEl) planEl.textContent = meta.label || _selectedPlan;
-    if (priceEl) priceEl.textContent = '$' + (info.precio_mxn || '?') + ' MXN / mes';
-    if (renewalEl) renewalEl.textContent = 'Mensual · cancela cuando quieras';
-    const cardStep = document.getElementById('card-step-panel');
-    if (cardStep) cardStep.style.display = '';
-    updateCardPayState();
+    btn.disabled = true;
+    btn.innerHTML = '<span class="spinner"></span> Redirigiendo...';
+    const gymId = _userMe?.id    || '';
+    const email = _userMe?.email || '';
+    const sep   = paymentLink.includes('?') ? '&' : '?';
+    window.location.href = paymentLink + sep
+      + 'client_reference_id=' + encodeURIComponent(gymId)
+      + (email ? '&prefilled_email=' + encodeURIComponent(email) : '');
     return;
   }
 
@@ -1115,16 +990,6 @@ document.getElementById('pago-btn-next-2').addEventListener('click', async () =>
     }
 });
 
-function updateCardPayState() {
-  const btn = document.getElementById('pago-btn-card-pay');
-  if (!btn) return;
-  if (!_billingConfig?.stripe_publishable_key) {
-    btn.disabled = true;
-    return;
-  }
-  btn.disabled = !(_cardState.number && _cardState.expiry && _cardState.cvc);
-}
-
 // ── Portal button ───────────────────────────────────────────
 document.getElementById('btn-portal').addEventListener('click', async () => {
   try {
@@ -1154,79 +1019,6 @@ document.getElementById('btn-cancel-plan').addEventListener('click', async () =>
   } catch(e) {
     Toast.error('Error: ' + e.message);
   }
-});
-
-document.getElementById('pago-btn-card-pay').addEventListener('click', async () => {
-  if (!_selectedPlan) return;
-  const btn = document.getElementById('pago-btn-card-pay');
-  btn.disabled = true;
-  btn.innerHTML = '<span class="spinner"></span> Procesando...';
-
-  try {
-    if (!_stripe || !_cardNumber) {
-      Toast.error('Stripe no está configurado.');
-      btn.disabled = false;
-      btn.textContent = 'Pagar ahora →';
-      return;
-    }
-    const pmResult = await _stripe.createPaymentMethod({
-      type: 'card',
-      card: _cardNumber,
-    });
-    if (pmResult.error) {
-      Toast.error(pmResult.error.message);
-      btn.disabled = false;
-      btn.textContent = 'Pagar ahora →';
-      return;
-    }
-
-    if (!_billingConfig?.stripe_configured) {
-      Toast.error('Stripe no está configurado en el servidor.');
-      btn.disabled = false;
-      btn.textContent = 'Pagar ahora →';
-      return;
-    }
-    const res = await Api.billing.stripeSubscribe(_selectedPlan, pmResult.paymentMethod.id);
-    if (res.client_secret) {
-      const confirmRes = await _stripe.confirmCardPayment(res.client_secret, {
-        payment_method: pmResult.paymentMethod.id,
-        return_url: window.location.href,
-      });
-      if (confirmRes.error) {
-        Toast.error(confirmRes.error.message);
-        btn.disabled = false;
-        btn.textContent = 'Pagar ahora →';
-        return;
-      }
-      // Confirm subscription activation on backend (webhook fallback)
-      let activated = false;
-      for (let attempt = 0; attempt < 3 && !activated; attempt++) {
-        try {
-          const confirmResult = await Api.billing.confirmSubscription(res.subscription_id);
-          if (confirmResult.activated) {
-            activated = true;
-          } else {
-            // Subscription not yet active — wait and retry
-            await new Promise(r => setTimeout(r, 1500));
-          }
-        } catch(_) {
-          await new Promise(r => setTimeout(r, 1500));
-        }
-      }
-      if (!activated) {
-        console.warn('Subscription confirmation pending — webhook will complete activation');
-      }
-      launchConfetti();
-      await new Promise(r => setTimeout(r, 1800));
-      window.location.href = '/dashboard?subscription=success';
-      return;
-    }
-    Toast.error('No se pudo completar el pago.');
-  } catch(e) {
-    Toast.error('Error: ' + e.message);
-  }
-  btn.disabled = false;
-  btn.textContent = 'Pagar ahora →';
 });
 
 // ── Confetti ─────────────────────────────────────────────────

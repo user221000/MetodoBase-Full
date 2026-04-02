@@ -194,7 +194,7 @@
       </div>
 
       <div id="payment-methods" class="u-pm-list">
-        <button id="pm-card" class="u-pm-btn" data-method="card" type="button" disabled>
+        <button id="pm-card" class="u-pm-btn" data-method="card" type="button">
           <div class="u-pm-btn-inner">
             <div class="u-pm-icon" style="background:rgba(234,88,12,.08);">
               <svg viewBox="0 0 24 24" stroke-linecap="round" stroke-linejoin="round">
@@ -325,12 +325,6 @@
   'use strict';
   var currentPlan = 'starter';
   var _billingConfig = null;
-  var _stripe = null;
-  var _stripeElements = null;
-  var _cardNumber = null;
-  var _cardExpiry = null;
-  var _cardCvc = null;
-  var _cardState = { number: false, expiry: false, cvc: false };
   var _selectedMethod = null;
   var _waNumber = '7441614117';
   var perfil = null;
@@ -393,101 +387,17 @@
   async function loadBillingConfig() {
     try {
       _billingConfig = await Api.usuario.billingConfig();
-      if (_billingConfig && _billingConfig.stripe_publishable_key) {
-        await loadStripeJs();
-        initStripeElements(_billingConfig.stripe_publishable_key);
-      }
     } catch (e) {
       _billingConfig = null;
     }
-    // Enable/disable payment method buttons
-    var stripeReady = _billingConfig && _billingConfig.stripe_configured && _billingConfig.stripe_publishable_key;
-    var cardBtn = document.getElementById('pm-card');
-    if (cardBtn) {
-      cardBtn.disabled = !stripeReady;
-      if (!stripeReady) {
-        var hint = cardBtn.querySelector('.u-pm-card-hint');
-        if (!hint) {
-          var span = document.createElement('span');
-          span.className = 'u-pm-card-hint';
-          span.style.cssText = 'font-size:.68rem;color:var(--u-red-dark);display:block;margin-top:2px;';
-          span.textContent = 'No disponible — Stripe no configurado';
-          var textDiv = cardBtn.querySelector('.u-pm-text');
-          if (textDiv) textDiv.appendChild(span);
-        }
-      }
-    }
-    var stripeHint = document.getElementById('stripe-config-hint');
-    if (stripeHint) stripeHint.style.display = stripeReady ? 'none' : '';
+    // Disable MercadoPago button if not configured
     if (_billingConfig && !_billingConfig.mercadopago_configured) {
       var mpBtn = document.getElementById('pm-mercadopago');
       if (mpBtn) mpBtn.disabled = true;
     }
-  }
-
-  // ── Stripe Elements ─────────────────────────────────────
-  async function loadStripeJs() {
-    if (window.Stripe) return;
-    await new Promise(function(resolve, reject) {
-      var script = document.createElement('script');
-      script.src = 'https://js.stripe.com/v3/';
-      script.async = true;
-      script.onload = resolve;
-      script.onerror = function() { reject(new Error('Stripe.js no disponible')); };
-      document.head.appendChild(script);
-    });
-  }
-
-  function initStripeElements(publishableKey) {
-    if (!window.Stripe || _stripe) return;
-    _stripe = window.Stripe(publishableKey);
-    _stripeElements = _stripe.elements({
-      appearance: {
-        theme: 'flat',
-        variables: {
-          colorPrimary: '#EA580C',
-          colorText: '#1E293B',
-          colorDanger: '#DC2626',
-          fontFamily: 'Inter, system-ui, -apple-system, sans-serif',
-          colorBackground: '#FFFFFF',
-        },
-      },
-    });
-
-    _cardNumber = _stripeElements.create('cardNumber');
-    _cardExpiry = _stripeElements.create('cardExpiry');
-    _cardCvc = _stripeElements.create('cardCvc');
-
-    document.querySelectorAll('.u-card-el-placeholder').forEach(function(el) { el.remove(); });
-
-    _cardNumber.mount('#card-element-number');
-    _cardExpiry.mount('#card-element-expiry');
-    _cardCvc.mount('#card-element-cvc');
-
-    var errorEl = document.getElementById('card-element-error');
-    function handleChange(event) {
-      if (event.elementType === 'cardNumber') _cardState.number = event.complete;
-      if (event.elementType === 'cardExpiry') _cardState.expiry = event.complete;
-      if (event.elementType === 'cardCvc') _cardState.cvc = event.complete;
-      updateCardPayState();
-      if (!errorEl) return;
-      if (event.error) {
-        errorEl.textContent = event.error.message;
-        errorEl.style.display = '';
-      } else {
-        errorEl.textContent = '';
-        errorEl.style.display = 'none';
-      }
-    }
-    _cardNumber.on('change', handleChange);
-    _cardExpiry.on('change', handleChange);
-    _cardCvc.on('change', handleChange);
-  }
-
-  function updateCardPayState() {
-    var btn = document.getElementById('pago-btn-card-pay');
-    if (!btn) return;
-    btn.disabled = !(_cardState.number && _cardState.expiry && _cardState.cvc);
+    // Hide legacy Stripe config hint if present
+    var stripeHint = document.getElementById('stripe-config-hint');
+    if (stripeHint) stripeHint.style.display = 'none';
   }
 
   // ── Modal navigation ────────────────────────────────────
@@ -533,26 +443,13 @@
   function closePaymentModal() {
     document.getElementById('modal-pago').classList.add('hidden');
     _selectedMethod = null;
-    _cardState = { number: false, expiry: false, cvc: false };
-    if (_cardNumber) _cardNumber.clear();
-    if (_cardExpiry) _cardExpiry.clear();
-    if (_cardCvc) _cardCvc.clear();
-    var errorEl = document.getElementById('card-element-error');
-    if (errorEl) { errorEl.textContent = ''; errorEl.style.display = 'none'; }
-    updateCardPayState();
   }
 
   function resetMethodSelection() {
     _selectedMethod = null;
-    _cardState = { number: false, expiry: false, cvc: false };
     document.querySelectorAll('.u-pm-btn').forEach(function(b) { b.classList.remove('selected'); });
     updateConfirmButtonState();
     renderMethodPanel(null);
-    var cardStep = document.getElementById('card-step-panel');
-    if (cardStep) cardStep.style.display = 'none';
-    var errorEl = document.getElementById('card-element-error');
-    if (errorEl) { errorEl.textContent = ''; errorEl.style.display = 'none'; }
-    updateCardPayState();
   }
 
   function updateConfirmButtonState() {
@@ -683,24 +580,20 @@
     var btn = document.getElementById('pago-btn-next-2');
 
     if (_selectedMethod === 'card') {
-      if (!_stripe) {
-        showToast('Stripe no está configurado. Usa otro método de pago.', 'error');
+      // Redirect directly to Stripe Payment Link — no Stripe.js required
+      var paymentLink = _billingConfig && _billingConfig.payment_link_pro;
+      if (!paymentLink) {
+        showToast('Pago con tarjeta no disponible. Configura STRIPE_PAYMENT_LINK_PRO_USUARIO en Railway.', 'error');
         return;
       }
-      goToStep(3);
-      var content = document.getElementById('pago-step-3-content');
-      if (content) {
-        content.innerHTML =
-          '<div style="font-size:2.4rem;margin-bottom:8px;">💳</div>' +
-          '<h3 class="u-pago-step-title">Datos de la tarjeta</h3>' +
-          '<p class="u-pago-step-desc" style="margin-bottom:12px;">Tu pago se procesa con cifrado y 3DS</p>';
-      }
-      document.getElementById('card-summary-plan').textContent = 'Pro';
-      document.getElementById('card-summary-price').textContent = '$79 MXN / mes';
-      document.getElementById('card-summary-renewal').textContent = 'Mensual · cancela cuando quieras';
-      var cardStep = document.getElementById('card-step-panel');
-      if (cardStep) cardStep.style.display = '';
-      updateCardPayState();
+      btn.disabled = true;
+      btn.innerHTML = '<span class="u-spinner"></span> Redirigiendo...';
+      var userId    = (perfil && perfil.id)    ? encodeURIComponent(perfil.id)    : '';
+      var userEmail = (perfil && perfil.email) ? encodeURIComponent(perfil.email) : '';
+      var sep = paymentLink.indexOf('?') === -1 ? '?' : '&';
+      window.location.href = paymentLink + sep
+        + (userId ? 'client_reference_id=' + userId : '')
+        + (userEmail ? '&prefilled_email=' + userEmail : '');
       return;
     }
 
@@ -751,76 +644,6 @@
       btn.disabled = false;
       btn.textContent = 'Confirmar pago →';
     }
-  });
-
-  // Card payment
-  document.getElementById('pago-btn-card-pay').addEventListener('click', async function() {
-    var btn = document.getElementById('pago-btn-card-pay');
-    btn.disabled = true;
-    btn.innerHTML = '<span class="u-spinner"></span> Procesando...';
-
-    try {
-      if (!_stripe || !_cardNumber) {
-        showToast('Stripe no está configurado.', 'error');
-        btn.disabled = false;
-        btn.textContent = 'Pagar ahora →';
-        return;
-      }
-      var pmResult = await _stripe.createPaymentMethod({ type: 'card', card: _cardNumber });
-      if (pmResult.error) {
-        showToast(pmResult.error.message, 'error');
-        btn.disabled = false;
-        btn.textContent = 'Pagar ahora →';
-        return;
-      }
-
-      var res = await Api.usuario.stripeSubscribe('pro', pmResult.paymentMethod.id);
-      if (res.client_secret) {
-        // Persist sub ID before 3DS redirect — page will reload after bank auth
-        if (res.subscription_id) sessionStorage.setItem('mb_pending_sub_id', res.subscription_id);
-        var confirmRes = await _stripe.confirmCardPayment(res.client_secret, {
-          payment_method: pmResult.paymentMethod.id,
-          return_url: window.location.href,
-        });
-        if (confirmRes.error) {
-          showToast(confirmRes.error.message, 'error');
-          btn.disabled = false;
-          btn.textContent = 'Pagar ahora →';
-          return;
-        }
-        // Confirm subscription activation on backend
-        var activated = false;
-        for (var attempt = 0; attempt < 3 && !activated; attempt++) {
-          try {
-            var confirmResult = await Api.usuario.confirmSubscription(res.subscription_id);
-            if (confirmResult.activated) activated = true;
-            else await new Promise(function(r) { setTimeout(r, 1500); });
-          } catch(_) {
-            await new Promise(function(r) { setTimeout(r, 1500); });
-          }
-        }
-        closePaymentModal();
-        launchConfetti();
-        showToast('🚀 ¡Bienvenido a Pro! Ya puedes generar hasta 5 planes al mes.');
-        updateUI('pro', 0, 5, '—');
-        return;
-      }
-
-      if (res.ok) {
-        // Direct activation (no client_secret needed)
-        closePaymentModal();
-        launchConfetti();
-        showToast('🚀 ¡Bienvenido a Pro! Ya puedes generar hasta 5 planes al mes.');
-        updateUI('pro', 0, 5, '—');
-        return;
-      }
-
-      showToast('No se pudo completar el pago.', 'error');
-    } catch(e) {
-      showToast('Error: ' + e.message, 'error');
-    }
-    btn.disabled = false;
-    btn.textContent = 'Pagar ahora →';
   });
 
   // ── Load subscription + billing config ──────────────────
@@ -886,29 +709,12 @@
     updateUI('pro', 0, 5, '—');
     history.replaceState({}, '', '/mi-suscripcion');
   } else if (params.get('redirect_status') === 'succeeded') {
-    // 3DS redirect completed — Stripe returned to this page after bank auth
-    var pendingSubId = sessionStorage.getItem('mb_pending_sub_id');
-    sessionStorage.removeItem('mb_pending_sub_id');
-    function _activate3ds() {
-      launchConfetti();
-      showToast('🚀 ¡Plan Pro activado correctamente!');
-      updateUI('pro', 0, 5, '—');
-      history.replaceState({}, '', '/mi-suscripcion');
-    }
-    if (pendingSubId) {
-      Api.usuario.confirmSubscription(pendingSubId)
-        .then(function(r) {
-          if (!r || !r.activated) Api.usuario.cambiarPlan('pro').catch(function() {});
-          _activate3ds();
-        })
-        .catch(function() {
-          Api.usuario.cambiarPlan('pro').catch(function() {});
-          _activate3ds();
-        });
-    } else {
-      Api.usuario.cambiarPlan('pro').catch(function() {});
-      _activate3ds();
-    }
+    // Payment Link completed — activate plan best-effort (webhook also fires)
+    Api.usuario.cambiarPlan('pro').catch(function() {});
+    launchConfetti();
+    showToast('🚀 ¡Plan Pro activado correctamente!');
+    updateUI('pro', 0, 5, '—');
+    history.replaceState({}, '', '/mi-suscripcion');
   } else if (params.get('subscription') === 'canceled') {
     showToast('El pago fue cancelado. Puedes intentar de nuevo cuando quieras.');
     history.replaceState({}, '', '/mi-suscripcion');
