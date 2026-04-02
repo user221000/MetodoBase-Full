@@ -319,6 +319,9 @@
   </div>
 </div>
 
+{% endblock %}
+
+{% block scripts %}
 <!-- ── Script ──────────────────────────────────────────────── -->
 <script nonce="{{ request.state.csp_nonce }}">
 (function() {
@@ -328,9 +331,6 @@
   var _selectedMethod = null;
   var _waNumber = '7441614117';
   var perfil = null;
-
-  // Load user profile (needed for payment link pre-fill)
-  Api.auth.me().then(function(res) { perfil = res; }).catch(function() {});
 
   function esc(s) {
     var d = document.createElement('div');
@@ -386,7 +386,12 @@
   // ── Load billing config ─────────────────────────────────
   async function loadBillingConfig() {
     try {
-      _billingConfig = await Api.usuario.billingConfig();
+      var results = await Promise.allSettled([
+        Api.usuario.billingConfig(),
+        Api.auth.me(),
+      ]);
+      _billingConfig = results[0].status === 'fulfilled' ? results[0].value : null;
+      perfil          = results[1].status === 'fulfilled' ? results[1].value : null;
     } catch (e) {
       _billingConfig = null;
     }
@@ -721,5 +726,4 @@
   }
 })();
 </script>
-
 {% endblock %}
