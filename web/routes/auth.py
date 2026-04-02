@@ -262,8 +262,7 @@ async def google_login(data: GoogleLoginRequest, request: Request):
 async def registro(data: RegistroRequest):
     from web.auth import crear_usuario, crear_token_pair
 
-    # Security: public registration is always "usuario" — gym accounts require admin provisioning
-    tipo = "usuario"
+    tipo = data.tipo if data.tipo in ("usuario", "gym") else "usuario"
 
     try:
         usuario = crear_usuario(
