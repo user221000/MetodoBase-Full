@@ -114,6 +114,7 @@ def _do_generar_plan(
         excluidos_cliente = set(_json.loads(_excluidos_raw)) if _excluidos_raw else set()
 
         # Obtener perfil del gym para personalizar el PDF
+        from pathlib import Path as _P
         gp = session.query(GymProfile).filter(GymProfile.gym_id == gym_id).first()
         gym_config = {}
         if gp:
@@ -127,14 +128,20 @@ def _do_generar_plan(
                 "color_primario":   gp.color_primario or "#E5B800",
                 "color_secundario": gp.color_secundario or "#292524",
             }
-            # Resolver logo: si es URL local (/static/...), convertir a path absoluto
+            # Resolver logo del gym: si es URL local (/static/...), convertir a path absoluto
             if gp.logo_url:
-                from pathlib import Path as _P
                 logo_path = gp.logo_url
                 if logo_path.startswith("/static/"):
                     logo_path = str(_P(__file__).resolve().parent.parent / "static" / logo_path.removeprefix("/static/"))
                 if _P(logo_path).exists():
                     gym_config["gym_logo"] = logo_path
+        else:
+            # Usuario individual: siempre usa el logo de Consultoría Hernández
+            _usuario_logo = _P(__file__).resolve().parent.parent / "static" / "img" / "logo_consultoria_hernandez.png"
+            gym_config = {
+                "gym_nombre": "Consultoría Hernández",
+                "gym_logo": str(_usuario_logo) if _usuario_logo.exists() else None,
+            }
 
     cliente = build_cliente_from_dict(row)
     os.makedirs(CARPETA_SALIDA, exist_ok=True)
