@@ -333,6 +333,10 @@
   var _cardState = { number: false, expiry: false, cvc: false };
   var _selectedMethod = null;
   var _waNumber = '7441614117';
+  var perfil = null;
+
+  // Load user profile (needed for payment link pre-fill)
+  Api.auth.me().then(function(res) { perfil = res; }).catch(function() {});
 
   function esc(s) {
     var d = document.createElement('div');
@@ -835,6 +839,19 @@
       if (!btn || btn.disabled) return;
 
       if (btn.id === 'btn-pro') {
+        // If a Stripe Payment Link is configured, redirect directly (fastest path)
+        var paymentLink = _billingConfig && _billingConfig.payment_link_pro;
+        if (paymentLink) {
+          var userEmail = (typeof perfil !== 'undefined' && perfil && perfil.email)
+            ? encodeURIComponent(perfil.email) : '';
+          var sep = paymentLink.indexOf('?') === -1 ? '?' : '&';
+          var dest = paymentLink
+            + sep + 'client_reference_id=' + encodeURIComponent((typeof perfil !== 'undefined' && perfil && perfil.id) || '')
+            + (userEmail ? '&prefilled_email=' + userEmail : '');
+          window.location.href = dest;
+          return;
+        }
+        // Fallback: open the payment modal (card / MercadoPago / Nu)
         openPaymentModal();
       }
 
@@ -857,11 +874,14 @@
   loadSubscription();
   loadBillingConfig();
 
-  // Post-payment success redirect
+  // Post-payment success redirect (from Stripe Payment Link)
   var params = new URLSearchParams(window.location.search);
   if (params.get('result') === 'success' || params.get('subscription') === 'success') {
+    // Activate Pro on backend (best-effort, webhook may also fire)
+    Api.usuario.cambiarPlan('pro').catch(function() {});
     launchConfetti();
     showToast('🚀 ¡Plan Pro activado correctamente!');
+    updateUI('pro', 0, 5, '—');
     history.replaceState({}, '', '/mi-suscripcion');
   } else if (params.get('subscription') === 'canceled') {
     showToast('El pago fue cancelado. Puedes intentar de nuevo cuando quieras.');

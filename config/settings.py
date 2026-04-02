@@ -85,8 +85,7 @@ class Settings:
         # ── Stripe ────────────────────────────────────────────────────────
         self.STRIPE_SECRET_KEY: str = os.getenv("STRIPE_SECRET_KEY", "")
         self.STRIPE_WEBHOOK_SECRET: str = os.getenv("STRIPE_WEBHOOK_SECRET", "")
-        self.STRIPE_PUBLISHABLE_KEY: str = os.getenv("STRIPE_PUBLISHABLE_KEY", "")
-
+        self.STRIPE_PUBLISHABLE_KEY: str = os.getenv("STRIPE_PUBLISHABLE_KEY", "")        self.STRIPE_PAYMENT_LINK_PRO_USUARIO: str = os.getenv("STRIPE_PAYMENT_LINK_PRO_USUARIO", "")
         # ── MercadoPago ───────────────────────────────────────────────────
         self.MERCADOPAGO_ACCESS_TOKEN: str = os.getenv(
             "MERCADOPAGO_ACCESS_TOKEN", ""

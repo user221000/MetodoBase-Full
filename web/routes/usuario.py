@@ -598,10 +598,15 @@ async def usuario_billing_config(
     settings = get_settings()
     stripe_ready = bool(settings.STRIPE_SECRET_KEY)
     mp_ready = bool(settings.MERCADOPAGO_ACCESS_TOKEN)
+    # Validate payment link URL before exposing
+    payment_link = settings.STRIPE_PAYMENT_LINK_PRO_USUARIO
+    if payment_link and not payment_link.startswith("https://buy.stripe.com/"):
+        payment_link = ""  # only allow valid Stripe buy links
     return {
         "stripe_configured": stripe_ready,
         "stripe_publishable_key": settings.STRIPE_PUBLISHABLE_KEY if stripe_ready else "",
         "mercadopago_configured": mp_ready,
+        "payment_link_pro": payment_link,
     }
 
 
