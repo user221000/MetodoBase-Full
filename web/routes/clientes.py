@@ -158,6 +158,7 @@ def actualizar_cliente(
     except HTTPException:
         raise
     except Exception as exc:
+        from web.settings import get_settings as _gs
         logger.error(
             "Error actualizando: %s", exc,
             exc_info=not _gs().is_production

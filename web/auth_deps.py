@@ -33,10 +33,17 @@ def get_usuario_actual(
             headers={"WWW-Authenticate": "Bearer"},
         )
     
-    # Asegurar que role esté presente (legacy compatibility)
-    # tipo=usuario es siempre owner de su propia cuenta (sin equipo multi-usuario)
-    if "role" not in usuario or usuario.get("tipo") == "usuario":
-        usuario["role"] = "owner" if usuario.get("tipo") in ("gym", "usuario") else "viewer"
+    # Asegurar que role esté presente (legacy compatibility).
+    # Solo asignar si el token no trae role (tokens emitidos antes de RBAC).
+    # NUNCA sobreescribir un role ya presente: esto bloquearía team members
+    # con roles NUTRIOLOGO/VIEWER que tienen tipo='usuario'.
+    if "role" not in usuario or not usuario.get("role"):
+        if usuario.get("tipo") == "gym":
+            usuario["role"] = "owner"
+        elif usuario.get("tipo") == "usuario":
+            usuario["role"] = "viewer"
+        else:
+            usuario["role"] = "viewer"
     
     return usuario
 

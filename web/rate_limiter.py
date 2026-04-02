@@ -59,7 +59,7 @@ def _get_client_ip(request: Request) -> str:
             proxy_count = get_settings().TRUSTED_PROXY_COUNT
         except Exception:
             proxy_count = 1
-        idx = max(0, len(parts) - proxy_count)
+        idx = max(0, len(parts) - proxy_count - 1)
         return parts[idx]
     if request.client:
         return request.client.host

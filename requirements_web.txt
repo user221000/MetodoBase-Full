@@ -1,6 +1,6 @@
 # Runtime dependencies — MetodoBase Web (server only, no desktop GUI)
 # Use this for Railway/Docker/cloud deployments.
-# CACHE INVALIDATION: 2026-04-01-21:25-v6-TEMPLATEFIX
+# CACHE INVALIDATION: 2026-04-02-v8-PERF100
 fastapi>=0.115.0
 uvicorn[standard]>=0.30.0
 jinja2>=3.1.0
@@ -20,3 +20,4 @@ requests>=2.31.0
 httpx>=0.27.0,<1
 cryptography>=41.0.0
 sentry-sdk[fastapi]>=2.0.0
+redis[hiredis]>=5.0.0,<6  # Distributed rate limiting + caching (requires REDIS_URL env var)

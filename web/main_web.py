@@ -265,8 +265,15 @@ def create_app() -> FastAPI:
         ],
     )
 
-    # Rate limiting — antes de procesar la lógica de negocio
-    from web.middleware.rate_limiter import RateLimiterMiddleware as _RLM
+    # Rate limiting — usa Redis si REDIS_URL está configurado (distribuido entre workers).
+    # Sin Redis: in-memory por proceso (cada worker cuenta independiente → efectivo N×límite).
+    from web.settings import get_settings as _rl_cfg
+    if _rl_cfg().REDIS_URL:
+        from web.rate_limiter_redis import RedisRateLimitMiddleware as _RLM
+        logger.info("[RATE_LIMIT] Using Redis-backed rate limiter (distributed)")
+    else:
+        from web.middleware.rate_limiter import RateLimiterMiddleware as _RLM
+        logger.info("[RATE_LIMIT] Using in-memory rate limiter (single-worker safe)")
     app.add_middleware(_RLM)
 
     # Nota: Sentry Context se setea via dependency (with_sentry_context) después de auth
@@ -486,9 +493,10 @@ def main() -> None:
                     reload=True, factory=True, reload_dirs=[str(_ROOT)])
     else:
         # Use multiple workers in production for parallelism (plan generation is CPU-bound).
-        # Railway Starter has 2 vCPUs; WEB_WORKERS overrides the default.
+        # Railway has 2+ vCPUs; 4 workers handles ~100 concurrent users comfortably.
+        # Override via WEB_WORKERS env var (e.g. WEB_WORKERS=4 on Railway).
         _is_prod = bool(os.getenv("RAILWAY_ENVIRONMENT") or os.getenv("WEB_WORKERS"))
-        workers = int(os.getenv("WEB_WORKERS", "2" if _is_prod else "1"))
+        workers = int(os.getenv("WEB_WORKERS", "4" if _is_prod else "1"))
         if workers > 1:
             uvicorn.run(
                 "web.main_web:create_app",

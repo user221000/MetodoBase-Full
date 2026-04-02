@@ -301,7 +301,7 @@ class Subscription(Base):
                     nullable=False, unique=True, index=True)
     
     # ── Plan info ──
-    plan = Column(String(30), nullable=False)  # free | starter | profesional | clinica
+    plan = Column(String(30), nullable=False)  # free | standard | gym_comercial | clinica
     stripe_price_id = Column(String(255))  # price_xxx de Stripe
     
     # ── Status ──

@@ -11,6 +11,7 @@ Uso:
     def endpoint(db: Session = Depends(get_db)): ...
 """
 import logging
+import os
 from typing import Generator
 
 from sqlalchemy import create_engine, event, text
@@ -81,8 +82,12 @@ def init_db() -> None:
     if is_sqlite:
         kwargs["connect_args"] = {"check_same_thread": False}
     else:
-        kwargs["pool_size"] = 10
-        kwargs["max_overflow"] = 20
+        # Para 100 usuarios concurrentes con 4 workers:
+        # pool_size=20 + max_overflow=10 → hasta 30 conexiones por worker.
+        # Con 4 workers: hasta 120 conexiones totales en PostgreSQL.
+        # Ajustar WEB_WORKERS si Railway limita el plan de Postgres.
+        kwargs["pool_size"] = int(os.getenv("DB_POOL_SIZE", "20"))
+        kwargs["max_overflow"] = int(os.getenv("DB_MAX_OVERFLOW", "10"))
         kwargs["pool_timeout"] = 30
         kwargs["pool_recycle"] = 1800  # Recycle every 30 min — prevents stale connections
 

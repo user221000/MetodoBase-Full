@@ -156,16 +156,19 @@ def has_permission(
                 _logger.warning(f"Unknown role: {user_role}, defaulting to VIEWER")
                 user_role = UserRole.VIEWER
     
-    # Si no hay role definido y es tipo gym o usuario, es OWNER
+    # Si no hay role definido, inferir por tipo (fallback para tokens legacy)
     if user_role is None:
-        if tipo in ('gym', 'usuario'):
+        if tipo == 'gym':
+            user_role = UserRole.OWNER
+        elif tipo == 'usuario' and not team_gym_id:
+            # Cuenta individual (sin equipo): dueño de su propia data
             user_role = UserRole.OWNER
         else:
             user_role = UserRole.VIEWER
     
-    # Override: tipo=usuario siempre es OWNER (dueño de su propia cuenta)
-    if tipo == 'usuario' and user_role != UserRole.OWNER:
-        user_role = UserRole.OWNER
+    # NOTA: NO hacer override de tipo='usuario' aquí. Un team member puede tener
+    # tipo='usuario' con role VIEWER o NUTRIOLOGO. Solo si NO tienen team_gym_id
+    # (cuenta individual) se trata como OWNER — eso ya está cubierto arriba.
     
     # Obtener permisos para esta acción+recurso
     permission_key = (action, resource)

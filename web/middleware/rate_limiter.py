@@ -220,27 +220,34 @@ def get_rate_limiter_store(
 def get_client_identifier(request: Request) -> str:
     """
     Obtiene un identificador único del cliente.
-    
-    Prioridad:
-    1. X-Forwarded-For (si viene de proxy/load balancer)
-    2. X-Real-IP
-    3. client.host
-    4. "unknown"
+
+    Detrás de Railway/nginx, X-Forwarded-For tiene el formato:
+      <client-ip>, <proxy1-ip>, ..., <railway-ip>
+    Se usa TRUSTED_PROXY_COUNT (default 1) para seleccionar el IP
+    real del cliente (N+1 posiciones desde la derecha), previniendo
+    spoofing donde un atacante puede controlar el primer valor.
+
+    Fórmula: idx = max(0, len(parts) - proxy_count - 1)
+    Ejemplo (proxy_count=1): ['client', 'railway'] → idx=0 → 'client'
     """
-    # Headers de proxy
     forwarded = request.headers.get("X-Forwarded-For")
     if forwarded:
-        # El primer IP es el cliente real
-        return forwarded.split(",")[0].strip()
-    
+        parts = [p.strip() for p in forwarded.split(",")]
+        try:
+            from web.settings import get_settings
+            proxy_count = get_settings().TRUSTED_PROXY_COUNT
+        except Exception:
+            proxy_count = 1
+        idx = max(0, len(parts) - proxy_count - 1)
+        return parts[idx]
+
     real_ip = request.headers.get("X-Real-IP")
     if real_ip:
         return real_ip
-    
-    # IP directo
+
     if request.client:
         return request.client.host
-    
+
     return "unknown"
 
 

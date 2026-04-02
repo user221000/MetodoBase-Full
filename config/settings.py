@@ -89,6 +89,10 @@ class Settings:
 
         # ── Redis ─────────────────────────────────────────────────────────
         self.REDIS_URL: str = os.getenv("REDIS_URL", "")
+        # Cuántos proxies de confianza hay delante del app (Railway = 1).
+        # Usado para extraer el IP real del cliente desde X-Forwarded-For.
+        # Previene IP spoofing: con proxy_count=1, se usa el penúltimo IP, no el primero.
+        self.TRUSTED_PROXY_COUNT: int = int(os.getenv("TRUSTED_PROXY_COUNT", "1"))
 
         # ── Base de datos ─────────────────────────────────────────────────
         self.DB_PATH: str | None = os.getenv("DB_PATH", None)
