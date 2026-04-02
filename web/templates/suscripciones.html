@@ -190,11 +190,6 @@
 </style>
 
 <script nonce="{{ request.state.csp_nonce }}">
-// Redirect usuarios individuales a su propia página de suscripción
-(function() {
-  const tipo = localStorage.getItem('mb_tipo') || '';
-  if (tipo === 'usuario') { window.location.replace('/mi-suscripcion'); }
-})();
 /* ══════════════════════════════════════════════════════════════
    suscripciones.js — Production-ready subscription management
 ═════════════════════════════════════════════════════════════ */

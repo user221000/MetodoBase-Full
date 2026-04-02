@@ -363,3 +363,61 @@ async def me(
             "max_clientes": plan_cfg.get("max_clientes", 0),
         },
     }
+
+
+# ── Admin: fix user tipo ──────────────────────────────────────────────────
+
+class FixUserTipoRequest(BaseModel):
+    email: str
+    nuevo_tipo: str  # "gym" | "usuario"
+    admin_secret: str
+
+
+@router.post("/admin/fix-user-tipo")
+async def fix_user_tipo(data: FixUserTipoRequest, db: Session = Depends(get_db)):
+    """
+    Endpoint de emergencia para corregir el tipo de un usuario en la DB.
+    Requiere admin_secret == SECRET_KEY del entorno.
+    """
+    from web.settings import get_settings
+    settings = get_settings()
+
+    if data.admin_secret != settings.SECRET_KEY:
+        raise HTTPException(status_code=403, detail="No autorizado.")
+
+    if data.nuevo_tipo not in ("gym", "usuario"):
+        raise HTTPException(status_code=400, detail="nuevo_tipo debe ser 'gym' o 'usuario'.")
+
+    from web.database.models import Usuario as UsuarioModel
+    from web.auth import _get_session as _auth_session
+
+    # Update en SQLAlchemy DB
+    user_sa = db.query(UsuarioModel).filter(UsuarioModel.email == data.email.strip().lower()).first()
+    if not user_sa:
+        raise HTTPException(status_code=404, detail="Usuario no encontrado.")
+
+    old_tipo = user_sa.tipo
+    user_sa.tipo = data.nuevo_tipo
+    db.commit()
+
+    # Update en auth DB (puede ser el mismo engine o diferente)
+    try:
+        from web.database.models import Usuario as AuthUsuario
+        auth_sess = _auth_session()
+        auth_user = auth_sess.query(AuthUsuario).filter(AuthUsuario.email == data.email.strip().lower()).first()
+        if auth_user and auth_user is not user_sa:
+            auth_user.tipo = data.nuevo_tipo
+            auth_sess.commit()
+        auth_sess.close()
+    except Exception:
+        pass  # Same DB — already updated above
+
+    logger.info("[ADMIN] fix-user-tipo: %s %s → %s", data.email, old_tipo, data.nuevo_tipo)
+
+    return {
+        "ok": True,
+        "email": data.email,
+        "tipo_anterior": old_tipo,
+        "tipo_nuevo": data.nuevo_tipo,
+        "mensaje": "Tipo actualizado. El usuario debe cerrar sesión y volver a iniciar.",
+    }
