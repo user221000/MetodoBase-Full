@@ -161,7 +161,8 @@ async def google_login(data: GoogleLoginRequest, request: Request):
     from web.services.auth_audit import log_auth_event_from_request, AuthEventType
 
     settings = Settings()
-    if not settings.GOOGLE_CLIENT_ID:
+    client_id = settings.GOOGLE_CLIENT_ID.strip()
+    if not client_id:
         raise HTTPException(501, "Google login no está configurado.")
 
     # Verificar el ID token con Google
@@ -177,7 +178,7 @@ async def google_login(data: GoogleLoginRequest, request: Request):
     google_info = resp.json()
 
     # Verificar audience (aud) = nuestro client_id
-    if google_info.get("aud") != settings.GOOGLE_CLIENT_ID:
+    if google_info.get("aud") != client_id:
         raise HTTPException(401, "Token de Google no pertenece a esta aplicación.")
 
     # Verificar email verificado
