@@ -1132,7 +1132,7 @@
         c.objetivo ? c.objetivo.charAt(0).toUpperCase() + c.objetivo.slice(1) : null,
       ].filter(Boolean).join(' · ');
       return `
-        <button type="button" onclick="abrirDetalleCliente(${JSON.stringify(c.id_cliente)})" class="drawer-client-card" style="text-align:left;">
+        <button type="button" data-cliente-id="${c.id_cliente}" class="drawer-client-card" style="text-align:left;">
           <div class="drawer-avatar">${initials(c.nombre)}</div>
           <div class="drawer-client-info">
             <div class="drawer-client-name">${c.nombre}</div>
@@ -1167,6 +1167,11 @@
   });
   document.getElementById('subs-drawer-backdrop').addEventListener('click', e => {
     if (e.target === e.currentTarget) document.getElementById('subs-drawer-backdrop').classList.add('hidden');
+  });
+  // Event delegation for client cards in drawer
+  document.getElementById('drawer-body').addEventListener('click', e => {
+    const card = e.target.closest('[data-cliente-id]');
+    if (card) abrirDetalleCliente(card.dataset.clienteId);
   });
 
   cargarCatalogoAlimentos();
@@ -1245,26 +1250,26 @@
       filtered.forEach(a => {
         const excl  = _ddExcluidos.has(a);
         const label = excl ? `${a} <span style="font-size:.72rem;opacity:.7;">excluido</span>` : a;
-        html.push(`<div class="dd-food-row ${excl ? 'excluded' : ''}" onclick="_ddToggleFood('${a.replace(/'/g,"\\'")}')"><span style="font-size:.82rem;">${label}</span><span style="font-size:.75rem;color:${excl ? '#f87171' : 'var(--text-muted)'}">${excl ? '✕ quitar' : '+ excluir'}</span></div>`);
+        html.push(`<div class="dd-food-row ${excl ? 'excluded' : ''}" data-food="${a.replace(/"/g,'&quot;')}"><span style="font-size:.82rem;">${label}</span><span style="font-size:.75rem;color:${excl ? '#f87171' : 'var(--text-muted)'}">${excl ? '✕ quitar' : '+ excluir'}</span></div>`);
       });
     }
     container.innerHTML = html.length ? html.join('') : '<p style="font-size:.82rem;color:var(--text-muted);">Sin resultados.</p>';
   }
 
-  window._ddToggleFood = function(food) {
+  function _ddToggleFood(food) {
     if (_ddExcluidos.has(food)) _ddExcluidos.delete(food); else _ddExcluidos.add(food);
     renderDetailFoodTags();
     renderDetailFoodCatalog(document.getElementById('dd-food-search').value);
-  };
+  }
 
-  window.toggleDetailFoodPanel = function() {
+  function toggleDetailFoodPanel() {
     const panel = document.getElementById('dd-food-panel');
     const btn   = document.getElementById('dd-food-panel-toggle');
     const open  = panel.style.display === 'none';
     panel.style.display = open ? 'block' : 'none';
     btn.textContent = open ? '− Cerrar gestión de exclusiones' : '+ Gestionar exclusiones';
     if (open && _ddCatalogo) renderDetailFoodCatalog('');
-  };
+  }
 
   // ── Load gym subscription plans ─────────────────────────────────
   async function _ddLoadPlanesGym() {
@@ -1457,6 +1462,11 @@
   document.getElementById('dd-food-panel-toggle').addEventListener('click', toggleDetailFoodPanel);
   document.getElementById('dd-food-search').addEventListener('input', function() {
     renderDetailFoodCatalog(this.value);
+  });
+  // Food catalog row click delegation
+  document.getElementById('dd-food-catalog').addEventListener('click', e => {
+    const row = e.target.closest('[data-food]');
+    if (row) _ddToggleFood(row.dataset.food);
   });
 
   // Load gym plans for subscription selector
