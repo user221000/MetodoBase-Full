@@ -24,6 +24,24 @@
         <div class="u-goal-card-numbers">
           <span id="goal-current">0</span> / <span id="goal-target">0</span> kcal
         </div>
+        <div class="u-meal-checks">
+          <label class="u-meal-check-label" for="chk-des">
+            <input type="checkbox" class="u-meal-check-input" id="chk-des">
+            <span class="u-meal-check-pill">🌅 Desayuno</span>
+          </label>
+          <label class="u-meal-check-label" for="chk-alm">
+            <input type="checkbox" class="u-meal-check-input" id="chk-alm">
+            <span class="u-meal-check-pill">🥗 Almuerzo</span>
+          </label>
+          <label class="u-meal-check-label" for="chk-com">
+            <input type="checkbox" class="u-meal-check-input" id="chk-com">
+            <span class="u-meal-check-pill">🍖 Comida</span>
+          </label>
+          <label class="u-meal-check-label" for="chk-cen">
+            <input type="checkbox" class="u-meal-check-input" id="chk-cen">
+            <span class="u-meal-check-pill">🌙 Cena</span>
+          </label>
+        </div>
       </div>
       <div class="u-goal-card-right">
         <svg class="u-ring" viewBox="0 0 120 120" width="110" height="110">
@@ -402,6 +420,8 @@
   /* ── Meal selections (initialized early so renderPlan can safely call computeDailyTotals) ── */
   var TODAY_KEY = new Date().toISOString().slice(0, 10);
   var MEALS_STORAGE_KEY = 'mb_meals_' + TODAY_KEY;
+  var MEAL_DONE_KEY    = 'mb_meals_done_' + TODAY_KEY;
+  var MEAL_DONE_IDS    = ['chk-des', 'chk-alm', 'chk-com', 'chk-cen'];
   var mealSelections = {};
   try {
     var _savedMeals = JSON.parse(localStorage.getItem(MEALS_STORAGE_KEY) || '{}');
@@ -609,6 +629,8 @@
 
     /* Update goal card from today's saved selections */
     updateGoalFromSelections(kcalTarget);
+    /* Apply meal completion checkboxes (overrides ring/bar if any checked) */
+    loadMealChecks();
   }
 
   /* ── Update goal card with real selected macros ── */
@@ -1172,6 +1194,50 @@
       btn.disabled = false;
       btn.textContent = 'Guardar Exclusiones ✅';
     }
+  });
+
+  /* ── Meal completion checkboxes (25% each) ────────────────────────────── */
+  function getMealDoneCount() {
+    return MEAL_DONE_IDS.filter(function(id) {
+      var el = document.getElementById(id);
+      return el && el.checked;
+    }).length;
+  }
+
+  function updateMealCheckProgress() {
+    var count = getMealDoneCount();
+    var pct = count * 25;
+    document.getElementById('goal-pct-label').textContent = 'Vas al ' + pct + '% de tu meta diaria';
+    document.getElementById('goal-progress-bar').style.width = pct + '%';
+    document.getElementById('goal-ring-pct').textContent = pct + '%';
+    updateRing('goal-ring', pct);
+  }
+
+  function loadMealChecks() {
+    try {
+      var saved = JSON.parse(localStorage.getItem(MEAL_DONE_KEY) || '[]');
+      MEAL_DONE_IDS.forEach(function(id) {
+        var el = document.getElementById(id);
+        if (el) el.checked = saved.indexOf(id) !== -1;
+      });
+    } catch(e) {}
+    if (getMealDoneCount() > 0) updateMealCheckProgress();
+  }
+
+  function saveMealChecks() {
+    var checked = MEAL_DONE_IDS.filter(function(id) {
+      var el = document.getElementById(id);
+      return el && el.checked;
+    });
+    localStorage.setItem(MEAL_DONE_KEY, JSON.stringify(checked));
+  }
+
+  MEAL_DONE_IDS.forEach(function(id) {
+    var el = document.getElementById(id);
+    if (el) el.addEventListener('change', function() {
+      saveMealChecks();
+      updateMealCheckProgress();
+    });
   });
 
 })();

@@ -829,6 +829,59 @@ svg.u-ring .u-ring-bg { stroke: var(--u-bg-input); stroke-width: 10; }
 }
 
 
+/* ── Meal Completion Checkboxes ───────────────────────────────────────────── */
+.u-meal-checks {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 14px;
+}
+
+.u-meal-check-label {
+  display: inline-flex;
+  cursor: pointer;
+  user-select: none;
+}
+
+.u-meal-check-input {
+  display: none;
+}
+
+.u-meal-check-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 6px 13px;
+  border-radius: 99px;
+  background: var(--u-bg-input);
+  color: var(--u-text-muted);
+  font-size: var(--u-text-caption);
+  font-weight: 600;
+  border: 1.5px solid transparent;
+  transition: background 0.2s ease, color 0.2s ease,
+              border-color 0.2s ease, box-shadow 0.2s ease,
+              transform 0.15s ease;
+}
+
+.u-meal-check-label:hover .u-meal-check-pill {
+  background: var(--u-bg-sidebar);
+  color: var(--u-text);
+  transform: translateY(-1px);
+}
+
+.u-meal-check-input:checked + .u-meal-check-pill {
+  background: var(--u-accent-soft);
+  color: var(--u-accent);
+  border-color: var(--u-accent);
+  box-shadow: 0 2px 8px var(--u-accent-glow);
+}
+
+.u-meal-check-input:checked + .u-meal-check-pill::after {
+  content: ' ✓';
+  font-size: 0.75em;
+}
+
+
 /* ── Meal Cards ───────────────────────────────────────────────────────────── */
 .u-meal-card {
   background: var(--u-bg-card);
