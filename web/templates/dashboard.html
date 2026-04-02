@@ -214,12 +214,12 @@
         <div class="detail-section">
           <div class="detail-section-title">Preferencias de alimentos</div>
           <div id="dd-food-tags" style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:10px;min-height:28px;"></div>
-          <button type="button" id="dd-food-panel-toggle" class="btn btn-outline btn-sm" style="font-size:.78rem;" onclick="toggleDetailFoodPanel()">
+          <button type="button" id="dd-food-panel-toggle" class="btn btn-outline btn-sm" style="font-size:.78rem;">
             + Gestionar exclusiones
           </button>
           <div id="dd-food-panel" style="display:none;margin-top:12px;border:1px solid var(--border-subtle);border-radius:8px;overflow:hidden;">
             <div style="padding:10px 12px;border-bottom:1px solid var(--border-subtle);background:var(--surface-secondary);">
-              <input type="text" id="dd-food-search" class="detail-input" placeholder="Buscar alimento..." style="font-size:.83rem;" oninput="renderDetailFoodCatalog(this.value)">
+              <input type="text" id="dd-food-search" class="detail-input" placeholder="Buscar alimento..." style="font-size:.83rem;">
             </div>
             <div id="dd-food-catalog" style="padding:10px 12px;max-height:240px;overflow-y:auto;display:flex;flex-direction:column;gap:8px;"></div>
           </div>
@@ -235,10 +235,10 @@
 
     <!-- Footer sticky -->
     <div style="position:absolute;bottom:0;left:0;right:0;padding:14px 20px;background:var(--surface-primary);border-top:1px solid var(--border-subtle);display:flex;gap:10px;">
-      <button type="button" id="dd-save-btn" class="btn btn-primary" style="flex:1;font-size:.88rem;" onclick="guardarDetalleCliente()">
+      <button type="button" id="dd-save-btn" class="btn btn-primary" style="flex:1;font-size:.88rem;">
         💾 Guardar cambios
       </button>
-      <button type="button" id="dd-delete-btn" class="btn btn-outline" style="color:var(--color-danger,#f87171);border-color:var(--color-danger,#f87171);font-size:.85rem;" onclick="confirmarEliminarCliente()">
+      <button type="button" id="dd-delete-btn" class="btn btn-outline" style="color:var(--color-danger,#f87171);border-color:var(--color-danger,#f87171);font-size:.85rem;">
         🗑️
       </button>
     </div>
@@ -1451,6 +1451,12 @@
   });
   document.getElementById('detail-drawer-backdrop').addEventListener('click', e => {
     if (e.target === e.currentTarget) document.getElementById('detail-drawer-backdrop').classList.add('hidden');
+  });
+  document.getElementById('dd-save-btn').addEventListener('click', guardarDetalleCliente);
+  document.getElementById('dd-delete-btn').addEventListener('click', confirmarEliminarCliente);
+  document.getElementById('dd-food-panel-toggle').addEventListener('click', toggleDetailFoodPanel);
+  document.getElementById('dd-food-search').addEventListener('input', function() {
+    renderDetailFoodCatalog(this.value);
   });
 
   // Load gym plans for subscription selector

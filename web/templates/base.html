@@ -87,7 +87,7 @@
       </svg>
       Suscripción
     </a>
-    <script>
+    <script nonce="{{ request.state.csp_nonce }}">
       (function() {
         const tipo = localStorage.getItem('mb_tipo') || '';
         if (tipo === 'usuario') {
