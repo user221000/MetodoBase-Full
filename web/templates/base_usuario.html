@@ -168,7 +168,7 @@
       if (window.Api && Api.auth) await Api.auth.logout();
     } catch(e) {}
     localStorage.clear();
-    window.location.href = '/login-usuario';
+    window.location.replace('/login-usuario');
   });
 })();
 </script>

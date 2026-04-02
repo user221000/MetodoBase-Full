@@ -17,6 +17,7 @@
      */
     'logout': function(event, button) {
       const token = localStorage.getItem('mb_token');
+      const tipo = localStorage.getItem('mb_tipo');
       
       // Intentar logout en servidor (fire and forget, keepalive para que no se aborte al navegar)
       if (token) {
@@ -34,8 +35,8 @@
       localStorage.removeItem('mb_nombre');
       localStorage.removeItem('mb_email');
       
-      // Redirigir a home
-      window.location.href = '/login-gym';
+      // Redirigir al login correcto según tipo
+      window.location.replace(tipo === 'usuario' ? '/login-usuario' : '/login-gym');
     },
 
     /**
