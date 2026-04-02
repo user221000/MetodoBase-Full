@@ -137,7 +137,9 @@ def _do_generar_plan(
                     gym_config["gym_logo"] = logo_path
         else:
             # Usuario individual: siempre usa el logo de Consultoría Hernández
-            _usuario_logo = _P(__file__).resolve().parent.parent.parent / "static" / "img" / "logo_consultoria_hernandez.png"
+            import os as _os
+            _app_root = _P(_os.environ.get("PYTHONPATH", "").split(":")[0]) if _os.environ.get("PYTHONPATH") else _P(__file__).resolve().parent.parent.parent
+            _usuario_logo = _app_root / "static" / "img" / "logo_consultoria_hernandez.png"
             gym_config = {
                 "gym_nombre": "Consultoría Hernández",
                 "gym_logo": str(_usuario_logo) if _usuario_logo.exists() else None,

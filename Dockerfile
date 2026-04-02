@@ -14,7 +14,7 @@
 FROM python:3.12-slim AS base
 
 # Cache buster - change this value to force rebuild
-ARG CACHEBUST=20260401v7
+ARG CACHEBUST=20260402v8
 
 # Prevenir bytecode + buffered output
 ENV PYTHONDONTWRITEBYTECODE=1 \
@@ -48,6 +48,7 @@ COPY src/ src/
 COPY api/ api/
 COPY web/ web/
 COPY utils/ utils/
+COPY static/ static/
 COPY fonts/ fonts/
 
 # Crear directorio para datos persistentes (incluye config y planes para evitar PermissionError)
