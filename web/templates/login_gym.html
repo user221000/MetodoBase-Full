@@ -224,6 +224,13 @@
         const data = await res.json();
 
         if (res.ok) {
+          if (data.tipo !== 'gym') {
+            errorMsg.textContent = 'Esta cuenta es de usuario regular. Ingresa en la interfaz de usuario.';
+            errorMsg.style.display = 'block';
+            btn.disabled = false;
+            btn.textContent = 'Ingresar al Dashboard';
+            return;
+          }
           localStorage.setItem('mb_token', data.token);
           if (data.refresh_token) localStorage.setItem('mb_refresh_token', data.refresh_token);
           localStorage.setItem('mb_tipo', data.tipo);
@@ -300,6 +307,11 @@
           const data = await res.json();
 
           if (res.ok) {
+            if (data.tipo !== 'gym') {
+              errorMsg.textContent = 'Esta cuenta es de usuario regular. Ingresa en la interfaz de usuario.';
+              errorMsg.style.display = 'block';
+              return;
+            }
             localStorage.setItem('mb_token', data.token);
             if (data.refresh_token) localStorage.setItem('mb_refresh_token', data.refresh_token);
             localStorage.setItem('mb_tipo', data.tipo);

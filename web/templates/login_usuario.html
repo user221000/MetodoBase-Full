@@ -224,6 +224,13 @@
         const data = await res.json();
 
         if (res.ok) {
+          if (data.tipo !== 'usuario') {
+            errorMsg.textContent = 'Esta cuenta es de gimnasio. Ingresa en el panel de gimnasio.';
+            errorMsg.style.display = 'block';
+            btn.disabled = false;
+            btn.textContent = 'Ingresar a mi Plan';
+            return;
+          }
           // Save remember me preference
           if (rememberMe) {
             localStorage.setItem('mb_remember_user', '1');
@@ -296,6 +303,11 @@
           const data = await res.json();
 
           if (res.ok) {
+            if (data.tipo !== 'usuario') {
+              errorMsg.textContent = 'Esta cuenta es de gimnasio. Ingresa en el panel de gimnasio.';
+              errorMsg.style.display = 'block';
+              return;
+            }
             localStorage.setItem('mb_token', data.token);
             if (data.refresh_token) localStorage.setItem('mb_refresh_token', data.refresh_token);
             localStorage.setItem('mb_tipo', data.tipo);

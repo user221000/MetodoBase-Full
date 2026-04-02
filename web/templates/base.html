@@ -89,16 +89,8 @@
     </a>
     <script nonce="{{ request.state.csp_nonce }}">
       (function() {
-        const tipo = localStorage.getItem('mb_tipo') || '';
-        if (tipo === 'usuario') {
-          // Usuario individual: redirigir a su sección propia
-          const gymPages = ['/dashboard', '/clientes', '/planes', '/suscripciones', '/configuracion', '/generar-plan'];
-          const path = window.location.pathname;
-          const isGymPage = gymPages.some(function(p) { return path === p || path.startsWith(p + '/'); });
-          if (isGymPage) {
-            window.location.replace('/mi-plan');
-          }
-        }
+        // Sync active nav highlight after any in-page navigation
+        // (full redirects are handled by login validation on each login page)
       })();
     </script>
 
