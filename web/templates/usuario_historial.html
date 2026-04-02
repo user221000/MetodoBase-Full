@@ -227,13 +227,23 @@
         '<span>🥑 ' + Math.round(plan.grasa_g || 0) + 'g G</span>' +
       '</div>';
 
-    // Set calendar to plan's month
-    calYear = planDate.getFullYear();
-    calMonth = planDate.getMonth();
+    // Always open on today's month so the user sees their current progress
+    var now = new Date();
+    calYear = now.getFullYear();
+    calMonth = now.getMonth();
 
     dayDetail.style.display = 'none';
     renderCalendar();
     progresoOverlay.style.display = 'flex';
+
+    // Auto-select and show today
+    var todayStr = now.toISOString().slice(0, 10);
+    var todayCell = calDays.querySelector('[data-date="' + todayStr + '"]');
+    if (todayCell) {
+      todayCell.classList.add('u-cal-active');
+      showDayDetail(todayStr);
+      todayCell.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    }
   }
 
   function renderCalendar() {
@@ -314,6 +324,32 @@
         '<div class="u-day-macro"><span class="u-day-macro-val">' + (daily.fat || 0) + 'g</span><span class="u-day-macro-lbl">Grasas</span></div>' +
         '<div class="u-day-macro"><span class="u-day-macro-val u-day-water">' + (daily.water || 0).toFixed(1) + 'L</span><span class="u-day-macro-lbl">Agua</span></div>' +
       '</div>';
+    }
+
+    // Show saved food selections if available
+    if (daily && daily.selections && Object.keys(daily.selections).length > 0) {
+      var MEAL_NAMES_H = { desayuno: '🌅 Desayuno', almuerzo: '🥗 Almuerzo', comida: '🍖 Comida', cena: '🌙 Cena' };
+      var MACRO_ICONS_H = { proteinas: '🥩', carbohidratos: '🍞', grasas: '🥑' };
+      var selHtml = '<div class="u-day-selections"><h5 class="u-day-sel-title">🍽️ Alimentos registrados</h5>';
+      var mealOrder = ['desayuno', 'almuerzo', 'comida', 'cena'];
+      var macroOrder = ['proteinas', 'carbohidratos', 'grasas'];
+      var hasAnyMeal = false;
+      for (var mi = 0; mi < mealOrder.length; mi++) {
+        var mealKey = mealOrder[mi];
+        var mSel = daily.selections[mealKey];
+        if (!mSel || !Object.keys(mSel).length) continue;
+        hasAnyMeal = true;
+        selHtml += '<div class="u-day-meal"><span class="u-day-meal-name">' + (MEAL_NAMES_H[mealKey] || mealKey) + '</span><ul class="u-day-meal-items">';
+        for (var mj = 0; mj < macroOrder.length; mj++) {
+          var mk = macroOrder[mj];
+          if (mSel[mk]) {
+            selHtml += '<li>' + (MACRO_ICONS_H[mk] || '') + ' ' + esc(mSel[mk]) + '</li>';
+          }
+        }
+        selHtml += '</ul></div>';
+      }
+      selHtml += '</div>';
+      if (hasAnyMeal) html += selHtml;
     }
 
     dayDetail.innerHTML = html;

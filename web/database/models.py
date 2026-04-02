@@ -230,6 +230,7 @@ class PlanGenerado(Base):
     objetivo = Column(String(30))
     nivel_actividad = Column(String(30))
     ruta_pdf = Column(String(500))
+    plan_json = Column(Text, nullable=True)  # serialized plan JSON (persists across container restarts)
     peso_en_momento = Column(Float)
     grasa_en_momento = Column(Float)
     desviacion_maxima_pct = Column(Float)

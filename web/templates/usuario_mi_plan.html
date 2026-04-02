@@ -95,6 +95,12 @@
     </span>
     <span class="u-quick-btn-label">Agua</span>
   </button>
+  <button class="u-quick-btn" id="btn-excluir" title="Excluir Alimentos">
+    <span class="u-quick-btn-icon">
+      <svg viewBox="0 0 24 24" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="4.93" y1="4.93" x2="19.07" y2="19.07"/></svg>
+    </span>
+    <span class="u-quick-btn-label">Excluir</span>
+  </button>
   <button class="u-quick-btn" id="btn-descargar-pdf" style="display:none;" title="Descargar PDF">
     <span class="u-quick-btn-icon">
       <svg viewBox="0 0 24 24" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4m4-5l5 5 5-5m-5 5V3"/></svg>
@@ -296,6 +302,24 @@
         </div>
       </div>
       <button class="u-btn u-btn-primary" id="btn-comidas-save" style="width:100%;margin-top:16px;">Guardar selección del día ✅</button>
+    </div>
+  </div>
+</div>
+
+<!-- ── FOOD EXCLUSION PANEL ──────────────────────────────── -->
+<div class="u-panel-overlay" id="panel-excluir-overlay" style="display:none;">
+  <div class="u-panel u-panel-lg" id="panel-excluir">
+    <div class="u-panel-header">
+      <h3 class="u-panel-title">🚫 Excluir Alimentos</h3>
+      <button class="u-panel-close" id="panel-excluir-close">&times;</button>
+    </div>
+    <div class="u-panel-body">
+      <p class="u-panel-question" style="margin-bottom:12px;">Selecciona los alimentos que quieres excluir de tus planes. Se aplicarán en la próxima generación.</p>
+      <div id="excluir-tags" class="u-excl-tags"></div>
+      <div id="excluir-catalogo" class="u-excl-catalogo">
+        <p class="u-excl-loading" id="excluir-loading-msg">Cargando catálogo...</p>
+      </div>
+      <button class="u-btn u-btn-primary" id="btn-excluir-save" style="width:100%;margin-top:16px;">Guardar Exclusiones ✅</button>
     </div>
   </div>
 </div>
@@ -972,9 +996,33 @@
   }
 
   document.getElementById('btn-comidas-save').addEventListener('click', function() {
-    // Save selections
+    // Save raw index selections
     localStorage.setItem(MEALS_STORAGE_KEY, JSON.stringify(mealSelections));
-    // Save daily totals summary
+    // Build resolved food names for historial display
+    var resolvedSelections = {};
+    var _comidas = ['desayuno', 'almuerzo', 'comida', 'cena'];
+    var _macros = ['proteinas', 'carbohidratos', 'grasas'];
+    for (var _i = 0; _i < _comidas.length; _i++) {
+      var _c = _comidas[_i];
+      var _sel = mealSelections[_c];
+      var _mealData = ultimoPlan && ultimoPlan.plan ? ultimoPlan.plan[_c] : null;
+      if (!_sel || !_mealData) continue;
+      var _resolved = {};
+      for (var _m = 0; _m < _macros.length; _m++) {
+        var _mk = _macros[_m];
+        var _idx = _sel[_mk];
+        if (_idx < 0 || _idx === undefined) continue;
+        var _md = _mealData[_mk];
+        if (_md && _md.opciones && _md.opciones[_idx]) {
+          var _op = _md.opciones[_idx];
+          var _n = (_op.alimento || '').replace(/_/g, ' ');
+          _n = _n.charAt(0).toUpperCase() + _n.slice(1);
+          _resolved[_mk] = _n + (_op.equivalencia ? ' · ' + _op.equivalencia : '') + ' (' + Math.round(_op.gramos || 0) + 'g)';
+        }
+      }
+      if (Object.keys(_resolved).length) resolvedSelections[_c] = _resolved;
+    }
+    // Save daily totals summary with resolved selections
     var totals = computeDailyTotals();
     var waterVal = parseFloat(localStorage.getItem(WATER_KEY) || '0');
     var dailySummary = {
@@ -983,12 +1031,147 @@
       carb: totals.carb,
       fat: totals.fat,
       water: waterVal,
-      selections: mealSelections,
+      selections: resolvedSelections,
     };
     localStorage.setItem('mb_daily_' + TODAY_KEY, JSON.stringify(dailySummary));
     comidasOverlay.style.display = 'none';
     updateGoalFromSelections(0);
     showToast('✅ Selección del día guardada correctamente');
+  });
+
+  /* ══════════════════════════════════════════════════════════
+     FOOD EXCLUSION PANEL
+     ══════════════════════════════════════════════════════════ */
+  var excluirOverlay = document.getElementById('panel-excluir-overlay');
+  var excluirExcluidos = [];
+  var excluirCatalogoLoaded = false;
+  var CAT_LABELS_EX = {
+    proteina: '🥩 Proteínas',
+    carbs: '🍞 Carbohidratos',
+    grasa: '🥑 Grasas',
+    verdura: '🥦 Verduras',
+    fruta: '🍎 Frutas'
+  };
+
+  function exPrettyName(s) {
+    return s.replace(/_/g, ' ').replace(/\b\w/g, function(c) { return c.toUpperCase(); });
+  }
+
+  function exRenderTags() {
+    var container = document.getElementById('excluir-tags');
+    if (!container) return;
+    if (!excluirExcluidos.length) {
+      container.innerHTML = '<span class="u-excl-empty">Ningún alimento excluido</span>';
+      return;
+    }
+    container.innerHTML = excluirExcluidos.map(function(a) {
+      return '<span class="u-excl-tag">' + exPrettyName(a) +
+        '<button type="button" class="u-excl-tag-remove" data-food="' + a + '">&times;</button></span>';
+    }).join('');
+    container.querySelectorAll('.u-excl-tag-remove').forEach(function(btn) {
+      btn.addEventListener('click', function() {
+        var f = this.getAttribute('data-food');
+        excluirExcluidos = excluirExcluidos.filter(function(x) { return x !== f; });
+        exRenderTags();
+        exSyncChips();
+      });
+    });
+  }
+
+  function exSyncChips() {
+    document.querySelectorAll('#excluir-catalogo .u-excl-chip').forEach(function(chip) {
+      chip.classList.toggle('u-excl-chip-active', excluirExcluidos.indexOf(chip.getAttribute('data-food')) !== -1);
+    });
+  }
+
+  async function exLoadCatalogo() {
+    if (excluirCatalogoLoaded) { exSyncChips(); return; }
+    try {
+      var res = await fetch('/api/usuario/catalogo-alimentos', {
+        headers: { 'Authorization': 'Bearer ' + localStorage.getItem('mb_token') }
+      });
+      if (!res.ok) throw new Error();
+      var catalogo = await res.json();
+      var container = document.getElementById('excluir-catalogo');
+      var html = '';
+      var order = ['proteina', 'carbs', 'grasa', 'verdura', 'fruta'];
+      order.forEach(function(cat) {
+        var items = catalogo[cat] || [];
+        if (!items.length) return;
+        html += '<div class="u-excl-group">';
+        html += '<h4 class="u-excl-group-title">' + (CAT_LABELS_EX[cat] || cat) + '</h4>';
+        html += '<div class="u-excl-chips">';
+        items.forEach(function(food) {
+          var active = excluirExcluidos.indexOf(food) !== -1 ? ' u-excl-chip-active' : '';
+          html += '<button type="button" class="u-excl-chip' + active + '" data-food="' + food + '">' + exPrettyName(food) + '</button>';
+        });
+        html += '</div></div>';
+      });
+      container.innerHTML = html;
+      excluirCatalogoLoaded = true;
+      container.querySelectorAll('.u-excl-chip').forEach(function(chip) {
+        chip.addEventListener('click', function() {
+          var f = this.getAttribute('data-food');
+          var idx = excluirExcluidos.indexOf(f);
+          if (idx === -1) { excluirExcluidos.push(f); }
+          else { excluirExcluidos.splice(idx, 1); }
+          this.classList.toggle('u-excl-chip-active');
+          exRenderTags();
+        });
+      });
+    } catch(err) {
+      var container = document.getElementById('excluir-catalogo');
+      if (container) container.innerHTML = '<p style="color:var(--u-text-muted);padding:12px 0;">No se pudo cargar el catálogo.</p>';
+    }
+  }
+
+  document.getElementById('btn-excluir').addEventListener('click', async function() {
+    if (!excluirCatalogoLoaded) {
+      try {
+        var r = await fetch('/api/usuario/perfil', {
+          headers: { 'Authorization': 'Bearer ' + localStorage.getItem('mb_token') }
+        });
+        if (r.ok) {
+          var pp = await r.json();
+          excluirExcluidos = Array.isArray(pp.alimentos_excluidos) ? pp.alimentos_excluidos : [];
+        }
+      } catch(e) {}
+    }
+    exRenderTags();
+    await exLoadCatalogo();
+    excluirOverlay.style.display = 'flex';
+  });
+
+  document.getElementById('panel-excluir-close').addEventListener('click', function() {
+    excluirOverlay.style.display = 'none';
+  });
+
+  excluirOverlay.addEventListener('click', function(e) {
+    if (e.target === excluirOverlay) excluirOverlay.style.display = 'none';
+  });
+
+  document.getElementById('btn-excluir-save').addEventListener('click', async function() {
+    var btn = this;
+    btn.disabled = true;
+    btn.textContent = 'Guardando...';
+    try {
+      var res = await fetch('/api/usuario/perfil', {
+        method: 'PUT',
+        headers: {
+          'Authorization': 'Bearer ' + localStorage.getItem('mb_token'),
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ alimentos_excluidos: excluirExcluidos }),
+      });
+      if (!res.ok) throw new Error('Error al guardar');
+      excluirOverlay.style.display = 'none';
+      showToast('✅ Exclusiones guardadas. Se aplicarán en tu próximo plan.');
+    } catch(e) {
+      showToast('❌ Error guardando exclusiones', 'error');
+    } finally {
+      btn.disabled = false;
+      btn.textContent = 'Guardar Exclusiones ✅';
+    }
   });
 
 })();

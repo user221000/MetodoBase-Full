@@ -219,8 +219,15 @@ async def get_mi_plan(
     }
 
 
-def _load_plan_json(plan_record: PlanGenerado) -> dict:
-    """Try to load the plan JSON companion file next to the PDF."""
+def _load_plan_json(plan_record: "PlanGenerado") -> dict:
+    """Load plan JSON: DB column first, then companion file fallback."""
+    # 1. Try DB column (persists across container restarts)
+    if plan_record.plan_json:
+        try:
+            return json.loads(plan_record.plan_json)
+        except Exception:
+            pass
+    # 2. Fall back to companion file next to PDF
     if not plan_record.ruta_pdf:
         return {}
     json_path = plan_record.ruta_pdf.rsplit(".", 1)[0] + ".json"
@@ -228,8 +235,8 @@ def _load_plan_json(plan_record: PlanGenerado) -> dict:
         try:
             with open(json_path, "r", encoding="utf-8") as f:
                 return json.load(f)
-        except (json.JSONDecodeError, OSError):
-            return {}
+        except Exception:
+            pass
     return {}
 
 
@@ -282,7 +289,7 @@ async def generar_plan_usuario(
         logger.error("Error generando plan para usuario %s: %s", user_id, e)
         raise HTTPException(500, "Error interno al generar el plan. Intenta de nuevo.")
 
-    # Save plan JSON companion file
+    # Save plan JSON companion file AND persist to DB column
     plan_serializado = result.get("plan", {})
     ruta_pdf = result.get("ruta_pdf", "")
     if ruta_pdf:
@@ -291,7 +298,7 @@ async def generar_plan_usuario(
             with open(json_path, "w", encoding="utf-8") as f:
                 json.dump(plan_serializado, f, ensure_ascii=False, indent=2)
         except Exception as e:
-            logger.warning("Could not save plan JSON: %s", e)
+            logger.warning("Could not save plan JSON file: %s", e)
 
     # Load the just-created plan record
     plan_record = (
@@ -300,6 +307,14 @@ async def generar_plan_usuario(
         .order_by(PlanGenerado.fecha_generacion.desc())
         .first()
     )
+
+    # Persist plan JSON to DB so it survives container restarts
+    if plan_record and plan_serializado:
+        try:
+            plan_record.plan_json = json.dumps(plan_serializado, ensure_ascii=False)
+            db.commit()
+        except Exception as e:
+            logger.warning("Could not save plan_json to DB: %s", e)
 
     tiene_pdf = bool(ruta_pdf and os.path.isfile(ruta_pdf))
 

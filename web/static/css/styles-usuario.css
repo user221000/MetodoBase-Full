@@ -1569,6 +1569,49 @@ svg.u-ring .u-ring-bg { stroke: var(--u-bg-input); stroke-width: 10; }
 
 .u-prog-warning strong { color: var(--u-text); font-weight: 600; }
 
+/* ── Day Selections (food items saved from mi-plan) ─────────────────── */
+.u-day-selections {
+  margin-top: 14px;
+  border-top: 1px solid var(--u-border);
+  padding-top: 12px;
+}
+
+.u-day-sel-title {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--u-text);
+  margin: 0 0 10px;
+}
+
+.u-day-meal {
+  margin-bottom: 10px;
+}
+
+.u-day-meal-name {
+  display: block;
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--u-text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+  margin-bottom: 4px;
+}
+
+.u-day-meal-items {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.u-day-meal-items li {
+  font-size: 13px;
+  color: var(--u-text-secondary);
+  padding-left: 4px;
+}
+
 
 /* ── Context Bar ──────────────────────────────────────────────────────────── */
 .u-context-bar {
