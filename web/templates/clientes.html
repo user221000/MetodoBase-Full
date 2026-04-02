@@ -802,6 +802,30 @@ function humanize(name) {
 }
 
 // ── Open / Close panel ──
+// ── Sync badge + tags in main form (always defined; guards null elements) ──
+function syncExclBadgeAndTags() {
+  const badge = document.getElementById('food-excl-badge');
+  if (!badge) return; // Plan no permite preferencias de alimentos
+  const count = _alimentosExcluidos.size;
+  badge.textContent = count;
+  badge.style.display = count > 0 ? 'flex' : 'none';
+
+  const container = document.getElementById('food-tags');
+  if (!container) return;
+  container.innerHTML = '';
+  _alimentosExcluidos.forEach(food => {
+    const tag = document.createElement('span');
+    tag.style.cssText = 'display:inline-flex;align-items:center;gap:4px;padding:3px 10px;border-radius:20px;font-size:0.73rem;background:rgba(239,68,68,0.14);color:#f87171;cursor:pointer;transition:all 0.15s';
+    tag.textContent = humanize(food) + ' ✕';
+    tag.title = 'Click para restaurar';
+    tag.addEventListener('click', () => {
+      _alimentosExcluidos.delete(food);
+      syncExclBadgeAndTags();
+    });
+    container.appendChild(tag);
+  });
+}
+
 const _btnAbrirExcl = document.getElementById('btn-abrir-exclusiones');
 if (_btnAbrirExcl) {
   _btnAbrirExcl.addEventListener('click', () => {
@@ -878,31 +902,6 @@ function syncPanelTags() {
       renderFullCatalog(document.getElementById('food-search').value);
       syncPanelTags();
       updateFoodCount();
-    });
-    container.appendChild(tag);
-  });
-}
-
-// ── Sync badge + tags in main form ──
-function syncExclBadgeAndTags() {
-  const badge = document.getElementById('food-excl-badge');
-  if (!badge) return; // Plan no permite preferencias de alimentos
-  const count = _alimentosExcluidos.size;
-  badge.textContent = count;
-  badge.style.display = count > 0 ? 'flex' : 'none';
-
-  // Tags in main form
-  const container = document.getElementById('food-tags');
-  if (!container) return;
-  container.innerHTML = '';
-  _alimentosExcluidos.forEach(food => {
-    const tag = document.createElement('span');
-    tag.style.cssText = 'display:inline-flex;align-items:center;gap:4px;padding:3px 10px;border-radius:20px;font-size:0.73rem;background:rgba(239,68,68,0.14);color:#f87171;cursor:pointer;transition:all 0.15s';
-    tag.textContent = humanize(food) + ' ✕';
-    tag.title = 'Click para restaurar';
-    tag.addEventListener('click', () => {
-      _alimentosExcluidos.delete(food);
-      syncExclBadgeAndTags();
     });
     container.appendChild(tag);
   });
