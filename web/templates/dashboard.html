@@ -79,6 +79,172 @@
   </aside>
 </div>
 
+<!-- ═══════════════════════════════════════════════════════════════════════
+     SECOND DRAWER — Detalle y edición de cliente
+═══════════════════════════════════════════════════════════════════════ -->
+<div id="detail-drawer-backdrop" class="modal-backdrop hidden" style="align-items:stretch;justify-content:flex-end;padding:0;position:fixed;inset:0;background:rgba(0,0,0,.35);z-index:1001;display:flex;">
+  <aside id="detail-drawer" style="
+    width:min(480px,100vw);height:100vh;background:var(--surface-primary);
+    border-left:1px solid var(--border-subtle);display:flex;flex-direction:column;
+    overflow:hidden;position:relative;animation:slideInRight .22s ease;
+  ">
+    <!-- Header -->
+    <div id="detail-drawer-header" style="display:flex;align-items:center;gap:14px;padding:18px 20px 14px;border-bottom:1px solid var(--border-subtle);flex-shrink:0;">
+      <div id="detail-drawer-avatar" class="drawer-avatar" style="width:44px;height:44px;font-size:1.1rem;"></div>
+      <div style="flex:1;min-width:0;">
+        <h3 id="detail-drawer-name" style="margin:0;font-size:1rem;font-weight:700;color:var(--text-primary);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;"></h3>
+        <p id="detail-drawer-meta" style="margin:3px 0 0;font-size:.76rem;color:var(--text-muted);"></p>
+      </div>
+      <div style="display:flex;gap:8px;align-items:center;flex-shrink:0;">
+        <a id="detail-generar-plan-btn" href="#" class="btn btn-primary btn-sm" style="font-size:.78rem;white-space:nowrap;">⚡ Generar plan</a>
+        <button id="detail-drawer-close" class="btn btn-icon btn-secondary" type="button" style="width:32px;height:32px;">✕</button>
+      </div>
+    </div>
+
+    <!-- Scrollable body with form sections -->
+    <div id="detail-drawer-body" style="flex:1;overflow-y:auto;padding:0 0 80px;">
+      <div style="padding:0 20px;">
+
+        <!-- ── Sección: Datos personales ── -->
+        <div class="detail-section">
+          <div class="detail-section-title">Datos personales</div>
+          <div class="detail-grid-2">
+            <div class="detail-field">
+              <label class="detail-label">Nombre completo</label>
+              <input id="dd-nombre" type="text" class="detail-input" placeholder="Nombre del cliente">
+            </div>
+            <div class="detail-field">
+              <label class="detail-label">Teléfono</label>
+              <input id="dd-telefono" type="tel" class="detail-input" placeholder="Ej. 5512345678">
+            </div>
+            <div class="detail-field">
+              <label class="detail-label">Email</label>
+              <input id="dd-email" type="email" class="detail-input" placeholder="correo@ejemplo.com">
+            </div>
+            <div class="detail-field">
+              <label class="detail-label">Edad</label>
+              <input id="dd-edad" type="number" class="detail-input" min="10" max="100" placeholder="Años">
+            </div>
+          </div>
+        </div>
+
+        <!-- ── Sección: Medidas y objetivo ── -->
+        <div class="detail-section">
+          <div class="detail-section-title">Medidas y objetivo</div>
+          <div class="detail-grid-2">
+            <div class="detail-field">
+              <label class="detail-label">Peso (kg)</label>
+              <input id="dd-peso" type="number" step="0.1" class="detail-input" placeholder="Ej. 75.5">
+            </div>
+            <div class="detail-field">
+              <label class="detail-label">Estatura (cm)</label>
+              <input id="dd-estatura" type="number" class="detail-input" placeholder="Ej. 175">
+            </div>
+            <div class="detail-field">
+              <label class="detail-label">% Grasa corporal</label>
+              <input id="dd-grasa" type="number" step="0.1" class="detail-input" placeholder="Opcional">
+            </div>
+            <div class="detail-field">
+              <label class="detail-label">Nivel de actividad</label>
+              <select id="dd-actividad" class="detail-input">
+                <option value="">— Seleccionar —</option>
+                <option value="sedentario">Sedentario</option>
+                <option value="ligero">Ligero</option>
+                <option value="moderado">Moderado</option>
+                <option value="activo">Activo</option>
+                <option value="muy_activo">Muy activo</option>
+              </select>
+            </div>
+            <div class="detail-field detail-field-full">
+              <label class="detail-label">Objetivo</label>
+              <select id="dd-objetivo" class="detail-input">
+                <option value="">— Seleccionar —</option>
+                <option value="deficit">Pérdida de peso</option>
+                <option value="mantenimiento">Mantenimiento</option>
+                <option value="superavit">Ganancia muscular</option>
+              </select>
+            </div>
+          </div>
+        </div>
+
+        <!-- ── Sección: Tipo de plan ── -->
+        <div class="detail-section">
+          <div class="detail-section-title">Tipo de plan nutricional</div>
+          <div style="display:flex;gap:12px;flex-wrap:wrap;">
+            <label class="plan-type-card" id="ptc-menu-fijo">
+              <input type="radio" name="dd-plantilla-tipo" value="menu_fijo" style="position:absolute;opacity:0;pointer-events:none;">
+              <div class="ptc-icon">📋</div>
+              <div class="ptc-label">Menú Fijo</div>
+              <div class="ptc-desc">Un plan estático y simple</div>
+            </label>
+            <label class="plan-type-card" id="ptc-opciones">
+              <input type="radio" name="dd-plantilla-tipo" value="opciones" style="position:absolute;opacity:0;pointer-events:none;">
+              <div class="ptc-icon">🔀</div>
+              <div class="ptc-label">Con Opciones</div>
+              <div class="ptc-desc">Alternativas por comida</div>
+            </label>
+          </div>
+        </div>
+
+        <!-- ── Sección: Suscripción del cliente ── -->
+        <div class="detail-section">
+          <div class="detail-section-title">Suscripción</div>
+          <div class="detail-grid-2">
+            <div class="detail-field detail-field-full">
+              <label class="detail-label">Plan del cliente</label>
+              <select id="dd-plan-suscripcion" class="detail-input">
+                <option value="">— Sin plan asignado —</option>
+              </select>
+            </div>
+            <div class="detail-field">
+              <label class="detail-label">Fecha de inicio</label>
+              <input id="dd-fecha-inicio" type="date" class="detail-input">
+            </div>
+            <div class="detail-field">
+              <label class="detail-label">Fecha de fin</label>
+              <input id="dd-fecha-fin" type="date" class="detail-input">
+            </div>
+          </div>
+          <div id="dd-sub-status" style="margin-top:10px;display:none;">
+            <span id="dd-sub-badge" class="drawer-sub-badge"></span>
+          </div>
+        </div>
+
+        <!-- ── Sección: Preferencias de alimentos ── -->
+        <div class="detail-section">
+          <div class="detail-section-title">Preferencias de alimentos</div>
+          <div id="dd-food-tags" style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:10px;min-height:28px;"></div>
+          <button type="button" id="dd-food-panel-toggle" class="btn btn-outline btn-sm" style="font-size:.78rem;" onclick="toggleDetailFoodPanel()">
+            + Gestionar exclusiones
+          </button>
+          <div id="dd-food-panel" style="display:none;margin-top:12px;border:1px solid var(--border-subtle);border-radius:8px;overflow:hidden;">
+            <div style="padding:10px 12px;border-bottom:1px solid var(--border-subtle);background:var(--surface-secondary);">
+              <input type="text" id="dd-food-search" class="detail-input" placeholder="Buscar alimento..." style="font-size:.83rem;" oninput="renderDetailFoodCatalog(this.value)">
+            </div>
+            <div id="dd-food-catalog" style="padding:10px 12px;max-height:240px;overflow-y:auto;display:flex;flex-direction:column;gap:8px;"></div>
+          </div>
+        </div>
+
+        <!-- ── Sección: Notas ── -->
+        <div class="detail-section" style="border-bottom:none;">
+          <div class="detail-section-title">Notas internas</div>
+          <textarea id="dd-notas" class="detail-input" rows="3" placeholder="Observaciones, lesiones, preferencias especiales..." style="resize:vertical;font-size:.84rem;"></textarea>
+        </div>
+      </div>
+    </div>
+
+    <!-- Footer sticky -->
+    <div style="position:absolute;bottom:0;left:0;right:0;padding:14px 20px;background:var(--surface-primary);border-top:1px solid var(--border-subtle);display:flex;gap:10px;">
+      <button type="button" id="dd-save-btn" class="btn btn-primary" style="flex:1;font-size:.88rem;" onclick="guardarDetalleCliente()">
+        💾 Guardar cambios
+      </button>
+      <button type="button" id="dd-delete-btn" class="btn btn-outline" style="color:var(--color-danger,#f87171);border-color:var(--color-danger,#f87171);font-size:.85rem;" onclick="confirmarEliminarCliente()">
+        🗑️
+      </button>
+    </div>
+  </aside>
+</div>
+
 <style>
 @keyframes slideInRight { from { transform:translateX(100%); } to { transform:translateX(0); } }
 .kpi-btn-drawer { text-align:left; cursor:pointer; border:none; width:100%; }
@@ -102,6 +268,59 @@
 .drawer-sub-expired { background:rgba(239,68,68,.12);color:#f87171; }
 .drawer-sub-none { background:rgba(156,163,175,.12);color:var(--text-muted); }
 .drawer-empty { text-align:center;padding:40px 16px;color:var(--text-muted);font-size:.88rem; }
+
+/* ── Detail drawer styles ── */
+.detail-section {
+  padding:16px 0;
+  border-bottom:1px solid var(--border-subtle);
+}
+.detail-section-title {
+  font-size:.75rem;font-weight:700;text-transform:uppercase;
+  letter-spacing:.06em;color:var(--text-muted);margin-bottom:12px;
+}
+.detail-grid-2 {
+  display:grid;grid-template-columns:1fr 1fr;gap:10px;
+}
+.detail-field { display:flex;flex-direction:column;gap:4px; }
+.detail-field-full { grid-column:1 / -1; }
+.detail-label { font-size:.76rem;font-weight:600;color:var(--text-secondary); }
+.detail-input {
+  background:var(--surface-secondary);border:1px solid var(--border-subtle);
+  border-radius:6px;padding:7px 10px;font-size:.84rem;color:var(--text-primary);
+  transition:border-color .15s;width:100%;box-sizing:border-box;
+}
+.detail-input:focus { outline:none;border-color:var(--accent-primary); }
+.detail-input option { background:var(--surface-primary); }
+
+/* Plan type cards */
+.plan-type-card {
+  flex:1;min-width:130px;border:2px solid var(--border-subtle);border-radius:10px;
+  padding:12px 14px;cursor:pointer;transition:border-color .15s,background .15s;
+  position:relative;display:flex;flex-direction:column;gap:4px;
+}
+.plan-type-card:hover { border-color:var(--accent-primary); }
+.plan-type-card.selected { border-color:var(--accent-primary);background:var(--accent-muted); }
+.ptc-icon { font-size:1.3rem; }
+.ptc-label { font-size:.88rem;font-weight:700;color:var(--text-primary); }
+.ptc-desc { font-size:.73rem;color:var(--text-muted); }
+
+/* Food exclusion tags in detail drawer */
+.dd-food-tag {
+  display:inline-flex;align-items:center;gap:5px;
+  background:var(--accent-muted);color:var(--text-primary);
+  border-radius:99px;font-size:.73rem;padding:3px 10px;cursor:pointer;
+  transition:background .15s;
+}
+.dd-food-tag:hover { background:rgba(239,68,68,.15); }
+
+/* Food catalog row in detail drawer */
+.dd-food-row {
+  display:flex;align-items:center;justify-content:space-between;
+  padding:5px 4px;cursor:pointer;border-radius:6px;transition:background .12s;
+}
+.dd-food-row:hover { background:var(--surface-hover); }
+.dd-food-row.excluded { color:var(--text-muted);text-decoration:line-through; }
+.dd-food-cat { font-size:.72rem;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:var(--text-muted);margin:6px 0 4px; }
 </style>
 
 <!-- ═══════════════════════════════════════════════════════════════════════════
@@ -913,14 +1132,14 @@
         c.objetivo ? c.objetivo.charAt(0).toUpperCase() + c.objetivo.slice(1) : null,
       ].filter(Boolean).join(' · ');
       return `
-        <a href="/generar-plan?id=${c.id_cliente}" class="drawer-client-card">
+        <button type="button" onclick="abrirDetalleCliente(${JSON.stringify(c.id_cliente)})" class="drawer-client-card" style="text-align:left;">
           <div class="drawer-avatar">${initials(c.nombre)}</div>
           <div class="drawer-client-info">
             <div class="drawer-client-name">${c.nombre}</div>
             <div class="drawer-client-meta">${meta || '—'}</div>
           </div>
           <span class="drawer-sub-badge ${sub.cls}">${sub.label}</span>
-        </a>`;
+        </button>`;
     }).join('');
   }
 
@@ -951,5 +1170,290 @@
   });
 
   cargarCatalogoAlimentos();
+
+  // ════════════════════════════════════════════════════════════════
+  //  SECOND DRAWER — Detalle/edición de cliente
+  // ════════════════════════════════════════════════════════════════
+  let _ddClienteId    = null;   // ID del cliente actualmente abierto
+  let _ddExcluidos    = new Set(); // alimentos excluidos del cliente en edición
+  let _ddCatalogo     = null;   // caché del catálogo { proteina:[], carbs:[], ... }
+  let _ddPlanesGym    = [];     // planes del gym [{id,nombre,duracion_dias,...}]
+
+  // ── Helpers ────────────────────────────────────────────────────
+  function _ddInitials(nombre) {
+    return (nombre || '?').split(' ').slice(0,2).map(w => w[0]).join('').toUpperCase();
+  }
+
+  function _ddFmtDate(isoStr) {
+    if (!isoStr) return '';
+    return isoStr.slice(0, 10);   // "YYYY-MM-DD"
+  }
+
+  function _ddSetPlanTypeSelected(val) {
+    document.querySelectorAll('.plan-type-card').forEach(c => c.classList.remove('selected'));
+    if (val === 'menu_fijo')  document.getElementById('ptc-menu-fijo')?.classList.add('selected');
+    if (val === 'opciones')   document.getElementById('ptc-opciones')?.classList.add('selected');
+    // set the radio
+    document.querySelectorAll('[name="dd-plantilla-tipo"]').forEach(r => { r.checked = r.value === val; });
+  }
+
+  function _ddUpdateSubStatus() {
+    const fin = document.getElementById('dd-fecha-fin').value;
+    const statusDiv = document.getElementById('dd-sub-status');
+    const badge     = document.getElementById('dd-sub-badge');
+    if (!fin) { statusDiv.style.display = 'none'; return; }
+    const finTs = new Date(fin).getTime();
+    const now   = Date.now();
+    statusDiv.style.display = 'block';
+    if (finTs >= now) {
+      const dias = Math.ceil((finTs - now) / 86400000);
+      badge.textContent = `Activa · vence en ${dias} día(s)`;
+      badge.className = 'drawer-sub-badge drawer-sub-active';
+    } else {
+      badge.textContent = 'Expirada';
+      badge.className = 'drawer-sub-badge drawer-sub-expired';
+    }
+  }
+
+  // ── Food catalog for detail drawer ─────────────────────────────
+  function renderDetailFoodTags() {
+    const container = document.getElementById('dd-food-tags');
+    container.innerHTML = '';
+    if (_ddExcluidos.size === 0) {
+      container.innerHTML = '<span style="font-size:.76rem;color:var(--text-muted);">Sin exclusiones</span>';
+      return;
+    }
+    _ddExcluidos.forEach(food => {
+      const tag = document.createElement('span');
+      tag.className = 'dd-food-tag';
+      tag.innerHTML = `${food} <span style="opacity:.6;font-size:.8rem;">✕</span>`;
+      tag.addEventListener('click', () => { _ddExcluidos.delete(food); renderDetailFoodTags(); renderDetailFoodCatalog(document.getElementById('dd-food-search').value); });
+      container.appendChild(tag);
+    });
+  }
+
+  function renderDetailFoodCatalog(query) {
+    const container = document.getElementById('dd-food-catalog');
+    if (!_ddCatalogo) { container.innerHTML = '<p style="font-size:.82rem;color:var(--text-muted);">Cargando catálogo...</p>'; return; }
+    query = (query || '').toLowerCase().trim();
+    const html = [];
+    const CAT_LABELS = { proteina:'Proteínas', carbs:'Carbohidratos', grasa:'Grasas', verdura:'Verduras', fruta:'Frutas' };
+    for (const [cat, alimentos] of Object.entries(_ddCatalogo)) {
+      const filtered = alimentos.filter(a => !query || a.toLowerCase().includes(query));
+      if (!filtered.length) continue;
+      html.push(`<div class="dd-food-cat">${CAT_LABELS[cat] || cat}</div>`);
+      filtered.forEach(a => {
+        const excl  = _ddExcluidos.has(a);
+        const label = excl ? `${a} <span style="font-size:.72rem;opacity:.7;">excluido</span>` : a;
+        html.push(`<div class="dd-food-row ${excl ? 'excluded' : ''}" onclick="_ddToggleFood('${a.replace(/'/g,"\\'")}')"><span style="font-size:.82rem;">${label}</span><span style="font-size:.75rem;color:${excl ? '#f87171' : 'var(--text-muted)'}">${excl ? '✕ quitar' : '+ excluir'}</span></div>`);
+      });
+    }
+    container.innerHTML = html.length ? html.join('') : '<p style="font-size:.82rem;color:var(--text-muted);">Sin resultados.</p>';
+  }
+
+  window._ddToggleFood = function(food) {
+    if (_ddExcluidos.has(food)) _ddExcluidos.delete(food); else _ddExcluidos.add(food);
+    renderDetailFoodTags();
+    renderDetailFoodCatalog(document.getElementById('dd-food-search').value);
+  };
+
+  window.toggleDetailFoodPanel = function() {
+    const panel = document.getElementById('dd-food-panel');
+    const btn   = document.getElementById('dd-food-panel-toggle');
+    const open  = panel.style.display === 'none';
+    panel.style.display = open ? 'block' : 'none';
+    btn.textContent = open ? '− Cerrar gestión de exclusiones' : '+ Gestionar exclusiones';
+    if (open && _ddCatalogo) renderDetailFoodCatalog('');
+  };
+
+  // ── Load gym subscription plans ─────────────────────────────────
+  async function _ddLoadPlanesGym() {
+    try {
+      const res = await Api.gym.listarPlanes();
+      _ddPlanesGym = (res.planes || []).filter(p => p.activo !== false);
+      const sel = document.getElementById('dd-plan-suscripcion');
+      _ddPlanesGym.forEach(p => {
+        const opt = document.createElement('option');
+        opt.value = p.id;
+        opt.textContent = `${p.nombre} · ${p.duracion_dias}d · $${p.precio} ${p.moneda || 'MXN'}`;
+        sel.appendChild(opt);
+      });
+    } catch (e) { /* planes no críticos */ }
+  }
+
+  // Auto-fill dates when plan selected
+  document.getElementById('dd-plan-suscripcion').addEventListener('change', function() {
+    const planId = this.value;
+    if (!planId) return;
+    const plan = _ddPlanesGym.find(p => String(p.id) === String(planId));
+    if (!plan) return;
+    const inicio = document.getElementById('dd-fecha-inicio').value || new Date().toISOString().slice(0,10);
+    document.getElementById('dd-fecha-inicio').value = inicio;
+    const finDate = new Date(inicio);
+    finDate.setDate(finDate.getDate() + (plan.duracion_dias || 30));
+    document.getElementById('dd-fecha-fin').value = finDate.toISOString().slice(0,10);
+    _ddUpdateSubStatus();
+  });
+
+  document.getElementById('dd-fecha-fin').addEventListener('change', _ddUpdateSubStatus);
+
+  // Plan type card click
+  document.querySelectorAll('.plan-type-card').forEach(card => {
+    card.addEventListener('click', () => {
+      const radio = card.querySelector('input[type="radio"]');
+      if (radio) { radio.checked = true; }
+      _ddSetPlanTypeSelected(card.querySelector('input')?.value);
+    });
+  });
+
+  // ── Open detail drawer ──────────────────────────────────────────
+  window.abrirDetalleCliente = async function(id) {
+    _ddClienteId = id;
+    _ddExcluidos = new Set();
+
+    // Reset form
+    ['dd-nombre','dd-telefono','dd-email','dd-notas','dd-food-search'].forEach(i => { const el = document.getElementById(i); if(el) el.value = ''; });
+    ['dd-edad','dd-peso','dd-estatura','dd-grasa'].forEach(i => { const el = document.getElementById(i); if(el) el.value = ''; });
+    ['dd-actividad','dd-objetivo'].forEach(i => { const el = document.getElementById(i); if(el) el.value = ''; });
+    document.getElementById('dd-fecha-inicio').value = '';
+    document.getElementById('dd-fecha-fin').value = '';
+    document.getElementById('dd-plan-suscripcion').value = '';
+    document.getElementById('dd-sub-status').style.display = 'none';
+    document.getElementById('dd-food-tags').innerHTML = '';
+    document.getElementById('dd-food-panel').style.display = 'none';
+    document.getElementById('dd-food-panel-toggle').textContent = '+ Gestionar exclusiones';
+    _ddSetPlanTypeSelected('menu_fijo');
+
+    // Show drawer with loading state
+    document.getElementById('detail-drawer-name').textContent = 'Cargando...';
+    document.getElementById('detail-drawer-meta').textContent  = '';
+    document.getElementById('detail-drawer-avatar').textContent = '...';
+    document.getElementById('detail-generar-plan-btn').href = '#';
+    document.getElementById('detail-drawer-backdrop').classList.remove('hidden');
+
+    try {
+      const c = await Api.clientes.obtener(id);
+
+      // Header
+      const initials = _ddInitials(c.nombre);
+      document.getElementById('detail-drawer-avatar').textContent = initials;
+      document.getElementById('detail-drawer-name').textContent   = c.nombre || '—';
+      const meta = [c.edad ? c.edad + ' años' : null, c.peso_kg ? c.peso_kg+'kg' : null].filter(Boolean).join(' · ');
+      document.getElementById('detail-drawer-meta').textContent = meta || '—';
+
+      const planTipo = c.plantilla_tipo === 'opciones' ? 'opciones' : 'menu_fijo';
+      document.getElementById('detail-generar-plan-btn').href = `/generar-plan?id=${id}&tipo=${planTipo}`;
+
+      // Populate fields
+      const setVal = (id, val) => { const el = document.getElementById(id); if(el && val != null) el.value = val; };
+      setVal('dd-nombre',    c.nombre);
+      setVal('dd-telefono',  c.telefono);
+      setVal('dd-email',     c.email);
+      setVal('dd-edad',      c.edad);
+      setVal('dd-peso',      c.peso_kg);
+      setVal('dd-estatura',  c.estatura_cm);
+      setVal('dd-grasa',     c.grasa_corporal_pct);
+      setVal('dd-actividad', c.nivel_actividad);
+      setVal('dd-objetivo',  c.objetivo);
+      setVal('dd-notas',     c.notas);
+      setVal('dd-fecha-inicio', _ddFmtDate(c.fecha_suscripcion));
+      setVal('dd-fecha-fin',    _ddFmtDate(c.fecha_fin_suscripcion));
+
+      _ddSetPlanTypeSelected(planTipo);
+      _ddUpdateSubStatus();
+
+      // Alimentos excluidos
+      let excl = c.alimentos_excluidos;
+      if (typeof excl === 'string') { try { excl = JSON.parse(excl); } catch { excl = []; } }
+      _ddExcluidos = new Set(Array.isArray(excl) ? excl : []);
+      renderDetailFoodTags();
+
+      // Load catalog if needed
+      if (!_ddCatalogo) {
+        try {
+          const cat = await Api.request('GET', '/api/alimentos/catalogo');
+          _ddCatalogo = cat.categorias || cat;
+        } catch(e) { /* optional */ }
+      }
+
+    } catch(e) {
+      document.getElementById('detail-drawer-name').textContent = 'Error cargando cliente';
+    }
+  };
+
+  // ── Save detail drawer ──────────────────────────────────────────
+  window.guardarDetalleCliente = async function() {
+    if (!_ddClienteId) return;
+    const btn = document.getElementById('dd-save-btn');
+    btn.disabled = true;
+    btn.textContent = 'Guardando...';
+
+    const selectedRadio = document.querySelector('[name="dd-plantilla-tipo"]:checked');
+    const planTipo = selectedRadio ? selectedRadio.value : 'menu_fijo';
+
+    const payload = {
+      nombre:           document.getElementById('dd-nombre').value    || undefined,
+      telefono:         document.getElementById('dd-telefono').value  || undefined,
+      email:            document.getElementById('dd-email').value     || undefined,
+      edad:             parseInt(document.getElementById('dd-edad').value)      || undefined,
+      peso_kg:          parseFloat(document.getElementById('dd-peso').value)    || undefined,
+      estatura_cm:      parseFloat(document.getElementById('dd-estatura').value)|| undefined,
+      grasa_corporal_pct: parseFloat(document.getElementById('dd-grasa').value) || undefined,
+      nivel_actividad:  document.getElementById('dd-actividad').value || undefined,
+      objetivo:         document.getElementById('dd-objetivo').value  || undefined,
+      notas:            document.getElementById('dd-notas').value     || undefined,
+      plantilla_tipo:   planTipo,
+      alimentos_excluidos: [..._ddExcluidos],
+    };
+
+    const fechaInicio = document.getElementById('dd-fecha-inicio').value;
+    const fechaFin    = document.getElementById('dd-fecha-fin').value;
+    if (fechaInicio) payload.fecha_suscripcion     = fechaInicio + 'T00:00:00';
+    if (fechaFin)    payload.fecha_fin_suscripcion = fechaFin    + 'T00:00:00';
+
+    // Remove undefined keys
+    Object.keys(payload).forEach(k => payload[k] === undefined && delete payload[k]);
+
+    try {
+      await Api.clientes.actualizar(_ddClienteId, payload);
+      // Update "generar plan" link with new tipo
+      document.getElementById('detail-generar-plan-btn').href = `/generar-plan?id=${_ddClienteId}&tipo=${planTipo}`;
+      // Show brief success feedback
+      btn.textContent = '✓ Guardado';
+      btn.style.background = 'var(--color-success,#22c55e)';
+      setTimeout(() => { btn.disabled = false; btn.textContent = '💾 Guardar cambios'; btn.style.background = ''; }, 2000);
+      // Refresh KPIs
+      cargarKPIsSuscripciones();
+    } catch(e) {
+      btn.disabled = false;
+      btn.textContent = '💾 Guardar cambios';
+      alert('Error al guardar: ' + e.message);
+    }
+  };
+
+  // ── Delete client ───────────────────────────────────────────────
+  window.confirmarEliminarCliente = async function() {
+    if (!_ddClienteId) return;
+    if (!confirm('¿Desactivar este cliente? Esta acción se puede revertir desde la sección de clientes.')) return;
+    try {
+      await Api.clientes.eliminar(_ddClienteId);
+      document.getElementById('detail-drawer-backdrop').classList.add('hidden');
+      document.getElementById('subs-drawer-backdrop').classList.add('hidden');
+      cargarKPIsSuscripciones();
+    } catch(e) {
+      alert('Error al eliminar: ' + e.message);
+    }
+  };
+
+  // ── Close handlers ──────────────────────────────────────────────
+  document.getElementById('detail-drawer-close').addEventListener('click', () => {
+    document.getElementById('detail-drawer-backdrop').classList.add('hidden');
+  });
+  document.getElementById('detail-drawer-backdrop').addEventListener('click', e => {
+    if (e.target === e.currentTarget) document.getElementById('detail-drawer-backdrop').classList.add('hidden');
+  });
+
+  // Load gym plans for subscription selector
+  _ddLoadPlanesGym();
 </script>
 {% endblock %}

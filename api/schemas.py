@@ -96,6 +96,7 @@ class ClienteUpdate(BaseModel):
     alimentos_excluidos: Optional[list[str]] = Field(None, description="Lista de alimentos a excluir del plan")
     fecha_suscripcion: Optional[datetime] = None
     fecha_fin_suscripcion: Optional[datetime] = None
+    plantilla_tipo: Optional[str] = Field(None, description="menu_fijo | opciones | general")
 
     @field_validator("nombre")
     @classmethod
