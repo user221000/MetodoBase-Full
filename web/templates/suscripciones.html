@@ -542,11 +542,69 @@ const _PLAN_META = {
   clinica:       { icon: '🏥', color: 'var(--accent-green)',    label: 'Clínica' },
 };
 const _PLAN_PRICES = { standard: 159, gym_comercial: 479, clinica: 979 };
+const _STRIPE_PAYMENT_LINK_PREFIXES = ['https://buy.stripe.com/', 'https://checkout.stripe.com/'];
 
 function _getPlanInfo(plan) {
   const info = _billingConfig?.plans?.[plan] || {};
   if (!info.precio_mxn && _PLAN_PRICES[plan]) info.precio_mxn = _PLAN_PRICES[plan];
   return info;
+}
+
+function normalizeStripePaymentLink(url) {
+  const clean = String(url || '').trim().replace(/^['"]+|['"]+$/g, '').trim();
+  if (!clean) return '';
+  return _STRIPE_PAYMENT_LINK_PREFIXES.some(p => clean.startsWith(p)) ? clean : '';
+}
+
+function resolvePaymentLink(plan) {
+  const fromServer = normalizeStripePaymentLink(_SERVER_PAYMENT_LINKS?.[plan]);
+  if (fromServer) return fromServer;
+
+  const links = _billingConfig?.payment_links || {};
+  const aliases = [plan];
+  if (plan === 'gym_comercial') aliases.push('gymComercial', 'gym-commercial');
+  if (plan === 'standard') aliases.push('standar');
+
+  for (const key of aliases) {
+    const candidate = normalizeStripePaymentLink(links[key]);
+    if (candidate) return candidate;
+  }
+  return '';
+}
+
+function buildPaymentDestination(paymentLink) {
+  const gymId  = _userMe?.id    || '';
+  const email  = _userMe?.email || '';
+  const sep    = paymentLink.includes('?') ? '&' : '?';
+  return paymentLink + sep
+    + 'client_reference_id=' + encodeURIComponent(gymId)
+    + (email ? '&prefilled_email=' + encodeURIComponent(email) : '');
+}
+
+async function tryDirectPlanCheckout(plan) {
+  // 1) Prefer Stripe Payment Link
+  let paymentLink = resolvePaymentLink(plan);
+  if (!paymentLink) {
+    try {
+      _billingConfig = await Api.billing.config();
+    } catch (_) {}
+    paymentLink = resolvePaymentLink(plan);
+  }
+  if (paymentLink) {
+    window.location.href = buildPaymentDestination(paymentLink);
+    return true;
+  }
+
+  // 2) Fallback to Stripe Checkout Session (también redirección directa)
+  try {
+    const checkout = await Api.billing.checkout(plan);
+    if (checkout?.url) {
+      window.location.href = checkout.url;
+      return true;
+    }
+  } catch (_) {}
+
+  return false;
 }
 
 let _billingConfig = null;
@@ -745,26 +803,17 @@ document.querySelectorAll('.btn-plan').forEach(btn => {
     if (btn.disabled) return;
     _selectedPlan = btn.dataset.plan;
     selectPlanCard(_selectedPlan);
+    const prevText = btn.innerHTML;
+    btn.disabled = true;
+    btn.innerHTML = '<span class="spinner"></span> Redirigiendo...';
 
-    // Primary path: Stripe Payment Link — server-side link primero, luego API
-    const paymentLink = _SERVER_PAYMENT_LINKS[_selectedPlan]
-                     || _billingConfig?.payment_links?.[_selectedPlan];
-    if (paymentLink) {
-      btn.disabled = true;
-      btn.innerHTML = '<span class="spinner"></span> Redirigiendo...';
-      const gymId  = _userMe?.id    || '';
-      const email  = _userMe?.email || '';
-      const sep    = paymentLink.includes('?') ? '&' : '?';
-      const dest   = paymentLink + sep
-        + 'client_reference_id=' + encodeURIComponent(gymId)
-        + (email ? '&prefilled_email=' + encodeURIComponent(email) : '');
-      window.location.href = dest;
-      return;
-    }
+    // Direct checkout only: payment link -> checkout session
+    const redirected = await tryDirectPlanCheckout(_selectedPlan);
+    if (redirected) return;
 
-    // Fallback: open payment modal (Nu / MercadoPago / Stripe Elements)
-    _selectedMethod = null;
-    openPaymentModal(_selectedPlan);
+    btn.disabled = false;
+    btn.innerHTML = prevText;
+    Toast.error('No se pudo iniciar el pago directo. Verifica STRIPE_PAYMENT_LINK_* o Stripe Checkout.');
   });
 });
 
@@ -930,20 +979,20 @@ document.getElementById('pago-btn-next-2').addEventListener('click', async () =>
 
   if (_selectedMethod === 'card') {
     // Redirect directly to Stripe Payment Link — no Stripe.js required
-    const paymentLink = _SERVER_PAYMENT_LINKS[_selectedPlan]
-                     || _billingConfig?.payment_links?.[_selectedPlan];
+    let paymentLink = resolvePaymentLink(_selectedPlan);
+    if (!paymentLink && !_billingConfig) {
+      try {
+        _billingConfig = await Api.billing.config();
+      } catch (_) {}
+      paymentLink = resolvePaymentLink(_selectedPlan);
+    }
     if (!paymentLink) {
       Toast.error('Pago con tarjeta no disponible. Configura STRIPE_PAYMENT_LINK_* en Railway.');
       return;
     }
     btn.disabled = true;
     btn.innerHTML = '<span class="spinner"></span> Redirigiendo...';
-    const gymId = _userMe?.id    || '';
-    const email = _userMe?.email || '';
-    const sep   = paymentLink.includes('?') ? '&' : '?';
-    window.location.href = paymentLink + sep
-      + 'client_reference_id=' + encodeURIComponent(gymId)
-      + (email ? '&prefilled_email=' + encodeURIComponent(email) : '');
+    window.location.href = buildPaymentDestination(paymentLink);
     return;
   }
 

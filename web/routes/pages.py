@@ -15,6 +15,10 @@ from pathlib import Path
 from web.template_compat import template_response
 
 _logger = logging.getLogger(__name__)
+_STRIPE_PAYMENT_LINK_PREFIXES = (
+    "https://buy.stripe.com/",
+    "https://checkout.stripe.com/",
+)
 
 _TMPL_DIR = Path(__file__).resolve().parent.parent / "templates"
 _BRANDING_PATH = Path(__file__).resolve().parent.parent.parent / "config" / "branding.json"
@@ -92,7 +96,8 @@ async def suscripciones(request: Request):
     from web.settings import get_settings as _gs
     _s = _gs()
     def _safe_link(url: str) -> str:
-        return url if url and url.startswith("https://buy.stripe.com/") else ""
+        clean = (url or "").strip().strip('"').strip("'").strip()
+        return clean if any(clean.startswith(p) for p in _STRIPE_PAYMENT_LINK_PREFIXES) else ""
     payment_links = {
         "standard":      _safe_link(_s.STRIPE_PAYMENT_LINK_STANDARD),
         "gym_comercial": _safe_link(_s.STRIPE_PAYMENT_LINK_GYM_COMERCIAL),

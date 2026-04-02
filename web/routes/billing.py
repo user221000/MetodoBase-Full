@@ -39,6 +39,10 @@ from web.services.subscription_service import (
 
 logger = logging.getLogger(__name__)
 router = APIRouter(tags=["Billing"])
+_STRIPE_PAYMENT_LINK_PREFIXES = (
+    "https://buy.stripe.com/",
+    "https://checkout.stripe.com/",
+)
 
 
 # ── URL validation (prevent open redirect) ────────────────────────────────────
@@ -107,7 +111,8 @@ def billing_config(
             "features": info.get("features", []),
         }
     def _clean_link(url: str) -> str:
-        return url if url and url.startswith("https://buy.stripe.com/") else ""
+        clean = (url or "").strip().strip('"').strip("'").strip()
+        return clean if any(clean.startswith(p) for p in _STRIPE_PAYMENT_LINK_PREFIXES) else ""
 
     return {
         "stripe_configured": stripe_ready,

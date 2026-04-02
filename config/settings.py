@@ -26,6 +26,18 @@ except ImportError:
 class Settings:
     """Configuración del sistema. Single source of truth."""
 
+    @staticmethod
+    def _first_env(*keys: str) -> str:
+        """Retorna el primer env var no-vacío (strip), en orden."""
+        for key in keys:
+            value = os.getenv(key)
+            if value is None:
+                continue
+            value = value.strip().strip('"').strip("'").strip()
+            if value:
+                return value
+        return ""
+
     def __init__(self) -> None:
         self.ENV: str = os.getenv("METODOBASE_ENV", "development")
         self.is_production: bool = self.ENV == "production"
@@ -87,10 +99,24 @@ class Settings:
         self.STRIPE_WEBHOOK_SECRET: str = os.getenv("STRIPE_WEBHOOK_SECRET", "")
         self.STRIPE_PUBLISHABLE_KEY: str = os.getenv("STRIPE_PUBLISHABLE_KEY", "")
         # ── Stripe Payment Links (pre-built Stripe checkout pages) ────────
-        self.STRIPE_PAYMENT_LINK_STANDARD: str = os.getenv("STRIPE_PAYMENT_LINK_STANDAR_SOCIO", "") or os.getenv("STRIPE_PAYMENT_LINK_STANDARD", "")
-        self.STRIPE_PAYMENT_LINK_GYM_COMERCIAL: str = os.getenv("STRIPE_PAYMENT_LINK_GYM_COMERCIAL_SOCIO", "") or os.getenv("STRIPE_PAYMENT_LINK_GYM_COMERCIAL", "")
-        self.STRIPE_PAYMENT_LINK_CLINICA: str = os.getenv("STRIPE_PAYMENT_LINK_CLINICA_SOCIO", "") or os.getenv("STRIPE_PAYMENT_LINK_CLINICA", "")
-        self.STRIPE_PAYMENT_LINK_PRO_USUARIO: str = os.getenv("STRIPE_PAYMENT_LINK_PRO_USUARIO", "")
+        self.STRIPE_PAYMENT_LINK_STANDARD: str = self._first_env(
+            "STRIPE_PAYMENT_LINK_STANDARD_SOCIO",
+            "STRIPE_PAYMENT_LINK_STANDAR_SOCIO",
+            "STRIPE_PAYMENT_LINK_STANDARD",
+            "STRIPE_PAYMENT_LINK_STANDAR",
+        )
+        self.STRIPE_PAYMENT_LINK_GYM_COMERCIAL: str = self._first_env(
+            "STRIPE_PAYMENT_LINK_GYM_COMERCIAL_SOCIO",
+            "STRIPE_PAYMENT_LINK_GYM_COMERCIAL",
+        )
+        self.STRIPE_PAYMENT_LINK_CLINICA: str = self._first_env(
+            "STRIPE_PAYMENT_LINK_CLINICA_SOCIO",
+            "STRIPE_PAYMENT_LINK_CLINICA",
+        )
+        self.STRIPE_PAYMENT_LINK_PRO_USUARIO: str = self._first_env(
+            "STRIPE_PAYMENT_LINK_PRO_USUARIO",
+            "STRIPE_PAYMENT_LINK_PRO",
+        )
         # ── MercadoPago ───────────────────────────────────────────────────
         self.MERCADOPAGO_ACCESS_TOKEN: str = os.getenv(
             "MERCADOPAGO_ACCESS_TOKEN", ""
@@ -104,11 +130,14 @@ class Settings:
         )
 
         # ── Stripe Price IDs ──────────────────────────────────────────────
-        self.STRIPE_PRICE_STANDARD: str = os.getenv("STRIPE_PRICE_STANDARD", "")
-        self.STRIPE_PRICE_GYM_COMERCIAL: str = os.getenv("STRIPE_PRICE_GYM_COMERCIAL", "")
-        self.STRIPE_PRICE_CLINICA: str = os.getenv("STRIPE_PRICE_CLINICA", "")
+        self.STRIPE_PRICE_STANDARD: str = self._first_env("STRIPE_PRICE_STANDARD")
+        self.STRIPE_PRICE_GYM_COMERCIAL: str = self._first_env("STRIPE_PRICE_GYM_COMERCIAL")
+        self.STRIPE_PRICE_CLINICA: str = self._first_env("STRIPE_PRICE_CLINICA")
         # Support both STRIPE_PRICE_PRO_USUARIO and STRIPE_PRICE_PRO (legacy)
-        self.STRIPE_PRICE_PRO_USUARIO: str = os.getenv("STRIPE_PRICE_PRO_USUARIO", "") or os.getenv("STRIPE_PRICE_PRO", "")
+        self.STRIPE_PRICE_PRO_USUARIO: str = self._first_env(
+            "STRIPE_PRICE_PRO_USUARIO",
+            "STRIPE_PRICE_PRO",
+        )
 
         # ── Licencias ────────────────────────────────────────────────────
         self.LICENSE_SALT: str = self._require_in_prod(
@@ -237,7 +266,7 @@ class Settings:
 
     def _require_in_prod(self, key: str, dev_default: str) -> str:
         """En producción, exige la variable; en dev, usa el default."""
-        val = os.getenv(key, "")
+        val = (os.getenv(key, "") or "").strip()
         if val:
             return val
         if self.is_production:
