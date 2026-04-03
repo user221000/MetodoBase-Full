@@ -103,6 +103,16 @@ async def suscripciones(request: Request):
         "gym_comercial": _safe_link(_os.getenv("STRIPE_PAYMENT_LINK_GYM_COMERCIAL", "")),
         "clinica":       _safe_link(_os.getenv("STRIPE_PAYMENT_LINK_CLINICA", "")),
     }
+    # Debug: log raw env values (prefix only, for security)
+    _raw_gym = _os.getenv("STRIPE_PAYMENT_LINK_GYM_COMERCIAL", "")
+    _raw_std = _os.getenv("STRIPE_PAYMENT_LINK_STANDARD", "")
+    _raw_cli = _os.getenv("STRIPE_PAYMENT_LINK_CLINICA", "")
+    _logger.info(
+        "[pages/suscripciones] RAW env — standard=%r(%d) gym=%r(%d) clinica=%r(%d)",
+        _raw_std[:30] + "..." if len(_raw_std) > 30 else _raw_std, len(_raw_std),
+        _raw_gym[:30] + "..." if len(_raw_gym) > 30 else _raw_gym, len(_raw_gym),
+        _raw_cli[:30] + "..." if len(_raw_cli) > 30 else _raw_cli, len(_raw_cli),
+    )
     _logger.info(
         "[pages/suscripciones] payment_links — standard=%s gym_comercial=%s clinica=%s",
         bool(payment_links["standard"]),

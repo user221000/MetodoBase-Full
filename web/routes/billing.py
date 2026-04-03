@@ -118,6 +118,16 @@ def billing_config(
     link_standard     = _clean_link(os.getenv("STRIPE_PAYMENT_LINK_STANDARD", ""))
     link_gym_comercial = _clean_link(os.getenv("STRIPE_PAYMENT_LINK_GYM_COMERCIAL", ""))
     link_clinica      = _clean_link(os.getenv("STRIPE_PAYMENT_LINK_CLINICA", ""))
+    # Debug: log raw env values (prefix only, for security)
+    _raw_gym = os.getenv("STRIPE_PAYMENT_LINK_GYM_COMERCIAL", "")
+    _raw_std = os.getenv("STRIPE_PAYMENT_LINK_STANDARD", "")
+    _raw_cli = os.getenv("STRIPE_PAYMENT_LINK_CLINICA", "")
+    logger.info(
+        "[billing/config] RAW env — standard=%r(%d) gym=%r(%d) clinica=%r(%d)",
+        _raw_std[:30] + "..." if len(_raw_std) > 30 else _raw_std, len(_raw_std),
+        _raw_gym[:30] + "..." if len(_raw_gym) > 30 else _raw_gym, len(_raw_gym),
+        _raw_cli[:30] + "..." if len(_raw_cli) > 30 else _raw_cli, len(_raw_cli),
+    )
     logger.info(
         "[billing/config] payment_links resolved — standard=%s gym_comercial=%s clinica=%s",
         bool(link_standard), bool(link_gym_comercial), bool(link_clinica),
