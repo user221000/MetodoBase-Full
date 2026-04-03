@@ -62,9 +62,10 @@ class GeneradorPDFConOpciones:
 
     @staticmethod
     def _default_config() -> dict:
+        _default_logo = Path(__file__).resolve().parent.parent / "static" / "img" / "logo_consultoria_hernandez.png"
         return {
             "gym_nombre":       "Método Base",
-            "gym_logo":         None,
+            "gym_logo":         str(_default_logo) if _default_logo.exists() else None,
             "gym_telefono":     "",
             "gym_direccion":    "",
             "gym_instagram":    "",
